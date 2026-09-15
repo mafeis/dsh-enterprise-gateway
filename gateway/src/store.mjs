@@ -16,6 +16,29 @@ mkdirSync(dirname(DB_PATH), { recursive: true })
 export const db = new DatabaseSync(DB_PATH)
 db.exec('PRAGMA journal_mode = WAL')
 
+/* ---------- 绑定净化：node:sqlite 对 undefined/boolean 直接抛
+ * "Provided value cannot be bound to SQLite parameter N"（历史上多次 500 的同一根因）。
+ * 在 prepare 层统一兜底：undefined→null、boolean→0/1、命名参数对象逐字段净化。
+ * 外部脏字段（插件心跳/回执、上游 usage 等）落 NULL，不再炸 500。 ---------- */
+const bindVal = (v) => (v === undefined ? null : typeof v === 'boolean' ? (v ? 1 : 0) : v)
+const bindArgs = (args) => args.map((a) => (
+  a !== null && typeof a === 'object' && !Array.isArray(a)
+    ? Object.fromEntries(Object.entries(a).map(([k, v]) => [k, bindVal(v)]))
+    : bindVal(a)
+))
+const _prepare = db.prepare.bind(db)
+db.prepare = (sql) => {
+  const stmt = _prepare(sql)
+  for (const m of ['run', 'get', 'all']) {
+    const fn = stmt[m].bind(stmt)
+    stmt[m] = (...args) => fn(...bindArgs(args))
+  }
+  return stmt
+}
+
+/* ---------- 天数参数净化：NaN/负数/超大值插进 datetime('...','-N days') 会直接 SQL 报错 ---------- */
+export const daysNum = (v, def) => (Number.isInteger(v) && v > 0 && v <= 365 ? v : def)
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -135,7 +158,7 @@ export function insertAck(profile, version, deviceHash) {
 export function insertHeartbeat(h) {
   db.prepare(`INSERT INTO heartbeats (device_hash, profile, env, policy_version, node_version, account, device)
               VALUES (?, ?, ?, ?, ?, ?, ?)`)
-    .run(h.device_hash, h.profile, h.env, h.policy_version, h.node_version ?? null, h.account ?? null, h.device_json ?? null)
+    .run(h.device_hash ?? null, h.profile ?? null, h.env ?? null, h.policy_version ?? null, h.node_version ?? null, h.account ?? null, h.device_json ?? null)
 }
 
 /** 该设备最新一条心跳的 device 快照（增量上报时沿用） */
@@ -175,7 +198,7 @@ function activityLimits() {
 
 export function userActivity(username, days = null) {
   const lim = activityLimits()
-  const winDays = days ?? lim.days
+  const winDays = daysNum(days ?? lim.days, lim.days)
   const logins = recentAuthLogs(username, lim.logins)
   // 该账号的设备（按账号心跳过的设备指纹聚合，附最新设备快照与最后在线）
   const devices = db.prepare(`
@@ -247,9 +270,10 @@ export function statsToday() {
 }
 
 export function statsByUser(days = 7) {
+  const d = daysNum(days, 7)
   return db.prepare(`
     SELECT user_name, COUNT(*) requests, COALESCE(SUM(tokens_in+tokens_out),0) tokens
-    FROM request_logs WHERE ts > datetime('now','localtime','-${days} days')
+    FROM request_logs WHERE ts > datetime('now','localtime','-${d} days')
     GROUP BY user_name ORDER BY tokens DESC LIMIT 20
   `).all()
 }
@@ -291,6 +315,7 @@ export function deleteUser(id) {
 /* ---------- 计费（日聚合视图，按需查询生成） ---------- */
 
 export function usageDaily(days = 14) {
+  const d = daysNum(days, 14)
   return db.prepare(`
     SELECT date(ts) day,
            user_name,
@@ -298,13 +323,14 @@ export function usageDaily(days = 14) {
            COALESCE(SUM(tokens_in),0) tokens_in,
            COALESCE(SUM(tokens_out),0) tokens_out
     FROM request_logs
-    WHERE ts > datetime('now','localtime','-${days} days') AND blocked = 0
+    WHERE ts > datetime('now','localtime','-${d} days') AND blocked = 0
     GROUP BY date(ts), user_name
     ORDER BY day DESC, tokens_in+tokens_out DESC
   `).all()
 }
 
 export function usageSummary(days = 14) {
+  const d = daysNum(days, 14)
   return db.prepare(`
     SELECT date(ts) day,
            COUNT(*) requests,
@@ -312,7 +338,7 @@ export function usageSummary(days = 14) {
            COALESCE(SUM(tokens_out),0) tokens_out,
            COUNT(DISTINCT user_name) users
     FROM request_logs
-    WHERE ts > datetime('now','localtime','-${days} days') AND blocked = 0
+    WHERE ts > datetime('now','localtime','-${d} days') AND blocked = 0
     GROUP BY date(ts) ORDER BY day DESC
   `).all()
 }
@@ -320,6 +346,7 @@ export function usageSummary(days = 14) {
 /** 计费：按企业模型单价（config.models.pricePer1M*，元/百万token）三段折算每日应付金额（元）
  *  amount = 未命中输入×in + 缓存命中输入×cache + 输出×out（tokens_cached ≤ tokens_in） */
 export function usageBill(days = 14, priceMap = {}) {
+  const dd = daysNum(days, 14)
   const rows = db.prepare(`
     SELECT date(ts) day, model,
            COUNT(*) requests,
@@ -328,7 +355,7 @@ export function usageBill(days = 14, priceMap = {}) {
            COALESCE(SUM(tokens_cached),0) tokens_cached,
            COUNT(DISTINCT user_name) users
     FROM request_logs
-    WHERE ts > datetime('now','localtime','-${days} days') AND blocked = 0
+    WHERE ts > datetime('now','localtime','-${dd} days') AND blocked = 0
     GROUP BY date(ts), model ORDER BY day DESC
   `).all()
   // 按日合并并按单价折算
@@ -380,7 +407,7 @@ export function recentPolicyAcks(limit = 20) {
  *  days 缺省读 audit.retentionDays（非法回退 90）。返回各类删除行数。 */
 export function purgeOldData(days = null) {
   const a = getConfig()?.audit ?? {}
-  const d = Number.isInteger(days) && days > 0 ? days : (Number(a.retentionDays) > 0 ? Number(a.retentionDays) : 90)
+  const d = daysNum(days, Number(a.retentionDays) > 0 ? Number(a.retentionDays) : 90)
   const logs = db.prepare(`DELETE FROM request_logs WHERE ts < datetime('now', 'localtime', '-${d} days')`).run()
   const hbs = db.prepare(`DELETE FROM heartbeats WHERE ts < datetime('now', '-${d} days')`).run()
   const auths = db.prepare(`DELETE FROM auth_logs WHERE ts < datetime('now', '-${d} days')`).run()

@@ -27,7 +27,7 @@ export function createAuthRoutes({ config, store, auth }) {
     const cfg = getConfig()
 
     if (req.method === 'POST' && path === '/auth/login') {
-      const { username, password } = await readJson(req)
+      const { username, password } = (await readJson(req)) ?? {}
       const ip = req.socket?.remoteAddress ?? null
       const ua = req.headers?.['user-agent'] ?? null
       // 登录保护：窗口内失败次数达阈值且最近一次失败在锁定时长内 → 临时锁定（不记录本次，避免"重试续锁"）
@@ -66,7 +66,7 @@ export function createAuthRoutes({ config, store, auth }) {
     if (req.method === 'POST' && path === '/auth/change-password') {
       const authResult = await authenticate(req)
       if (!authResult.ok) return json(res, authResult.status, { error: authResult.error })
-      const { oldPassword, newPassword } = await readJson(req)
+      const { oldPassword, newPassword } = (await readJson(req)) ?? {}
       if (!newPassword || newPassword.length < 8) return json(res, 400, { error: { message: '新密码至少 8 位', type: 'bad_request' } })
       const u = db.prepare('SELECT * FROM users WHERE username = ?').get(authResult.user.username)
       if (!u) return json(res, 404, { error: { message: '用户不存在（设备令牌身份请用管理台改）', type: 'not_found' } })

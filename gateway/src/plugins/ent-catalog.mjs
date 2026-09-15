@@ -63,7 +63,7 @@ export function apply(ctx) {
   ctx.effect(() => router.exact('PATCH', '/admin/probe-config', async (req, res) => {
     const u = await requireAdmin(req, res)
     if (!u) return true
-    const b = await readJson(req)
+    const b = (await readJson(req)) ?? {}
     const DSH_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
     const cfg = getConfig()
     const cur = cfg.probe ?? {}
@@ -103,7 +103,7 @@ export function apply(ctx) {
   async function catalogRoutes(req, res, path, url, user) {
     /* ---- 供应商 CRUD ---- */
     if (path === '/admin/providers' && req.method === 'POST') {
-      const b = await readJson(req)
+      const b = (await readJson(req)) ?? {}
       const r = createProvider(b)
       if (!r.ok) return json(res, 400, { error: { message: r.error, type: 'bad_request' } })
       console.log(`[${ts()}] ＋ 新增供应商 ${b.id} by ${user.username}（已落盘）`)
@@ -111,7 +111,7 @@ export function apply(ctx) {
     }
     if (req.method === 'PATCH' && /^\/admin\/providers\/[^/]+$/.test(path)) {
       const pid = decodeURIComponent(path.split('/')[3])
-      const b = await readJson(req)
+      const b = (await readJson(req)) ?? {}
       const r = updateProvider(pid, b)
       if (!r.ok) return json(res, r.error === '供应商不存在' ? 404 : 400, { error: { message: r.error, type: 'bad_request' } })
       console.log(`[${ts()}] ⚙ 编辑供应商 ${pid} by ${user.username}: ${Object.keys(b).join(',')}（已落盘）`)
@@ -138,7 +138,7 @@ export function apply(ctx) {
     // 单模型探针：真实发一条最小请求，判断该上游模型是否支持思考档位
     if (req.method === 'POST' && /^\/admin\/providers\/[^/]+\/probe$/.test(path)) {
       const pid = decodeURIComponent(path.split('/')[3])
-      const b = await readJson(req)
+      const b = (await readJson(req)) ?? {}
       if (!b.model) return json(res, 400, { error: { message: '缺少 model 参数', type: 'bad_request' } })
       // 允许传企业模型 id（如 deepseek）——自动映射到其上游模型名（upstreamModel），
       // 否则把企业 id 直接发上游会 404/503（上游只认识自己的模型名）
@@ -167,7 +167,7 @@ export function apply(ctx) {
     // 逐档位探测单个上游模型：档位真实发送，逐档出结果；同时并行实测图片/视频输入支持
     if (req.method === 'POST' && /^\/admin\/providers\/[^/]+\/probe-levels$/.test(path)) {
       const pid = decodeURIComponent(path.split('/')[3])
-      const b = await readJson(req)
+      const b = (await readJson(req)) ?? {}
       if (!b.model) return json(res, 400, { error: { message: '缺少 model 参数', type: 'bad_request' } })
       // 档位来源：请求显式传 levels > 关联企业模型手工维护的档位名单 > 网关配置 probe.thinkingLevels > 内置全档
       // 白名单 = DSH 终端 schema 档位；名单外（历史自定义档如 none）一律剔除，不出探测结果
@@ -193,7 +193,7 @@ export function apply(ctx) {
     // 应用探测结果到模型目录：按上游模型探测结论创建/更新企业模型（thinkingLevels 取实测支持档位）
     if (req.method === 'POST' && /^\/admin\/providers\/[^/]+\/apply-probe$/.test(path)) {
       const pid = decodeURIComponent(path.split('/')[3])
-      const b = await readJson(req)
+      const b = (await readJson(req)) ?? {}
       if (!b.model || !b.probe) return json(res, 400, { error: { message: '缺少 model / probe 参数', type: 'bad_request' } })
       const p = b.probe
       if (!p.available) return json(res, 400, { error: { message: `上游模型 ${b.model} 不可用（${p.recommendation}），无法应用`, type: 'bad_request' } })
@@ -245,7 +245,7 @@ export function apply(ctx) {
 
     /* ---- 模型 CRUD（精细配置） ---- */
     if (path === '/admin/models' && req.method === 'POST') {
-      const b = await readJson(req)
+      const b = (await readJson(req)) ?? {}
       const r = createModel(b)
       if (!r.ok) return json(res, 400, { error: { message: r.error, type: 'bad_request' } })
       console.log(`[${ts()}] ＋ 新增模型 ${b.id} → ${b.providerId} by ${user.username}（已落盘）`)
@@ -253,7 +253,7 @@ export function apply(ctx) {
     }
     if (req.method === 'PATCH' && /^\/admin\/models\/[^/]+$/.test(path)) {
       const mid = decodeURIComponent(path.split('/')[3])
-      const b = await readJson(req)
+      const b = (await readJson(req)) ?? {}
       const r = updateModel(mid, b)
       if (!r.ok) return json(res, r.error === '模型不存在' ? 404 : 400, { error: { message: r.error, type: 'bad_request' } })
       console.log(`[${ts()}] ⚙ 编辑模型 ${mid} by ${user.username}: ${Object.keys(b).join(',')}（已落盘）`)

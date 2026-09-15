@@ -29,7 +29,7 @@ export function apply(ctx) {
   const auth = ctx.get('auth')
   const { getConfig, patchConfig } = ctx.get('config')
   const { recentPolicyAcks } = ctx.get('store')
-  const handleProtocol = createPluginProtocolHandler({ config: ctx.get('config'), store: ctx.get('store') })
+  const handleProtocol = createPluginProtocolHandler({ config: ctx.get('config'), store: ctx.get('store'), auth })
 
   /* ---- 员工端协议（原 ent-protocol 并入：策略下发/回执/心跳） ---- */
   ctx.effect(() => router.exact('GET', '/policy/current', handleProtocol), 'ent-client: route GET /policy/current')
@@ -48,7 +48,7 @@ export function apply(ctx) {
   ctx.effect(() => router.exact('PATCH', '/admin/policy', async (req, res) => {
     const u = await requireAdmin(req, res)
     if (!u) return true
-    const patch = await readJson(req)
+    const patch = (await readJson(req)) ?? {}
     try {
       const next = patchConfig(patch)
       console.log(`[${ts()}] ⚙ 策略热更 by ${u.user.username}: ${JSON.stringify(patch).slice(0, 200)}`)

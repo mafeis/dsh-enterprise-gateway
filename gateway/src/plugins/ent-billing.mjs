@@ -39,7 +39,8 @@ export function apply(ctx) {
   ctx.effect(() => router.exact('GET', '/admin/usage', async (req, res, _path, url) => {
     const u = await requireAdmin(req, res)
     if (!u) return true
-    const days = Math.min(90, Number(url.searchParams.get('days') ?? 14))
+    const rawDays = Math.round(Number(url.searchParams.get('days')) || 14)
+    const days = Math.min(90, Math.max(1, rawDays))
     const pm = priceMap()
     const c = getConfig()
     return json(res, 200, {

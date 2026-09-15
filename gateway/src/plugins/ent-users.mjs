@@ -60,7 +60,7 @@ export function apply(ctx) {
       })
     }
     if ((path === '/admin/users' || path === '/admin/users/') && req.method === 'POST') {
-      const b = await readJson(req)
+      const b = (await readJson(req)) ?? {}
       if (!b.username || !b.password) return json(res, 400, { error: { message: '需要 username 和 password', type: 'bad_request' } })
       if (!/^[a-zA-Z0-9_.-]{2,32}$/.test(b.username)) return json(res, 400, { error: { message: '用户名限 2-32 位字母数字_.-', type: 'bad_request' } })
       if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(b.username)) {
@@ -73,7 +73,7 @@ export function apply(ctx) {
     const mId = rest.match(/^\/(\d+)$/)
     if (mId && req.method === 'PATCH') {
       const id = Number(mId[1])
-      const b = await readJson(req)
+      const b = (await readJson(req)) ?? {}
       const patch = {}
       if (b.displayName !== undefined) patch.displayName = b.displayName
       if (b.role !== undefined && ['user', 'admin'].includes(b.role)) patch.role = b.role
