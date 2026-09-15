@@ -1,265 +1,24 @@
 {
-  "plugins": {
-    "ent-store": { "enabled": true },
-    "ent-auth": { "enabled": true },
-    "ent-security": { "enabled": true },
-    "ent-upstream": { "enabled": true },
-    "ent-catalog": { "enabled": true },
-    "ent-console": { "enabled": true },
-    "ent-client": { "enabled": true },
-    "ent-billing": { "enabled": true },
-    "ent-users": { "enabled": true },
-    "ent-audit": { "enabled": true }
-  },
   "policy": {
-    "version": "1.1.0",
+    "version": "1.0.0",
     "lockModelConfig": true,
-    "watermark": true,
-    "disabledFeatures": [],
-    "allowedPlugins": [
-      "@deepseek-ai/dsh-base",
-      "@deepseek-ai/dsh-web-app",
-      "@deepseek-ai/dsh-headless",
-      "@anysearch/anysearch-dsh",
-      "dsh-enterprise",
-      "dshmarket",
-      "dsh-better-sidebar",
-      "dsh-context",
-      "dsh-mnemon",
-      "dsh-startup-guard",
-      "dsh-hot-reload",
-      "dsh-review"
-    ],
-    "pluginRegistry": {
-      "mode": "off",
-      "npmRegistryUrl": "",
-      "packagePrefix": "",
-      "allowedFallback": true
-    },
-    "clientRules": [
-      {
-        "id": "cr-ai-1",
-        "type": "block-url",
-        "action": "block",
-        "value": "chatgpt.com",
-        "message": "外部AI服务禁止直接访问，请使用企业统一模型网关"
-      },
-      {
-        "id": "cr-ai-2",
-        "type": "block-url",
-        "action": "block",
-        "value": "chat.openai.com",
-        "message": "外部AI服务禁止直接访问，请使用企业统一模型网关"
-      },
-      {
-        "id": "cr-ai-3",
-        "type": "block-url",
-        "action": "block",
-        "value": "claude.ai",
-        "message": "外部AI服务禁止直接访问，请使用企业统一模型网关"
-      },
-      {
-        "id": "cr-ai-4",
-        "type": "block-url",
-        "action": "block",
-        "value": "gemini.google.com",
-        "message": "外部AI服务禁止直接访问，请使用企业统一模型网关"
-      },
-      {
-        "id": "cr-ai-5",
-        "type": "block-url",
-        "action": "block",
-        "value": "deepseek.com",
-        "message": "外部AI服务禁止直接访问，请使用企业统一模型网关"
-      },
-      {
-        "id": "cr-ai-6",
-        "type": "block-url",
-        "action": "block",
-        "value": "kimi.moonshot.cn",
-        "message": "外部AI服务禁止直接访问，请使用企业统一模型网关"
-      },
-      {
-        "id": "cr-ai-7",
-        "type": "block-url",
-        "action": "block",
-        "value": "yiyan.baidu.com",
-        "message": "外部AI服务禁止直接访问，请使用企业统一模型网关"
-      },
-      {
-        "id": "cr-ai-8",
-        "type": "block-url",
-        "action": "block",
-        "value": "tongyi.aliyun.com",
-        "message": "外部AI服务禁止直接访问，请使用企业统一模型网关"
-      },
-      {
-        "id": "cr-ai-9",
-        "type": "block-url",
-        "action": "block",
-        "value": "doubao.com",
-        "message": "外部AI服务禁止直接访问，请使用企业统一模型网关"
-      },
-      {
-        "id": "cr-ai-10",
-        "type": "block-url",
-        "action": "block",
-        "value": "poe.com",
-        "message": "外部AI服务禁止直接访问，请使用企业统一模型网关"
-      },
-      {
-        "id": "cr-exfil-1",
-        "type": "block-url",
-        "action": "block",
-        "value": "pan.baidu.com",
-        "message": "网盘类站点禁止从工作环境访问，文件交换请走企业网盘"
-      },
-      {
-        "id": "cr-exfil-2",
-        "type": "block-url",
-        "action": "block",
-        "value": "weiyun.com",
-        "message": "网盘类站点禁止从工作环境访问，文件交换请走企业网盘"
-      },
-      {
-        "id": "cr-exfil-3",
-        "type": "block-url",
-        "action": "block",
-        "value": "lanzou.com",
-        "message": "网盘类站点禁止从工作环境访问，文件交换请走企业网盘"
-      },
-      {
-        "id": "cr-exfil-4",
-        "type": "block-url",
-        "action": "block",
-        "value": "mega.nz",
-        "message": "网盘类站点禁止从工作环境访问，文件交换请走企业网盘"
-      },
-      {
-        "id": "cr-exfil-5",
-        "type": "block-url",
-        "action": "block",
-        "value": "wetransfer.com",
-        "message": "网盘类站点禁止从工作环境访问，文件交换请走企业网盘"
-      },
-      {
-        "id": "cr-exfil-6",
-        "type": "block-url",
-        "action": "block",
-        "value": "pastebin.com",
-        "message": "公共粘贴板禁止访问，代码片段请走内部代码评审流程"
-      },
-      {
-        "id": "cr-exfil-7",
-        "type": "block-url",
-        "action": "block",
-        "value": "gist.github.com",
-        "message": "公共粘贴板禁止访问，代码片段请走内部代码评审流程"
-      },
-      {
-        "id": "cr-secret",
-        "type": "block-word",
-        "action": "block",
-        "value": "内部机密|绝密文件|客户名单|未公开财报",
-        "message": "内容包含涉密关键词，已被企业安全策略拦截"
-      },
-      {
-        "id": "cr-idcard",
-        "type": "block-word",
-        "action": "warn",
-        "value": "\\b\\d{17}[\\dXx]\\b",
-        "message": "检测到疑似身份证号，请注意个人信息保护"
-      }
-    ]
+    "watermark": true
   },
   "audit": {
     "level": "full",
-    "retentionDays": 90,
-    "maxContentChars": 1280000,
-    "activityDays": 14,
-    "activityLogins": 5,
-    "activityDevices": 5,
-    "activityUsage": 20
-  },
-  "probe": {
-    "thinkingLevels": ["off", "low", "medium", "high"]
+    "retentionDays": 90
   },
   "dlp": {
     "enabled": true,
     "rules": [
-      {
-        "id": "apikey",
-        "pattern": "sk-[A-Za-z0-9_-]{20,}",
-        "action": "block",
-        "label": "API密钥"
-      },
-      {
-        "id": "aws-key",
-        "pattern": "AKIA[0-9A-Z]{16}",
-        "action": "block",
-        "label": "AWS凭证"
-      },
-      {
-        "id": "private-key",
-        "pattern": "-----BEGIN[A-Z ]*PRIVATE KEY-----",
-        "action": "block",
-        "label": "私钥文件"
-      },
-      {
-        "id": "jwt-token",
-        "pattern": "eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{4,}",
-        "action": "block",
-        "label": "JWT令牌"
-      },
-      {
-        "id": "db-conn",
-        "pattern": "(mongodb(\\+srv)?|mysql|postgres(ql)?|redis|amqps?)://[^\\s\"]{8,}",
-        "action": "block",
-        "label": "数据库连接串"
-      },
-      {
-        "id": "bankcard",
-        "pattern": "\\b\\d{16,19}\\b",
-        "action": "mask",
-        "label": "银行卡号"
-      },
-      {
-        "id": "phone",
-        "pattern": "\\b1[3-9]\\d{9}\\b",
-        "action": "mask",
-        "label": "手机号"
-      },
-      {
-        "id": "idcard",
-        "pattern": "\\b\\d{17}[\\dXx]\\b",
-        "action": "mask",
-        "label": "身份证号"
-      },
-      {
-        "id": "email",
-        "pattern": "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}",
-        "action": "mask",
-        "label": "邮箱地址"
-      },
-      {
-        "id": "internal-ip",
-        "pattern": "\\b(10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|192\\.168\\.\\d{1,3}\\.\\d{1,3}|172\\.(1[6-9]|2\\d|3[01])\\.\\d{1,3}\\.\\d{1,3})\\b",
-        "action": "log",
-        "label": "内网IP"
-      }
+      { "id": "apikey", "pattern": "sk-[A-Za-z0-9_-]{20,}", "action": "block", "label": "API密钥" },
+      { "id": "bankcard", "pattern": "\\b\\d{16,19}\\b", "action": "mask", "label": "银行卡号" },
+      { "id": "phone", "pattern": "\\b1[3-9]\\d{9}\\b", "action": "mask", "label": "手机号" }
     ]
   },
   "auth": {
-    "deviceTokens": [
-      "<管理台签发的设备令牌，如 ent-dev-xxxx>"
-    ],
-    "deviceUser": "ent-device-<员工名>",
-    "loginProtection": {
-      "enabled": true,
-      "maxFails": 10,
-      "windowMin": 15,
-      "lockMin": 15
-    }
+    "deviceTokens": [],
+    "loginProtection": { "enabled": true, "maxFails": 10, "windowMin": 15, "lockMin": 15 }
   },
   "providers": [
     {
@@ -267,7 +26,6 @@
       "name": "upstream-1",
       "baseUrl": "https://your-upstream.example.com/v1",
       "apiKeyEnv": "UPSTREAM_API_KEY",
-      "apiKey": "<上游渠道密钥；留空则走 apiKeyEnv 环境变量>",
       "timeoutMs": 120000,
       "weight": 10,
       "enabled": true
@@ -281,95 +39,11 @@
       "upstreamModel": "deepseek-v4-flash",
       "contextWindow": 128000,
       "maxTokens": 32768,
-      "inputModes": [
-        "text",
-        "image"
-      ],
-      "mode": "chat",
+      "inputModes": ["text", "image"],
       "thinking": "optional",
-      "thinkingLevels": [
-        "off",
-        "low",
-        "medium",
-        "high"
-      ],
+      "thinkingLevels": ["off", "low", "medium", "high"],
       "defaultThinking": "low",
       "fallbackProviders": [],
-      "pricePer1kIn": 0,
-      "pricePer1kOut": 0,
-      "enabled": true
-    },
-    {
-      "id": "GLM-5.3-Flash",
-      "displayName": "glm-flash",
-      "providerId": "upstream-1",
-      "upstreamModel": "GLM-5.3-Flash",
-      "contextWindow": 128000,
-      "maxTokens": 32768,
-      "inputModes": [
-        "text",
-        "image"
-      ],
-      "mode": "chat",
-      "thinking": "optional",
-      "thinkingLevels": [
-        "off",
-        "low",
-        "medium",
-        "high"
-      ],
-      "defaultThinking": "low",
-      "fallbackProviders": [],
-      "pricePer1kIn": 0,
-      "pricePer1kOut": 0,
-      "enabled": true
-    },
-    {
-      "id": "Qwen3.8-27B",
-      "displayName": "qwen-27b",
-      "providerId": "upstream-1",
-      "upstreamModel": "Qwen3.8-27B",
-      "contextWindow": 128000,
-      "maxTokens": 32768,
-      "inputModes": [
-        "text",
-        "image",
-        "video"
-      ],
-      "mode": "chat",
-      "thinking": "none",
-      "thinkingLevels": [
-        "off"
-      ],
-      "defaultThinking": "off",
-      "fallbackProviders": [],
-      "pricePer1kIn": 0,
-      "pricePer1kOut": 0,
-      "enabled": true
-    },
-    {
-      "id": "Qwen3.8-Flash",
-      "displayName": "qwen-flash",
-      "providerId": "upstream-1",
-      "upstreamModel": "Qwen3.8-Flash",
-      "contextWindow": 128000,
-      "maxTokens": 32768,
-      "inputModes": [
-        "text",
-        "image",
-        "video"
-      ],
-      "mode": "chat",
-      "thinking": "optional",
-      "thinkingLevels": [
-        "off",
-        "low",
-        "medium"
-      ],
-      "defaultThinking": "low",
-      "fallbackProviders": [],
-      "pricePer1kIn": 0,
-      "pricePer1kOut": 0,
       "enabled": true
     }
   ]
