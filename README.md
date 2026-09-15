@@ -36,10 +36,11 @@ node gateway.mjs
 ```
 gateway/
 ├── gateway.mjs            # 启动入口
-├── src/                   # 网关核心（config / upstream / probe / auth / dlp / store / routes / core）
+├── src/                   # 网关核心（host / config / upstream / probe / auth / dlp / store / routes / core）
 ├── src/plugins/           # 17 个业务插件（每个插件 = 页面 + API + 领域服务）
 │   └── *.web/             #   插件自带管理台页面
 ├── admin-web/             # 管理台壳（登录 + 路由 + 布局，页面全部来自插件）
+├── docs/                  # 文档（网关核心文档 / 插件名实对照 / 管理台页面规范）
 ├── scripts/               # 运维脚本（业务检查 / 密码重置 / 冒烟测试）
 └── data/                  # 运行数据（gateway.db / .env / 配置，不入库）
 ```
