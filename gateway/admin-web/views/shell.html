@@ -1,0 +1,24 @@
+<!-- ===== 应用外壳：顶栏 + 侧边导航 + 内容区 ===== -->
+<!-- 导航项与页面 section 全部由插件 admin 声明动态注入（router.mjs ensurePluginRoutes），壳零页面 -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-mark"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg></div>
+    <div><b>DSH 企业网关</b><small id="logoVer">管理台</small></div>
+  </div>
+  <div class="sp"></div>
+  <div class="status-pill" id="healthPill"><span class="d"></span><span id="healthText">连接中…</span></div>
+  <button class="btn sm" id="logoutBtn" style="background:transparent;color:#cbd5e1;border-color:#334155">退出登录</button>
+</div>
+
+<div class="layout" id="mainWrap" style="display:none">
+  <aside class="sidebar">
+    <!-- 导航项由插件动态注入（order 排位）；此区仅保留壳私有工具 -->
+    <div class="nav-foot">
+      <button class="btn sm" id="refreshBtn" style="width:100%">↻ 刷新本页</button>
+    </div>
+  </aside>
+
+  <main class="content">
+    <!-- 页面 section 由 router 按插件清单动态创建，壳不经 @include 维护任何页面 -->
+  </main>
+</div>

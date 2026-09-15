@@ -1,0 +1,36 @@
+# 依赖与构建产物
+node_modules/
+*.tsbuildinfo
+dist/
+
+# 运行数据与密钥（绝不入库）
+gateway/data/gateway.db*
+gateway/data/gateway-config.json
+*.db
+*.db-shm
+*.db-wal
+jwt-secret
+device-token
+.credentials*.yaml*
+enterprise-settings.yaml*
+ent-login-state.json*
+
+# 大文件 / 安装包产物（发布物不入库，用 installer/setup/installer.nsi 现场编译）
+*.exe
+*.tar.gz
+redist/
+
+# 日志与临时
+*.log
+gateway-stdout.log
+launchd.log
+*.bak-*
+*.bak
+
+# 截图类（历史运行痕迹，与代码无关）
+gateway/data/*.png
+
+# 系统杂项
+.DS_Store
+Thumbs.db
+gateway/data/

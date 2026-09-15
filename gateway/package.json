@@ -1,0 +1,20 @@
+{
+  "name": "dsh-enterprise-gateway",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "description": "企业版-网关：OpenAI 兼容转发 + JWT 鉴权 + DLP + 留痕防篡改",
+  "main": "gateway.mjs",
+  "scripts": {
+    "start": "node gateway.mjs",
+    "check": "node scripts/check.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "e2e": "node scripts/e2e.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "@deepseek-ai/cordis": "^4.0.2"
+  }
+}

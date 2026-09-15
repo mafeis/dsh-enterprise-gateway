@@ -1,0 +1,16 @@
+# 依赖
+node_modules/
+
+# 运行时数据与真实密钥（绝不入库）
+data/
+gateway-config.json
+*.db
+*.db-shm
+*.db-wal
+jwt-secret
+device-token
+*.png
+
+# 日志
+*.log
+gateway-stdout.log

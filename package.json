@@ -1,0 +1,17 @@
+{
+  "name": "dsh-enterprise",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DSH 企业版 · 客户端定制工程（Profile 配置包 + Desktop 插件 + 安装器）",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm --filter \"@ent/*\" build",
+    "typecheck": "pnpm --filter \"@ent/*\" typecheck",
+    "pack:installer": "pwsh ./installer/build-installer.ps1",
+    "profile:write": "pwsh ./profile-pack/write-profile.ps1"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  },
+  "engines": { "node": ">=20" }
+}
