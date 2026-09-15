@@ -27,7 +27,10 @@ copy gateway-config.example.json data\gateway-config.json
 node gateway.mjs
 
 # 3. 打开管理台
-# http://127.0.0.1:8899/admin   （默认账号 admin / admin123，登录后请改密）
+# http://127.0.0.1:8899/admin
+#    首次启动自动创建引导管理员 admin，随机初始密码只在启动日志打印一次：
+#    在启动输出里找「初始密码: xxxx」；登录后请立即改密
+#    （密码忘记可用 scripts/reset-admin-pw.mjs 重置）
 ```
 
 
