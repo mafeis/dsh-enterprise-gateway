@@ -135,7 +135,7 @@ export function insertAck(profile, version, deviceHash) {
 export function insertHeartbeat(h) {
   db.prepare(`INSERT INTO heartbeats (device_hash, profile, env, policy_version, node_version, account, device)
               VALUES (?, ?, ?, ?, ?, ?, ?)`)
-    .run(h.device_hash, h.profile, h.env, h.policy_version, h.node_version, h.account ?? null, h.device_json ?? null)
+    .run(h.device_hash, h.profile, h.env, h.policy_version, h.node_version ?? null, h.account ?? null, h.device_json ?? null)
 }
 
 /** 该设备最新一条心跳的 device 快照（增量上报时沿用） */

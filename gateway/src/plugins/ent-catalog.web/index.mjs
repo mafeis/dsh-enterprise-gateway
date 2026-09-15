@@ -529,18 +529,38 @@ function bindPage() {
       toast(`✓ 探测默认档位已设为 ${probeLevelsCfg.join(' / ')}（已落盘）`, 'ok');
     } catch (e) { toast('✗ ' + e.message, 'bad'); }
   });
-  // 探测结果筛选：全部 / 仅真思考 / 仅问题项
-  $('probeFilter').addEventListener('change', () => {
-    const v = $('probeFilter').value;
+  // 探测结果筛选：关键字（匹配卡片全部文字，含模型 id）+ 下拉（全部/真思考/问题项）叠加生效
+  function applyProbeFilter() {
+    const q = ($('probeSearch')?.value ?? '').trim().toLowerCase();
+    const sel = $('probeFilter')?.value ?? 'all';
+    let shown = 0;
     for (const card of document.querySelectorAll('#probeBody [data-probe-row]')) {
       const th = card.dataset.thinking;
       const ok = card.dataset.ok !== 'false';
       let show = true;
-      if (v === 'real') show = th === 'real';
-      else if (v === 'issues') show = !ok || th === 'rejected' || th === 'unavailable';
+      if (sel === 'real') show = th === 'real';
+      else if (sel === 'issues') show = !ok || th === 'rejected' || th === 'unavailable';
+      if (show && q) show = card.textContent.toLowerCase().includes(q);
       card.style.display = show ? '' : 'none';
+      if (show) shown++;
     }
+    let empty = document.getElementById('probeEmptyRow');
+    if (!shown) {
+      if (!empty) {
+        empty = document.createElement('div');
+        empty.id = 'probeEmptyRow';
+        empty.className = 'empty';
+        empty.style.padding = '40px 0';
+        $('probeBody').appendChild(empty);
+      }
+      empty.textContent = '无匹配模型';
+    } else if (empty) empty.remove();
+  }
+  $('probeSearch').addEventListener('input', applyProbeFilter);
+  $('probeSearch').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); e.target.value = ''; applyProbeFilter(); e.target.blur(); }
   });
+  $('probeFilter').addEventListener('change', applyProbeFilter);
 
   $('addProvBtn').addEventListener('click', () => openProvEditor(null));
   // 搜索过滤：防抖重渲染两个列表；Esc 清空
@@ -774,6 +794,8 @@ function showProbeModal(pid, r) {
     flt.hidden = !results;
     flt.value = 'all';
   }
+  const search = $('probeSearch');
+  if (search) search.value = '';
   openModal(modal);
 }
 
@@ -1100,6 +1122,7 @@ export default {
         <button class="close" id="probeCloseBtn" title="关闭 (Esc)">×</button>
       </div>
       <div class="toolbar" id="probeFilterWrap">
+        <input class="input" id="probeSearch" placeholder="筛选模型…" style="width:170px;padding:4px 8px;font-size:12.5px" autocomplete="off">
         <select id="probeFilter" class="input" style="padding:4px 8px;font-size:12.5px">
           <option value="all">全部模型</option>
           <option value="real">仅真思考</option>
