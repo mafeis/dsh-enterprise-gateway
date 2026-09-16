@@ -115,7 +115,13 @@ const pluginsHtml = `
   <!-- ============ 下发方式 ============ -->
   <div class="card">
     <h2><span class="bar"></span>允许清单与插件源</h2>
-      <textarea class="input" id="taPlugins" rows="4" style="width:100%;font-family:monospace" placeholder="dsh-enterprise&#10;@anysearch/anysearch-dsh"></textarea>
+    <div style="margin-bottom:4px;font-size:12.5px;color:#475569">允许清单 <span class="badge dim" id="allowCount">0</span> <span style="color:#94a3b8">清单外插件员工端安装被拦截</span></div>
+    <div id="allowList" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <input class="input" id="allowInput" placeholder="插件包名，如 dsh-review · @corp/dsh-review" style="flex:1;font-size:12px;height:30px">
+      <button class="btn sm" id="allowAddBtn">＋ 添加</button>
+    </div>
+    <div class="err" id="allowErr" style="margin-top:6px"></div>
 
     <div class="fgrid" style="margin-top:14px">
       <label>企业插件源</label>
@@ -471,7 +477,7 @@ async function loadAll(opts = {}) {
       $('lpLock').value = lp.lockMin ?? 15
       syncLpExample(lp)
     }
-    if ($('taPlugins')) $('taPlugins').value = (p.allowedPlugins ?? []).join('\n')
+    if ($('allowList')) { allowItems = (p.allowedPlugins ?? []).slice(); renderAllowList() }
     if ($('regMode')) {
       const reg = p.pluginRegistry ?? {}
       $('regMode').value = reg.mode ?? 'off'
@@ -757,14 +763,50 @@ async function submitRepoDesc() {
   } catch (e) { if (e.message !== '401') $('rdErr').textContent = e.message }
 }
 
+/* ---------- 允许清单（列表化编辑） ---------- */
+let allowItems = []   // ['dsh-enterprise', ...]；改動即 markPlugDirty
+
+const NAME_HINT = '插件名限 2-64 位字母数字_-，可带 @组织/'
+
+function renderAllowList() {
+  const box = $('allowList')
+  if (!box) return
+  $('allowCount').textContent = allowItems.length
+  box.innerHTML = allowItems.map((n, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
+      <span class="mono" style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</span>
+      ${n === 'dsh-enterprise' ? '<span class="badge ok" title="企业必装组件，删除后员工端登录与策略失效">必装</span>' : ''}
+      <button class="btn sm danger" data-allow-del="${i}" style="padding:1px 8px;font-size:11px">移除</button>
+    </div>`).join('') || '<div style="font-size:12px;color:#94a3b8;padding:6px 2px">清单为空 = 不限制（员工可装任意插件）</div>'
+}
+
+function allowAdd(raw) {
+  const err = $('allowErr')
+  err.textContent = ''
+  const name = String(raw ?? '').trim()
+  if (!name) return
+  if (!/^(@[a-zA-Z0-9_-]{1,64}\/)?[a-zA-Z0-9_-]{2,64}$/.test(name)) { err.textContent = '格式不对：' + NAME_HINT; return }
+  if (allowItems.includes(name)) { err.textContent = '已在清单中：' + name; return }
+  allowItems.push(name)
+  $('allowInput').value = ''
+  renderAllowList()
+  markPlugDirty()
+}
+
+function allowRemove(i) {
+  const name = allowItems[i]
+  if (name === 'dsh-enterprise' && !confirm('移除 dsh-enterprise 后员工端登录与策略失效，确定？')) return
+  allowItems.splice(i, 1)
+  renderAllowList()
+  markPlugDirty()
+}
+
 /* ---- ＋清单：把仓库名追加进允许清单（仍需点「保存更改」下发） ---- */
 function allowFromRepo(name) {
-  const ta = $('taPlugins')
-  if (!ta) return
-  const cur = ta.value.split('\n').map((s) => s.trim()).filter(Boolean)
-  if (cur.includes(name)) { toast('允许清单里已有 ' + name); return }
-  cur.push(name)
-  ta.value = cur.join('\n')
+  if (allowItems.includes(name)) { toast('允许清单里已有 ' + name); return }
+  allowItems.push(name)
+  renderAllowList()
+  markPlugDirty()
   toast(`已加入允许清单：${name}（点「保存更改」生效）`)
 }
 
@@ -1096,7 +1138,7 @@ async function saveLp() {
 
 async function savePlug() {
   const msg = $('plugMsg'); if (msg) msg.textContent = ''
-  const allowedPlugins = $('taPlugins').value.split('\n').map((s) => s.trim()).filter(Boolean)
+  const allowedPlugins = allowItems.slice()
   const builtin = $('regMode').value === 'url' && $('regBuiltin').checked
   const pluginRegistry = {
     mode: $('regMode').value,
@@ -1145,6 +1187,15 @@ function bindPlugins() {
     $('regBuiltin').addEventListener('change', syncRegFields)
   }
   if ($('plugSaveBtn')) $('plugSaveBtn').addEventListener('click', savePlug)
+  /* ---- 允许清单（列表化编辑） ---- */
+  if ($('allowList')) {
+    $('allowAddBtn').addEventListener('click', () => allowAdd($('allowInput').value))
+    $('allowInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') allowAdd($('allowInput').value) })
+    $('allowList').addEventListener('click', (e) => {
+      const del = e.target.closest('[data-allow-del]')
+      if (del) allowRemove(Number(del.dataset.allowDel))
+    })
+  }
   /* ---- 仓库卡片 + 三个弹窗 ---- */
   if ($('repoAddBtn')) {
     $('repoAddBtn').addEventListener('click', openRepoAdd)
