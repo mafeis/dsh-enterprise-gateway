@@ -167,7 +167,8 @@ dsh plugin add <span class="hl">http://&lt;网关地址&gt;/plugin-packages/</sp
     </details>
   </div>
 
-  ${savebar('plug')}
+  <!-- 自动保存状态（无保存按钮：所有改动即时下发） -->
+  <div style="margin-top:10px;font-size:12px;color:#94a3b8;min-height:16px" id="plugAutoMsg"></div>
 
   <!-- 添加插件弹窗（npm 地址 / 压缩包上传 二选一） -->
   <div class="dlg-mask" id="repoAddDlg" hidden>
@@ -763,10 +764,54 @@ async function submitRepoDesc() {
   } catch (e) { if (e.message !== '401') $('rdErr').textContent = e.message }
 }
 
-/* ---------- 允许清单（列表化编辑） ---------- */
-let allowItems = []   // ['dsh-enterprise', ...]；改動即 markPlugDirty
+/* ---------- 允许清单（列表化编辑 · 改动自动保存下发） ---------- */
+let allowItems = []   // ['dsh-enterprise', ...]
 
 const NAME_HINT = '插件名限 2-64 位字母数字_-，可带 @组织/'
+let plugSaveTimer = null
+
+/** 自动保存：清单 + 插件源一起 PATCH 下发（输入类改动 600ms 防抖，点选类立即） */
+async function autoSavePlug(immediate = false) {
+  const run = async () => {
+    const msg = $('plugAutoMsg')
+    try {
+      const builtin = $('regMode').value === 'url' && $('regBuiltin').checked
+      const pluginRegistry = {
+        mode: $('regMode').value,
+        npmRegistryUrl: $('regUrl').value.trim(),
+        packagePrefix: builtin ? location.origin + '/plugin-packages/' : $('regPrefix').value.trim(),
+        allowedFallback: $('regFallback').checked,
+      }
+      if (pluginRegistry.mode === 'proxy' && !pluginRegistry.npmRegistryUrl) { if (msg) msg.textContent = '✗ proxy 模式需要填写 NPM 镜像地址'; return }
+      if (pluginRegistry.mode === 'url' && !pluginRegistry.packagePrefix) { if (msg) msg.textContent = '✗ url 模式需要填写包地址前缀'; return }
+      if (msg) msg.textContent = '保存中…'
+      await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { allowedPlugins: allowItems.slice(), pluginRegistry } }) })
+      if (msg) msg.textContent = '已自动保存 ✓ ' + new Date().toLocaleTimeString('zh-CN', { hour12: false })
+    } catch (e) {
+      if (e.message !== '401' && msg) msg.textContent = '✗ 保存失败：' + e.message
+    }
+  }
+  clearTimeout(plugSaveTimer)
+  if (immediate) return run()
+  plugSaveTimer = setTimeout(run, 600)
+}
+
+/* ---- 清单项 → 入库企业插件仓库（反向：清单里的包名从 npm 拉进仓库） ---- */
+async function allowToRepo(name) {
+  if (name === 'dsh-enterprise') { toast('dsh-enterprise 由 file: 链接部署，无需入库', 'bad'); return }
+  if (allowRepoBusy.has(name)) return
+  allowRepoBusy.add(name)
+  try {
+    const r = await api('/admin/plugin-repo/npm', { method: 'POST', body: JSON.stringify({ spec: name }) })
+    toast(`已入库：${r.name}@${r.version}`)
+    loadRepo()
+  } catch (e) {
+    if (e.message !== '401') toast('入库失败：' + e.message, 'bad')
+  } finally {
+    allowRepoBusy.delete(name)
+  }
+}
+const allowRepoBusy = new Set()
 
 function renderAllowList() {
   const box = $('allowList')
@@ -776,6 +821,7 @@ function renderAllowList() {
     <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
       <span class="mono" style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</span>
       ${n === 'dsh-enterprise' ? '<span class="badge ok" title="企业必装组件，删除后员工端登录与策略失效">必装</span>' : ''}
+      <button class="btn sm" data-allow-repo="${esc(n)}" style="padding:1px 8px;font-size:11px" title="从 npm 拉进企业插件仓库">入库</button>
       <button class="btn sm danger" data-allow-del="${i}" style="padding:1px 8px;font-size:11px">移除</button>
     </div>`).join('') || '<div style="font-size:12px;color:#94a3b8;padding:6px 2px">清单为空 = 不限制（员工可装任意插件）</div>'
 }
@@ -790,7 +836,7 @@ function allowAdd(raw) {
   allowItems.push(name)
   $('allowInput').value = ''
   renderAllowList()
-  markPlugDirty()
+  autoSavePlug(true)
 }
 
 function allowRemove(i) {
@@ -798,16 +844,16 @@ function allowRemove(i) {
   if (name === 'dsh-enterprise' && !confirm('移除 dsh-enterprise 后员工端登录与策略失效，确定？')) return
   allowItems.splice(i, 1)
   renderAllowList()
-  markPlugDirty()
+  autoSavePlug(true)
 }
 
-/* ---- ＋清单：把仓库名追加进允许清单（仍需点「保存更改」下发） ---- */
+/* ---- ＋清单：把仓库名追加进允许清单（自动保存下发） ---- */
 function allowFromRepo(name) {
   if (allowItems.includes(name)) { toast('允许清单里已有 ' + name); return }
   allowItems.push(name)
   renderAllowList()
-  markPlugDirty()
-  toast(`已加入允许清单：${name}（点「保存更改」生效）`)
+  autoSavePlug(true)
+  toast(`已加入允许清单：${name}（已自动下发）`)
 }
 
 /* ---------- 企业插件源（子页 2） ---------- */
@@ -1136,21 +1182,7 @@ async function saveLp() {
   }, '已保存：登录保护')
 }
 
-async function savePlug() {
-  const msg = $('plugMsg'); if (msg) msg.textContent = ''
-  const allowedPlugins = allowItems.slice()
-  const builtin = $('regMode').value === 'url' && $('regBuiltin').checked
-  const pluginRegistry = {
-    mode: $('regMode').value,
-    npmRegistryUrl: $('regUrl').value.trim(),
-    packagePrefix: builtin ? location.origin + '/plugin-packages/' : $('regPrefix').value.trim(),
-    allowedFallback: $('regFallback').checked,
-  }
-  if (pluginRegistry.mode === 'proxy' && !pluginRegistry.npmRegistryUrl) return showSaveErr(msg, 'proxy 模式需要填写 NPM 镜像地址')
-  if (pluginRegistry.mode === 'url' && !pluginRegistry.packagePrefix) return showSaveErr(msg, 'url 模式需要填写包地址前缀')
-  await doSave(msg, { policy: { allowedPlugins, pluginRegistry } },
-    `已保存：插件清单 ${allowedPlugins.length} 项 · 插件源 ${pluginRegistry.mode}`)
-}
+/** （已废弃按钮式保存）清单与插件源全部改为自动保存 */
 
 /** 横幅样式弹窗：单独保存（不动规则本体），保存成功后刷新页头摘要 */
 async function saveBannerStyle() {
@@ -1181,19 +1213,23 @@ function bindSwitches() {
 
 function bindPlugins() {
   if ($('regMode')) {
-    $('regMode').addEventListener('change', syncRegFields)
-    $('regUrl').addEventListener('input', syncRegFields)
-    $('regPrefix').addEventListener('input', syncRegFields)
-    $('regBuiltin').addEventListener('change', syncRegFields)
+    // 插件源改动自动保存：点选类立即，输入类防抖（autoSavePlug 内 600ms）
+    $('regMode').addEventListener('change', () => { syncRegFields(); autoSavePlug(true) })
+    $('regUrl').addEventListener('input', () => syncRegFields())
+    $('regPrefix').addEventListener('input', () => syncRegFields())
+    $('regUrl').addEventListener('change', () => autoSavePlug(true))
+    $('regPrefix').addEventListener('change', () => autoSavePlug(true))
+    $('regBuiltin').addEventListener('change', () => { syncRegFields(); autoSavePlug(true) })
+    $('regFallback').addEventListener('change', () => autoSavePlug(true))
   }
-  if ($('plugSaveBtn')) $('plugSaveBtn').addEventListener('click', savePlug)
-  /* ---- 允许清单（列表化编辑） ---- */
+  /* ---- 允许清单（列表化编辑 + 自动保存） ---- */
   if ($('allowList')) {
     $('allowAddBtn').addEventListener('click', () => allowAdd($('allowInput').value))
     $('allowInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') allowAdd($('allowInput').value) })
     $('allowList').addEventListener('click', (e) => {
-      const del = e.target.closest('[data-allow-del]')
-      if (del) allowRemove(Number(del.dataset.allowDel))
+      let el
+      if ((el = e.target.closest('[data-allow-del]'))) allowRemove(Number(el.dataset.allowDel))
+      else if ((el = e.target.closest('[data-allow-repo]'))) allowToRepo(el.dataset.allowRepo)
     })
   }
   /* ---- 仓库卡片 + 三个弹窗 ---- */
