@@ -94,13 +94,15 @@ const switchesHtml = `
 
   ${savebar('lp')}`
 
-/* ============ 子页 2 · 插件管控（页签：插件仓库 / 允许清单与插件源） ============ */
+/* ============ 子页 2 · 插件管控（页签：插件仓库 / 允许清单；插件源 = 右上角齿轮设置弹窗） ============ */
 const pluginsHtml = `
-  ${headrow('插件管控', `<button class="btn sm primary" id="repoAddBtn">＋ 添加插件</button>`)}
+  ${headrow('插件管控', `<span class="mono" id="regModeBadge" style="font-size:11px;color:#94a3b8"></span>
+    <button class="btn sm" id="regSettingBtn" title="插件源设置">⚙ 插件源</button>
+    <button class="btn sm primary" id="repoAddBtn">＋ 添加插件</button>`)}
 
   <div class="tabs" id="plugTabs">
     <span class="on" data-panetab="pane-repo">插件仓库</span>
-    <span data-panetab="pane-allow">允许清单与插件源</span>
+    <span data-panetab="pane-allow">允许清单</span>
   </div>
 
   <!-- ============ 页签 A · 企业插件仓库 ============ -->
@@ -109,77 +111,69 @@ const pluginsHtml = `
     <h2><span class="bar"></span>企业插件仓库 <span class="badge dim" id="repoCount">0 个</span>
       <span style="margin-left:auto"><input id="repoSearch" class="input" placeholder="搜插件名 / 描述…" style="width:200px;font-size:12px;height:28px"></span>
     </h2>
-    <div class="sub">通过 npm 地址或压缩包把插件收口到网关，统一维护版本与描述，员工端从网关下载</div>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>插件名</th><th>描述</th><th>默认版本</th><th>版本</th><th>大小</th><th>更新时间</th><th style="width:236px">操作</th></tr></thead>
-        <tbody id="repoBody"><tr><td colspan="7" class="empty">加载中…</td></tr></tbody>
+        <thead><tr><th>插件</th></tr></thead>
+        <tbody id="repoBody"><tr><td class="empty">加载中…</td></tr></tbody>
       </table>
     </div>
   </div>
   </div>
 
-  <!-- ============ 页签 B · 允许清单与插件源 ============ -->
+  <!-- ============ 页签 B · 允许清单 ============ -->
   <div class="pane" id="pane-allow">
   <div class="card">
-    <h2><span class="bar"></span>允许清单</h2>
-    <div style="margin-bottom:4px;font-size:12.5px;color:#475569">允许清单 <span class="badge dim" id="allowCount">0</span> <span style="color:#94a3b8">清单外插件员工端安装被拦截</span></div>
-    <div id="allowList" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto"></div>
-    <div style="display:flex;gap:8px;margin-top:10px">
+    <h2><span class="bar"></span>允许清单 <span class="badge dim" id="allowCount">0</span>
+      <span style="margin-left:auto;display:flex;gap:8px">
+        <input id="allowSearch" class="input" placeholder="搜插件名 / 描述…" style="width:180px;font-size:12px;height:28px">
+      </span>
+    </h2>
+    <div class="sub">清单外插件员工端安装被拦截 · 改动自动下发</div>
+    <div id="allowList"></div>
+    <div id="allowPage" style="display:flex;align-items:center;gap:10px;justify-content:flex-end;margin-top:10px;font-size:12px;color:#64748b"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
       <input class="input" id="allowInput" placeholder="插件包名，如 dsh-review · @corp/dsh-review" style="flex:1;font-size:12px;height:30px">
       <button class="btn sm" id="allowAddBtn">＋ 添加</button>
     </div>
     <div class="err" id="allowErr" style="margin-top:6px"></div>
   </div>
 
-  <div class="card">
-    <h2><span class="bar"></span>插件源</h2>
-    <div class="fgrid">
-      <label>企业插件源</label>
-      <select id="regMode" class="input" style="width:100%">
-        <option value="off">默认社区源（off · 不干预）</option>
-        <option value="proxy">企业 npm 镜像（proxy）</option>
-        <option value="url">企业直连地址（url）</option>
-      </select>
-      <label>回退公共源</label>
-      <span class="chk"><input type="checkbox" id="regFallback"> 自建源拉取失败时允许回退社区源</span>
-      <label>NPM 镜像地址<span class="dim2">proxy 模式</span></label>
-      <input class="input" id="regUrl" placeholder="http://npm.corp.local:4873">
-      <label>包地址前缀<span class="dim2">url 模式</span></label>
-      <input class="input" id="regPrefix" placeholder="http://plugins.corp.local/packages/">
-      <label>内置仓库直连</label>
-      <span class="chk"><input type="checkbox" id="regBuiltin"> url 模式下员工端直接从本网关仓库下载（前缀自动 = 本站 /plugin-packages/）</span>
-    </div>
-    <div class="hint" id="regHint" style="margin-top:8px"></div>
-    <details class="help">
-      <summary>插件源两种模式怎么选 & 填写示例</summary>
-      <div class="help-body">
-        <div class="vsgrid">
-          <div class="vs-a"><b>proxy 模式 —— 企业 npm 镜像（推荐）</b>
-            自建 npm 私服（Verdaccio / Nexus 等），可缓存、可发私有插件
-          </div>
-          <div class="vs-b"><b>url 模式 —— 静态文件直连</b>
-            勾选「内置仓库直连」即用插件仓库页签；也可把 .tgz 放内网 HTTP 服务按前缀下载
-          </div>
-        </div>
-        <div class="codeblock"><span class="cmt">// 员工端安装时插件内部实际执行的等价命令：</span>
-<span class="cmt">// proxy 模式（自动带 --registry，员工无感知）</span>
-dsh plugin add dsh-review <span class="hl">--registry http://npm.corp.local:4873</span>
-<span class="cmt">// url 模式（前缀 + 包名直接作为包地址，内置仓库即网关下载端点）</span>
-dsh plugin add <span class="hl">http://&lt;网关地址&gt;/plugin-packages/</span>dsh-review</div>
-        <div class="kv">
-          <span class="k">bundle 名去哪找</span><span class="v">员工端「设置 → 企业管理 → 插件管理 → 本机已安装」显示的就是 bundle 名；或看插件 profile 目录 package.json 的 dsh.profile.bundles</span>
-          <span class="k">url 前缀拼接</span><span class="v mono">最终地址 = packagePrefix + 插件包名（前缀末尾带不带 / 均可）</span>
-          <span class="k">回退开关</span><span class="v">勾选 = 企业源不可用时回退社区源</span>
-        </div>
-        <div class="notebox warn">dsh-enterprise 必须保留在清单中（负责登录与策略）</div>
-        <div class="notebox ok">推荐：允许清单 + 企业源一起用，安装来源与范围都管住</div>
-      </div>
-    </details>
-  </div>
-
   <!-- 自动保存状态（无保存按钮：所有改动即时下发） -->
   <div style="margin-top:10px;font-size:12px;color:#94a3b8;min-height:16px" id="plugAutoMsg"></div>
+  </div>
+
+  <!-- 插件源设置弹窗 -->
+  <div class="dlg-mask" id="regSettingDlg" hidden>
+    <div class="dlg md">
+      <div class="dlg-head">
+        <h2><span class="bar"></span>插件源设置</h2>
+        <button class="dlg-x" data-dlg-close title="关闭">✕</button>
+      </div>
+      <div class="dlg-body">
+        <div class="fgrid">
+          <label>企业插件源</label>
+          <select id="regMode" class="input" style="width:100%">
+            <option value="off">默认社区源（off · 不干预）</option>
+            <option value="proxy">企业 npm 镜像（proxy）</option>
+            <option value="url">企业直连地址（url）</option>
+          </select>
+          <label>回退公共源</label>
+          <span class="chk"><input type="checkbox" id="regFallback"> 自建源拉取失败时允许回退社区源</span>
+          <label>NPM 镜像地址<span class="dim2">proxy 模式</span></label>
+          <input class="input" id="regUrl" placeholder="http://npm.corp.local:4873">
+          <label>包地址前缀<span class="dim2">url 模式</span></label>
+          <input class="input" id="regPrefix" placeholder="http://plugins.corp.local/packages/">
+          <label>内置仓库直连</label>
+          <span class="chk"><input type="checkbox" id="regBuiltin"> url 模式下员工端直接从本网关仓库下载（前缀自动 = 本站 /plugin-packages/）</span>
+        </div>
+        <div class="hint" id="regHint" style="margin-top:8px"></div>
+        <div class="notebox" id="regAutoNote" style="margin-top:10px"></div>
+      </div>
+      <div class="dlg-foot">
+        <span class="err" id="regErr"></span>
+        <button class="btn" data-dlg-close>关闭</button>
+      </div>
+    </div>
   </div>
 
   <!-- 添加插件弹窗（npm 地址 / 压缩包上传 二选一） -->
@@ -788,8 +782,11 @@ async function submitRepoDesc() {
   } catch (e) { if (e.message !== '401') $('rdErr').textContent = e.message }
 }
 
-/* ---------- 允许清单（列表化编辑 · 改动自动保存下发） ---------- */
+/* ---------- 允许清单（列表化编辑 · 改动自动保存下发 · 搜索 + 分页） ---------- */
 let allowItems = []   // ['dsh-enterprise', ...]
+const ALLOW_PAGE_SIZE = 8
+let allowPageCur = 1
+let allowQuery = ''
 
 const NAME_HINT = '插件名限 2-64 位字母数字_-，可带 @组织/'
 let plugSaveTimer = null
@@ -841,7 +838,17 @@ function renderAllowList() {
   const box = $('allowList')
   if (!box) return
   $('allowCount').textContent = allowItems.length
-  box.innerHTML = allowItems.map((n, i) => {
+  const q = allowQuery.trim().toLowerCase()
+  const all = allowItems.map((n, i) => ({ n, i }))
+    .filter(({ n }) => {
+      if (!q) return true
+      const desc = repoData.find((x) => x.name === n)?.description ?? ''
+      return n.toLowerCase().includes(q) || desc.toLowerCase().includes(q)
+    })
+  const pages = Math.max(1, Math.ceil(all.length / ALLOW_PAGE_SIZE))
+  allowPageCur = Math.min(allowPageCur, pages)
+  const view = all.slice((allowPageCur - 1) * ALLOW_PAGE_SIZE, allowPageCur * ALLOW_PAGE_SIZE)
+  box.innerHTML = view.map(({ n, i }) => {
     const repo = repoData.find((x) => x.name === n)
     const desc = repo?.description ?? ''
     const ver = repo?.defaultVersion ?? ''
@@ -858,7 +865,17 @@ function renderAllowList() {
       <button class="btn sm" data-allow-repo="${esc(n)}" style="padding:1px 8px;font-size:11px" title="${repo ? '已在仓库，可管理版本与描述' : '从 npm 拉进企业插件仓库'}">${repo ? '已入库' : '入库'}</button>
       <button class="btn sm danger" data-allow-del="${i}" style="padding:1px 8px;font-size:11px">移除</button>
     </div>`
-  }).join('') || '<div style="font-size:12px;color:#94a3b8;padding:6px 2px">清单为空 = 不限制（员工可装任意插件）</div>'
+  }).join('') || (allowItems.length ? '<div style="font-size:12px;color:#94a3b8;padding:6px 2px">没有匹配的插件</div>' : '<div style="font-size:12px;color:#94a3b8;padding:6px 2px">清单为空 = 不限制（员工可装任意插件）</div>')
+  // 分页条
+  const pg = $('allowPage')
+  if (pg) {
+    pg.innerHTML = pages > 1
+      ? `<span>${(allowPageCur - 1) * ALLOW_PAGE_SIZE + 1}-${Math.min(allowPageCur * ALLOW_PAGE_SIZE, all.length)} / ${all.length}</span>
+         <button class="btn sm" data-allow-page="prev" ${allowPageCur <= 1 ? 'disabled' : ''}>‹</button>
+         <span class="mono">${allowPageCur} / ${pages}</span>
+         <button class="btn sm" data-allow-page="next" ${allowPageCur >= pages ? 'disabled' : ''}>›</button>`
+      : ''
+  }
 }
 
 function allowAdd(raw) {
@@ -888,10 +905,23 @@ function allowFromRepo(name) {
   allowItems.push(name)
   renderAllowList()
   autoSavePlug(true)
+  // 跳到清单页签最后一页，让用户看到新加的项
+  document.querySelector('[data-panetab="pane-allow"]')?.click()
+  const q = allowQuery.trim().toLowerCase()
+  const matched = allowItems.filter((n) => !q || n.toLowerCase().includes(q) || (repoData.find((x) => x.name === n)?.description ?? '').toLowerCase().includes(q))
+  allowPageCur = Math.max(1, Math.ceil(matched.length / ALLOW_PAGE_SIZE))
+  renderAllowList()
   toast(`已加入允许清单：${name}（已自动下发）`)
 }
 
-/* ---------- 企业插件源（子页 2） ---------- */
+/* ---------- 企业插件源（子页 2 · 齿轮弹窗） ---------- */
+const REG_MODE_LABEL = { off: '默认社区源', proxy: 'npm 镜像', url: '直连地址' }
+function syncRegBadge() {
+  const badge = $('regModeBadge')
+  if (!badge) return
+  const mode = $('regMode')?.value ?? 'off'
+  badge.textContent = mode === 'off' ? '' : `源：${REG_MODE_LABEL[mode] ?? mode}`
+}
 function syncRegFields() {
   const mode = $('regMode').value
   const builtin = mode === 'url' && $('regBuiltin').checked
@@ -904,8 +934,9 @@ function syncRegFields() {
     : mode === 'proxy'
       ? 'proxy = 员工安装插件时自动追加 --registry=' + ($('regUrl').value.trim() || '<镜像地址>') + '；需要先在企业内网部署 npm 私服（Verdaccio / Nexus 等）'
       : builtin
-        ? 'url + 内置仓库 = 员工端直接从本网关下载上方插件仓库里的包，无需额外部署文件服务'
+        ? 'url + 内置仓库 = 员工端直接从本网关下载插件仓库里的包，无需额外部署文件服务'
         : 'url = 员工安装时直接从 ' + ($('regPrefix').value.trim() || '<前缀>') + '<插件包名> 下载 .tgz；前缀必须以 http(s):// 或 file:// 开头'
+  syncRegBadge()
 }
 
 /* ---------- 客户端自助规则（子页 3） ---------- */
@@ -1267,14 +1298,30 @@ function bindPlugins() {
     $('regBuiltin').addEventListener('change', () => { syncRegFields(); autoSavePlug(true) })
     $('regFallback').addEventListener('change', () => autoSavePlug(true))
   }
-  /* ---- 允许清单（列表化编辑 + 自动保存） ---- */
+  /* ---- 允许清单（列表化编辑 + 自动保存 + 搜索/分页） ---- */
   if ($('allowList')) {
     $('allowAddBtn').addEventListener('click', () => allowAdd($('allowInput').value))
     $('allowInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') allowAdd($('allowInput').value) })
+    $('allowSearch').addEventListener('input', () => { allowQuery = $('allowSearch').value; allowPageCur = 1; renderAllowList() })
+    $('allowPage').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-allow-page]')
+      if (!b) return
+      if (b.dataset.allowPage === 'prev') allowPageCur = Math.max(1, allowPageCur - 1)
+      else allowPageCur = allowPageCur + 1
+      renderAllowList()
+    })
     $('allowList').addEventListener('click', (e) => {
       let el
       if ((el = e.target.closest('[data-allow-del]'))) allowRemove(Number(el.dataset.allowDel))
       else if ((el = e.target.closest('[data-allow-repo]'))) allowToRepo(el.dataset.allowRepo)
+    })
+  }
+  /* ---- 插件源齿轮弹窗（自动保存，关闭时回显保存状态） ---- */
+  if ($('regSettingBtn')) {
+    $('regSettingBtn').addEventListener('click', () => {
+      $('regAutoNote').textContent = $('plugAutoMsg')?.textContent ?? ''
+      $('regErr').textContent = ''
+      openDlg($('regSettingDlg'))
     })
   }
   /* ---- 仓库卡片 + 三个弹窗 ---- */
