@@ -6,7 +6,7 @@
   "license": "MIT",
   "main": "gateway.mjs",
   "bin": {
-    "dsh-enterprise-gateway": "./gateway.mjs"
+    "dsh-enterprise-gateway": "gateway.mjs"
   },
   "files": [
     "gateway.mjs",
