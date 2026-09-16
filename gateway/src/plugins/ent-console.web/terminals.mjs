@@ -35,8 +35,21 @@ function deviceDetailHtml(x) {
     ? `<div class="disk-grid">${disks.map((p) =>
         `<div class="disk-item"><b>${esc(p.drive)}</b> 空闲 ${esc(p.freeGb)} / ${esc(p.totalGb)} GB</div>`).join('')}</div>`
     : '<div class="kv-empty">未采集到磁盘信息</div>';
+  // 已安装插件（心跳快照上报）：与当前允许清单比对，清单外的标红（管理员一眼定位违规设备）
+  const allowed = (await api('/admin/policy-detail').catch(() => null))?.policy?.allowedPlugins ?? [];
+  const plugins = Array.isArray(d.plugins) ? d.plugins : null;
+  const pluginRows = plugins === null
+    ? '<div class="kv-empty">未采集（旧版本员工端插件）</div>'
+    : plugins.length
+      ? plugins.map((n) => {
+          const bad = allowed.length && !allowed.includes(n);
+          return `<span class="badge ${bad ? 'bad' : 'ok'}" style="margin:0 6px 6px 0">${esc(n)}${bad ? ' · 清单外' : ''}</span>`;
+        }).join('')
+      : '<div class="kv-empty">未安装任何插件</div>';
   return `
     <div class="detail-grid">${rows.join('')}</div>
+    <div class="detail-sub">已安装插件（与允许清单比对）</div>
+    <div style="line-height:1.9">${pluginRows}</div>
     <div class="detail-sub">磁盘</div>
     ${diskRows}`;
 }
@@ -93,7 +106,7 @@ export function bindTerminalsEvents() {
   });
 }
 
-function openTermModal(x) {
+async function openTermModal(x) {
   let m = document.getElementById('termModal');
   if (!m) {
     m = document.createElement('div');
@@ -107,7 +120,8 @@ function openTermModal(x) {
         <h2>终端设备详情 · ${esc(x.account || '未登录')}</h2>
         <button class="dlg-x" data-dlg-close title="关闭 (Esc)">${icon('x', { size: 16 })}</button>
       </div>
-      <div class="dlg-body">${deviceDetailHtml(x)}</div>
+      <div class="dlg-body"><div class="empty">加载中…</div></div>
     </div>`;
   openDlg(m);
+  m.querySelector('.dlg-body').innerHTML = await deviceDetailHtml(x);
 }
