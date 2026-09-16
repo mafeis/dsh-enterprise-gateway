@@ -31,12 +31,37 @@ const switchesHtml = `
   <div class="card">
     <h2><span class="bar"></span>界面策略 <span class="badge dim">点击即生效</span></h2>
     <div class="switchrow">
-      <span class="lab2">模型配置锁定<span class="desc">员工端「设置 → 模型」页隐藏，模型只能经企业账号登录下发；防绕过网关直连外部模型</span></span>
+      <span class="lab2">模型配置锁定<span class="desc">员工端隐藏「模型」设置页，防绕过企业配置</span></span>
       <span class="switch" id="swLock"></span>
     </div>
     <div class="switchrow">
-      <span class="lab2">界面水印<span class="desc">员工端 Web 界面叠加半透明水印（账号 + 时间），截屏外传可溯源；仅影响显示</span></span>
+      <span class="lab2">界面水印<span class="desc">员工端 Web 界面叠加半透明水印，截屏外传可溯源；仅影响显示</span></span>
       <span class="switch" id="swWm"></span>
+    </div>
+    <div id="wmStylePanel" style="display:none;margin:4px 0 12px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+      <div style="font-size:12.5px;font-weight:600;margin-bottom:10px">水印样式 <span class="badge dim">改完即自动保存，员工端 10s 内跟随</span></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+        <label style="font-size:12px;color:#475569">内容模板<br>
+          <input id="wmTemplate" class="input" style="width:320px;font-size:12px;margin-top:3px" placeholder="{user} · {time} · 企业机密">
+        </label>
+        <span style="font-size:11px;color:#94a3b8;padding-bottom:7px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">点选插入：
+          <button type="button" class="btn sm" data-wmvar="{user}" title="登录账号" style="padding:1px 8px;font-size:11px">{user}</button>
+          <button type="button" class="btn sm" data-wmvar="{time}" title="当前时间（分钟级刷新）" style="padding:1px 8px;font-size:11px">{time}</button>
+          <button type="button" class="btn sm" data-wmvar="{device}" title="设备名（主机名）" style="padding:1px 8px;font-size:11px">{device}</button>
+          <button type="button" class="btn sm" data-wmvar="{loginAt}" title="登录时间" style="padding:1px 8px;font-size:11px">{loginAt}</button>
+          <button type="button" class="btn sm" data-wmvar="{gateway}" title="网关地址" style="padding:1px 8px;font-size:11px">{gateway}</button>
+        </span>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <label style="font-size:12px;color:#475569">颜色<br><input id="wmColor" type="color" class="input" style="width:52px;height:28px;padding:1px;margin-top:3px;cursor:pointer"></label>
+        <label style="font-size:12px;color:#475569">透明度 <span id="wmOpacityVal" class="mono">0.06</span><br>
+          <input id="wmOpacity" type="range" min="0.01" max="0.5" step="0.01" style="width:120px;margin-top:8px;cursor:pointer"></label>
+        <label style="font-size:12px;color:#475569">字号<br><input id="wmFontSize" class="input" type="number" min="8" max="40" style="width:64px;font-size:12px;margin-top:3px"></label>
+        <label style="font-size:12px;color:#475569">横向间距<br><input id="wmGapX" class="input" type="number" min="80" max="800" step="10" style="width:76px;font-size:12px;margin-top:3px"></label>
+        <label style="font-size:12px;color:#475569">纵向间距<br><input id="wmGapY" class="input" type="number" min="50" max="600" step="10" style="width:76px;font-size:12px;margin-top:3px"></label>
+        <label style="font-size:12px;color:#475569">角度°<br><input id="wmAngle" class="input" type="number" min="-90" max="90" step="2" style="width:64px;font-size:12px;margin-top:3px"></label>
+        <button class="btn sm" id="wmReset" type="button" style="margin-bottom:1px">恢复默认</button>
+      </div>
     </div>
   </div>
 
@@ -44,7 +69,7 @@ const switchesHtml = `
   <div class="card">
     <h2><span class="bar"></span>登录保护 <span class="badge dim">防爆破</span></h2>
       <div class="switchrow">
-      <span class="lab2">启用失败锁定<span class="desc">窗口内失败达阈值即临时锁定，到点自动解除（期间尝试不续锁）</span></span>
+      <span class="lab2">启用失败锁定<span class="desc">窗口内失败达阈值即临时锁定，到点自动解除</span></span>
       <span class="switch" id="swLoginProt"></span>
     </div>
     <div class="fgrid" style="margin-top:10px">
@@ -97,10 +122,10 @@ const pluginsHtml = `
       <div class="help-body">
         <div class="vsgrid">
           <div class="vs-a"><b>proxy 模式 —— 企业 npm 镜像（推荐）</b>
-            适合已有或愿意部署 npm 私服（Verdaccio / Nexus / Artifactory）的企业。私服可代理社区源并缓存，也能发布仅内部可用的私有插件。
+            自建 npm 私服（Verdaccio / Nexus 等），可缓存、可发私有插件
           </div>
           <div class="vs-b"><b>url 模式 —— 静态文件直连</b>
-            不想部署私服时用：把插件 .tgz 包放到内网任意 HTTP 文件服务（如 nginx），员工端按「前缀 + 包名」直接下载。最简单，但没有缓存和版本管理。
+            把 .tgz 包放到内网 HTTP 服务，员工端按前缀+包名下载
           </div>
         </div>
         <div class="codeblock"><span class="cmt">// 员工端安装时插件内部实际执行的等价命令：</span>
@@ -111,10 +136,10 @@ dsh plugin add <span class="hl">http://plugins.corp.local/packages/</span>dsh-re
         <div class="kv">
           <span class="k">bundle 名去哪找</span><span class="v">员工端「设置 → 企业管理 → 插件管理 → 本机已安装」显示的就是 bundle 名；或看插件 profile 目录 package.json 的 dsh.profile.bundles</span>
           <span class="k">url 前缀拼接</span><span class="v mono">最终地址 = packagePrefix + 插件包名（前缀末尾带不带 / 均可）</span>
-          <span class="k">回退开关</span><span class="v">勾选 = 企业源暂时不可用时员工仍可装社区源插件（可用性优先）；不勾 = 企业源挂了就装不了（管控优先）</span>
+          <span class="k">回退开关</span><span class="v">勾选 = 企业源不可用时回退社区源</span>
         </div>
-        <div class="notebox warn">务必把 dsh-enterprise 留在允许清单里 —— 它负责员工端登录与策略拉取（客户端对它有保护兜底，但保持清单正确可避免无谓告警）。</div>
-        <div class="notebox ok">推荐组合：允许清单 + 企业源一起配 —— 员工「只能装」企业源里、且在允许清单内的插件，两头都管住。</div>
+        <div class="notebox warn">dsh-enterprise 必须保留在清单中（负责登录与策略）</div>
+        <div class="notebox ok">推荐：允许清单 + 企业源一起用，安装来源与范围都管住</div>
       </div>
     </details>
   </div>
@@ -151,9 +176,9 @@ const rulesHtml = `
       <summary>三种类型的 value 填法</summary>
       <div class="help-body">
         <div class="codeblock"><span class="hl">网址</span>  填域名 → 拦该域名及全部子域。例：<span class="hl">github.com</span> 拦 github.com / gist.github.com / api.github.com …
-<span class="hl">关键词</span> 填正则（不区分大小写）→ 命中员工端送出的文本。例：<span class="hl">内部机密|未公开财报</span>；正则非法时自动退化为包含匹配
+<span class="hl">关键词</span> 填正则，命中员工端送出的文本；非法时退化为包含匹配
 <span class="hl">公告</span>     填公告文本 → 员工端展示企业公告，value 即公告内容，message 可留空</div>
-        <div class="notebox">block-url 只拦「员工端浏览器环境内」的访问判定；员工用自己浏览器直接上网不在此管控范围。员工端可在「设置 → 企业管理 → 规则管理」看到这些规则及命中次数统计（只读）。与「安全防护」页的网关级检查分工：本地规则在员工电脑本地执行、轻量低延迟，适合拦网址/拦关键词/弹公告这类确定性强的轻管控。</div>
+        <div class="notebox">仅管控员工端浏览器环境内的访问；规则与命中次数在员工端「企业管理 → 规则管理」可见（只读）</div>
       </div>
     </details>
   </div>
@@ -259,10 +284,34 @@ const acksHtml = `
     <button class="btn sm" id="ackRefreshBtn">↻ 刷新</button>
   `)}
 
+  <!-- ============ 版本发布与灰度 ============ -->
+  <div class="card">
+    <h2><span class="bar"></span>版本发布与灰度 <span class="badge dim">策略每次保存自动产生新版本</span></h2>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <span style="font-size:12.5px;color:#475569">当前版本 <b class="mono" id="verCur">—</b></span>
+      <span style="font-size:12.5px;color:#475569">灰度状态 <b id="verGrayState" class="mono" style="color:#d97706">无灰度（全员 current）</b></span>
+      <span style="flex:1"></span>
+      <label style="font-size:12px;color:#475569;display:flex;gap:8px;align-items:center">灰度比例
+        <input id="verPercent" class="input" type="number" min="0" max="100" step="5" style="width:72px;font-size:12px">
+        <span class="crumb" style="margin:0">%</span>
+      </label>
+      <button class="btn sm" id="verGrayBtn" disabled>开始灰度</button>
+      <button class="btn sm" id="verPromoteBtn">转正（全员生效）</button>
+      <button class="btn sm" id="verCancelGrayBtn">取消灰度</button>
+    </div>
+    <div class="tablewrap" style="max-height:340px;overflow:auto">
+      <table>
+        <thead><tr><th>版本</th><th>时间</th><th>说明</th><th>变更内容</th><th style="width:150px">操作</th></tr></thead>
+        <tbody id="verBody"><tr><td colspan="5" class="empty">加载中…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="notebox" style="margin-top:10px">按设备指纹比例分流灰度版本；同一设备恒定同侧。转正 = 全员生效；回滚 = 恢复历史版本内容</div>
+  </div>
+
   <!-- ============ 灰度进度 ============ -->
   <div class="card">
     <h2><span class="bar"></span>灰度进度 <span class="badge dim" id="ackSummaryBadge"></span></h2>
-    <div class="sub">回执由员工端插件在<b>策略落盘生效后</b>自动上报（同版本幂等，失败下轮重试）。覆盖率 = 已回执设备 ÷ 近 24 小时在线终端；关机/未装插件的终端既不在分母内也不会回执，看「待回执设备」找缺口更准。</div>
+    <div class="sub">覆盖率 = 已回执 ÷ 近 24h 在线设备</div>
     <div class="grid4" id="ackStatCards"></div>
     <div id="ackVersionBars" style="margin-top:14px"></div>
   </div>
@@ -270,7 +319,7 @@ const acksHtml = `
   <!-- ============ 待回执设备 ============ -->
   <div class="card">
     <h2><span class="bar"></span>待回执设备 <span class="badge" id="ackPendingCount"></span></h2>
-    <div class="sub">近 24 小时在线、但<b>当前版本</b>还没收到回执的终端。心跳上报版本 = 当前版本 → 已生效但回执没送到（点刷新观察一轮）；否则 → 还没拉到新版（等下个策略刷新周期，通常 ≤ 1 分钟）。</div>
+    <div class="sub">近 24h 在线但未回执当前版本的设备</div>
     <div class="tablewrap" style="max-height:300px;overflow:auto">
       <table>
         <thead><tr><th>账号</th><th>Profile</th><th>心跳上报版本</th><th>判定</th><th>环境</th><th>Node</th><th>最后心跳</th><th>设备指纹</th></tr></thead>
@@ -293,23 +342,6 @@ const acksHtml = `
         <tbody id="ackBody"><tr><td colspan="8" class="empty">加载中…</td></tr></tbody>
       </table>
     </div>
-    <details class="help">
-      <summary>回执机制与字段口径</summary>
-      <div class="help-body">
-        <ol class="steps">
-          <li>管理台保存策略 → 策略版本号变化；员工端插件下个拉取周期取到新版并在本地生效</li>
-          <li>生效后员工端自动 <span class="mono">POST /policy/ack</span>（Profile + 版本 + 设备指纹），同版本幂等只报一次；上报失败会在下轮拉取时重试</li>
-          <li>「灰度进度」按版本聚合回执，用来判断新策略推开了多少；「待回执设备」用心跳表反向比对找还没推到的设备</li>
-        </ol>
-        <div class="kv">
-          <span class="k">设备指纹</span><span class="v">由员工端登录凭证派生（与「终端列表」同口径）；同一账号重新登录后指纹会变，属于正常现象</span>
-          <span class="k">账号 / 环境 / Node</span><span class="v">取该设备指纹最近一次心跳补齐，设备从未发过心跳则为空</span>
-          <span class="k">覆盖率口径</span><span class="v">分母 = 近 24 小时有心跳的设备数；长期关机的设备不在分母里，需要全量核对时结合「终端列表」</span>
-          <span class="k">明细上限</span><span class="v">列表取最近 50 条回执；更早的看「灰度进度」的按版本聚合数</span>
-        </div>
-        <div class="notebox">回执是尽力而为的遥测：员工端断网时策略已经在本地生效，只是回执晚到——列表缺一条不代表该设备没更新。</div>
-      </div>
-    </details>
   </div>`
 
 /* ---------- 策略加载（一次拉取，四个子页共用；只填本页存在的元素） ---------- */
@@ -325,6 +357,11 @@ async function loadAll(opts = {}) {
     if ($('polVer')) $('polVer').textContent = p.version ?? '-'
     if ($('swLock')) $('swLock').classList.toggle('on', !!p.lockModelConfig)
     if ($('swWm')) $('swWm').classList.toggle('on', !!p.watermark)
+    if ($('wmStylePanel')) {
+      $('wmStylePanel').style.display = p.watermark ? '' : 'none'
+      bindWmStyle()
+      wmEcho(p.watermarkStyle ?? {})
+    }
     if ($('lpMaxFails')) {
       const lp = d.loginProtection ?? {}
       $('swLoginProt').classList.toggle('on', lp.enabled !== false)
@@ -357,6 +394,7 @@ async function loadAll(opts = {}) {
       updateBannerMock()
     }
     if ($('ackBody')) renderAcks(d)
+    bindVersions()
   } catch { /* 401 已处理 */ }
 }
 
@@ -388,7 +426,73 @@ async function toggleWatermark() {
   const target = !sw.classList.contains('on')
   const r = await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { watermark: target } }) })
   sw.classList.toggle('on', r.policy.watermark)
-  toast('界面水印 → ' + (r.policy.watermark ? '启用' : '停用') + '（客户端心跳后生效）')
+  const panel = $('wmStylePanel')
+  if (panel) panel.style.display = r.policy.watermark ? '' : 'none'
+  toast('界面水印 → ' + (r.policy.watermark ? '启用' : '停用') + '（员工端 10s 内跟随）')
+}
+
+/* ---- 水印样式：回显 + 自动保存（debounce 600ms）+ 恢复默认 ---- */
+const WM_DEFAULTS = { template: '{user} · {time}', color: '#0f172a', opacity: 0.06, fontSize: 13, gapX: 260, gapY: 150, angle: -22 }
+let _wmSaveTimer = null
+function wmReadForm() {
+  const out = {}
+  const t = $('wmTemplate')?.value.trim(); if (t && t !== WM_DEFAULTS.template) out.template = t
+  const c = $('wmColor')?.value; if (c && c.toLowerCase() !== WM_DEFAULTS.color) out.color = c
+  const o = Number($('wmOpacity')?.value); if (Number.isFinite(o) && o !== WM_DEFAULTS.opacity) out.opacity = o
+  const f = Number($('wmFontSize')?.value); if (Number.isFinite(f) && f && f !== WM_DEFAULTS.fontSize) out.fontSize = f
+  const gx = Number($('wmGapX')?.value); if (Number.isFinite(gx) && gx && gx !== WM_DEFAULTS.gapX) out.gapX = gx
+  const gy = Number($('wmGapY')?.value); if (Number.isFinite(gy) && gy && gy !== WM_DEFAULTS.gapY) out.gapY = gy
+  const a = Number($('wmAngle')?.value); if (Number.isFinite(a) && a !== WM_DEFAULTS.angle) out.angle = a
+  return out
+}
+function scheduleWmSave() {
+  $('wmOpacityVal').textContent = Number($('wmOpacity').value).toFixed(2)
+  clearTimeout(_wmSaveTimer)
+  _wmSaveTimer = setTimeout(async () => {
+    try {
+      const style = wmReadForm()
+      await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { watermarkStyle: Object.keys(style).length ? style : null } }) })
+      toast('水印样式已保存，员工端 10s 内跟随')
+    } catch (e) { if (e.message !== '401') toast('✗ 水印样式保存失败：' + e.message, 'bad') }
+  }, 600)
+}
+function bindWmStyle() {
+  if (!$('wmTemplate') || $('wmTemplate').dataset.bound) return
+  $('wmTemplate').dataset.bound = '1'
+  for (const id of ['wmTemplate', 'wmColor', 'wmOpacity', 'wmFontSize', 'wmGapX', 'wmGapY', 'wmAngle']) {
+    $(id).addEventListener('input', scheduleWmSave)
+    $(id).addEventListener('change', scheduleWmSave)
+  }
+  // 变量胶囊点选：插入模板输入框光标处
+  document.querySelectorAll('[data-wmvar]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const inp = $('wmTemplate')
+      if (!inp) return
+      const pos = inp.selectionStart ?? inp.value.length
+      inp.value = inp.value.slice(0, pos) + btn.dataset.wmvar + inp.value.slice(inp.selectionEnd ?? pos)
+      inp.focus()
+      inp.selectionStart = inp.selectionEnd = pos + btn.dataset.wmvar.length
+      scheduleWmSave()
+    })
+  })
+  $('wmReset').addEventListener('click', async () => {
+    try {
+      await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { watermarkStyle: null } }) })
+      wmEcho(WM_DEFAULTS)
+      toast('水印样式已恢复默认')
+    } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
+  })
+}
+function wmEcho(style = {}) {
+  const v = (id, k, dflt) => { if ($(id)) $(id).value = style[k] ?? dflt }
+  v('wmTemplate', 'template', WM_DEFAULTS.template)
+  v('wmColor', 'color', WM_DEFAULTS.color)
+  v('wmOpacity', 'opacity', WM_DEFAULTS.opacity)
+  v('wmFontSize', 'fontSize', WM_DEFAULTS.fontSize)
+  v('wmGapX', 'gapX', WM_DEFAULTS.gapX)
+  v('wmGapY', 'gapY', WM_DEFAULTS.gapY)
+  v('wmAngle', 'angle', WM_DEFAULTS.angle)
+  if ($('wmOpacityVal')) $('wmOpacityVal').textContent = Number($('wmOpacity').value).toFixed(2)
 }
 
 /* ---------- 企业插件源（子页 2） ---------- */
@@ -499,8 +603,90 @@ const statTile = (lab, val, sub = '') => `
     ${sub ? `<div class="crumb" style="margin:4px 0 0">${sub}</div>` : ''}
   </div>`
 
+/* ---------- 版本发布与灰度 ---------- */
+let verSelection = null   // 当前选中要灰度的版本
+async function renderVersions() {
+  if (!$('verBody')) return
+  try {
+    const d = await api('/admin/policy-versions')
+    $('verCur').textContent = d.current ?? '—'
+    const g = d.gray ?? null
+    $('verGrayState').textContent = g?.version ? `灰度中：${g.version} @ ${g.percent}%` : '无灰度（全员 current）'
+    $('verGrayState').style.color = g?.version ? '#d97706' : '#64748b'
+    $('verGrayBtn').disabled = !verSelection
+    $('verGrayBtn').textContent = verSelection ? `开始灰度 ${verSelection}` : '开始灰度'
+    const summarize = (policy) => {
+      if (!policy) return '—'
+      const parts = []
+      if (policy.clientRules !== undefined) parts.push(`规则 ${policy.clientRules.length} 条`)
+      if (policy.watermark !== undefined) parts.push(policy.watermark ? '水印开' : '水印关')
+      if (policy.lockModelConfig !== undefined) parts.push(policy.lockModelConfig ? '锁配置' : '不锁')
+      if (policy.allowedPlugins !== undefined) parts.push(policy.allowedPlugins.length ? `插件白名单 ${policy.allowedPlugins.length}` : '插件不限')
+      return parts.join(' · ') || '—'
+    }
+    $('verBody').innerHTML = (d.versions ?? []).map((v) => {
+      const isGray = g?.version === v.version
+      const isCur = d.current === v.version
+      return `<tr>
+        <td class="mono" style="font-size:12px;white-space:nowrap">${v.version}${isCur ? ' <span class="badge ok">当前</span>' : ''}${isGray ? ' <span class="badge warn">灰度中</span>' : ''}</td>
+        <td class="mono" style="font-size:11.5px;color:#94a3b8;white-space:nowrap">${v.ts ?? ''}</td>
+        <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.note ?? '') || '—'}</td>
+        <td style="font-size:12px;color:#64748b">${summarize(v.policy)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn sm" data-ver-gray="${v.version}" ${isCur ? 'disabled title="当前版本无需灰度"' : ''}>选为灰度</button>
+          <button class="btn sm" data-ver-rollback="${v.version}" title="把该版本内容写回当前策略">回滚到此</button>
+        </td>
+      </tr>`
+    }).join('') || '<tr><td colspan="5" class="empty">暂无版本历史 —— 保存一次策略即产生</td></tr>'
+  } catch (e) { if (e.message !== '401') toast('✗ 版本历史加载失败：' + e.message, 'bad') }
+}
+
+function bindVersions() {
+  if (!$('verBody') || $('verBody').dataset.bound) return
+  $('verBody').dataset.bound = '1'
+  $('verBody').addEventListener('click', async (e) => {
+    const g = e.target.closest('[data-ver-gray]')
+    if (g) { verSelection = verSelection === g.dataset.verGray ? null : g.dataset.verGray; await renderVersions(); return }
+    const rb = e.target.closest('[data-ver-rollback]')
+    if (rb) {
+      if (!confirm(`回滚到 ${rb.dataset.verRollback}？\n当前策略内容将被该版本快照覆盖（版本号继续递增）。`)) return
+      try {
+        const r = await api('/admin/policy-rollback', { method: 'POST', body: JSON.stringify({ version: rb.dataset.verRollback }) })
+        toast(`已回滚，新版本 ${r.version}`)
+        loadAll()
+      } catch (e2) { if (e2.message !== '401') toast('✗ 回滚失败：' + e2.message, 'bad') }
+    }
+  })
+  $('verGrayBtn')?.addEventListener('click', async () => {
+    if (!verSelection) return
+    const percent = Number($('verPercent')?.value)
+    if (!Number.isInteger(percent) || percent < 0 || percent > 100) { toast('灰度比例须为 0-100 整数', 'bad'); return }
+    try {
+      await api('/admin/policy-gray', { method: 'POST', body: JSON.stringify({ version: verSelection, percent }) })
+      toast(`灰度已开始：${verSelection} @ ${percent}%`)
+      verSelection = null
+      loadAll()
+    } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
+  })
+  $('verPromoteBtn')?.addEventListener('click', async () => {
+    try {
+      await api('/admin/policy-promote', { method: 'POST', body: '{}' })
+      toast('已转正：全员拉取当前版本')
+      loadAll()
+    } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
+  })
+  $('verCancelGrayBtn')?.addEventListener('click', async () => {
+    try {
+      await api('/admin/policy-gray', { method: 'POST', body: JSON.stringify({}) })
+      toast('灰度已取消：全员拉取当前版本')
+      loadAll()
+    } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
+  })
+}
+
 function renderAcks(d) {
   if (!$('ackBody')) return
+  void renderVersions()   // 版本管理卡随回执页一起刷新
   const p = d.policy ?? {}
   ackCurVer = p.version ?? '-'
   ackRows = d.acks ?? []

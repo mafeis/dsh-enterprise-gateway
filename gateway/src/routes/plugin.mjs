@@ -13,8 +13,16 @@ export function createPluginProtocolHandler({ config, store, auth }) {
     const cfg = getConfig()
 
     if (req.method === 'GET' && path === '/policy/current') {
+      // 灰度分流：带票请求按票重算设备哈希（与 ack/heartbeat 同口径），命中灰度比例 → 下发灰度版策略；
+      // 无票/未灰度 → current。同设备哈希恒定 → 同设备永远同侧，不会来回横跳。
+      const dh = req.headers.authorization
+        ? createHash('sha256').update(req.headers.authorization).digest('hex').slice(0, 16)
+        : null
+      const { policyForDevice } = config
+      const effPolicy = policyForDevice ? policyForDevice(dh) : cfg.policy
       return json(res, 200, {
-        ...cfg.policy,
+        ...effPolicy,
+        grayActive: undefined,
         auditLevel: cfg.audit.level,
         dlpEnabled: cfg.dlp.enabled,
         dlpRuleCount: cfg.dlp.rules.length,

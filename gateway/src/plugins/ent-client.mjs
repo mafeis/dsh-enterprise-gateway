@@ -35,7 +35,7 @@ const ts = () => new Date().toLocaleTimeString('zh-CN', { hour12: false })
 export function apply(ctx) {
   const router = ctx.get('router')
   const auth = ctx.get('auth')
-  const { getConfig, patchConfig } = ctx.get('config')
+  const { getConfig, patchConfig, listPolicyVersions, setGray, promoteGray, rollbackPolicy } = ctx.get('config')
   const { recentPolicyAcks, ackVersionStats, ackPendingDevices, onlineDeviceCount } = ctx.get('store')
   const handleProtocol = createPluginProtocolHandler({ config: ctx.get('config'), store: ctx.get('store'), auth })
 
@@ -65,6 +65,48 @@ export function apply(ctx) {
       return json(res, 400, { error: { message: String(e.message ?? e).slice(0, 200), type: 'bad_request' } })
     }
   }), 'ent-client: route PATCH /admin/policy')
+
+  /* ---- 策略版本管理：历史 / 灰度 / 转正 / 回滚 ---- */
+  ctx.effect(() => router.exact('GET', '/admin/policy-versions', async (req, res) => {
+    const u = await requireAdmin(req, res)
+    if (!u) return true
+    const c = getConfig()
+    return json(res, 200, { versions: listPolicyVersions(), current: c.policy.version, gray: c.policy.gray ?? null })
+  }), 'ent-client: route GET /admin/policy-versions')
+
+  ctx.effect(() => router.exact('POST', '/admin/policy-gray', async (req, res) => {
+    const u = await requireAdmin(req, res)
+    if (!u) return true
+    const b = (await readJson(req)) ?? {}
+    try {
+      setGray(b.version ?? null, b.percent)
+      console.log(`[${ts()}] ⚙ 灰度设置 by ${u.user.username}: ${b.version ?? '(取消)'} @ ${b.percent ?? '-'}%`)
+      return json(res, 200, { ok: true, gray: getConfig().policy.gray ?? null })
+    } catch (e) {
+      return json(res, 400, { error: { message: String(e.message ?? e).slice(0, 200), type: 'bad_request' } })
+    }
+  }), 'ent-client: route POST /admin/policy-gray')
+
+  ctx.effect(() => router.exact('POST', '/admin/policy-promote', async (req, res) => {
+    const u = await requireAdmin(req, res)
+    if (!u) return true
+    promoteGray()
+    console.log(`[${ts()}] ⚙ 灰度转正 by ${u.user.username}: 全员拉 current`)
+    return json(res, 200, { ok: true, gray: null })
+  }), 'ent-client: route POST /admin/policy-promote')
+
+  ctx.effect(() => router.exact('POST', '/admin/policy-rollback', async (req, res) => {
+    const u = await requireAdmin(req, res)
+    if (!u) return true
+    const b = (await readJson(req)) ?? {}
+    try {
+      const ver = rollbackPolicy(String(b.version ?? ''), '管理台回滚')
+      console.log(`[${ts()}] ⚙ 策略回滚 by ${u.user.username}: → ${ver}`)
+      return json(res, 200, { ok: true, version: ver })
+    } catch (e) {
+      return json(res, 400, { error: { message: String(e.message ?? e).slice(0, 200), type: 'bad_request' } })
+    }
+  }), 'ent-client: route POST /admin/policy-rollback')
 
   ctx.effect(() => router.exact('GET', '/admin/policy-detail', async (req, res) => {
     const u = await requireAdmin(req, res)

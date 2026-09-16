@@ -245,6 +245,8 @@ export function getConfig() { if (!__configLoaded) loadConfig(); return config }
  */
 export function patchConfig(patch) {
   if (!__configLoaded) loadConfig()   // 防误写：未加载真实配置前禁止 patch（否则会把 DEFAULT_CONFIG 落盘覆盖线上配置）
+  const _bumpKeys = ['clientRules', 'bannerPosition', 'bannerStyle', 'watermark', 'watermarkStyle', 'lockModelConfig', 'disabledFeatures', 'allowedPlugins', 'pluginRegistry']
+  const _shouldBump = patch.policy ? _bumpKeys.some((k) => patch.policy[k] !== undefined) : false
   if (patch.policy) {
     if (patch.policy.allowedPlugins !== undefined) {
       if (!Array.isArray(patch.policy.allowedPlugins)) throw new Error('allowedPlugins 必须是字符串数组')
@@ -286,6 +288,19 @@ export function patchConfig(patch) {
     }
     if (patch.policy.bannerPosition !== undefined) {
       if (!['top-right', 'top-center', 'top-left', 'bottom-right'].includes(patch.policy.bannerPosition)) throw new Error('bannerPosition 只能是 top-right/top-center/top-left/bottom-right')
+    }
+    if (patch.policy.watermarkStyle !== undefined && patch.policy.watermarkStyle !== null) {
+      const ws = patch.policy.watermarkStyle
+      if (typeof ws !== 'object' || Array.isArray(ws)) throw new Error('watermarkStyle 必须是对象或 null')
+      const out = {}
+      if (ws.template !== undefined) out.template = String(ws.template ?? '').slice(0, 200)       // 模板：支持 {user} {time} {device}
+      if (ws.color !== undefined) { if (typeof ws.color !== 'string' || !/^#[0-9a-fA-F]{3,8}$/.test(ws.color)) throw new Error('watermarkStyle.color 必须是 #RRGGBB'); out.color = ws.color }
+      if (ws.opacity !== undefined) { const n = Number(ws.opacity); if (!Number.isFinite(n) || n < 0.01 || n > 0.5) throw new Error('watermarkStyle.opacity 限 0.01-0.5'); out.opacity = n }
+      if (ws.fontSize !== undefined) { const n = Number(ws.fontSize); if (!Number.isFinite(n) || n < 8 || n > 40) throw new Error('watermarkStyle.fontSize 限 8-40'); out.fontSize = n }
+      if (ws.gapX !== undefined) { const n = Number(ws.gapX); if (!Number.isFinite(n) || n < 80 || n > 800) throw new Error('watermarkStyle.gapX 限 80-800'); out.gapX = n }
+      if (ws.gapY !== undefined) { const n = Number(ws.gapY); if (!Number.isFinite(n) || n < 50 || n > 600) throw new Error('watermarkStyle.gapY 限 50-600'); out.gapY = n }
+      if (ws.angle !== undefined) { const n = Number(ws.angle); if (!Number.isFinite(n) || n < -90 || n > 90) throw new Error('watermarkStyle.angle 限 -90-90'); out.angle = n }
+      patch.policy.watermarkStyle = Object.keys(out).length ? out : null
     }
     if (patch.policy.bannerStyle !== undefined && patch.policy.bannerStyle !== null) {
       const bs = patch.policy.bannerStyle
@@ -337,8 +352,86 @@ export function patchConfig(patch) {
     }
     config.auth.loginProtection = { ...(config.auth.loginProtection ?? {}), ...patch.loginProtection, enabled: patch.loginProtection.enabled !== false }
   }
+  if (_shouldBump) bumpPolicyVersion()
   saveConfig()
   return config
+}
+
+/* ---------- 策略版本管理 + 灰度发布 ----------
+   - policy.version: 每次客户端相关策略热更自动递增 patch 位（1.0.N）
+   - data/policy-versions.json: 版本快照 [{version, policy, ts, note}]（灰度/回滚的数据源）
+   - policy.gray: { version, percent } —— version=null=无灰度（全员 current）；percent=设备哈希分流比例 */
+const versionsPath = join(DATA_DIR, 'policy-versions.json')
+const POLICY_BUMP_KEYS = ['clientRules', 'bannerPosition', 'bannerStyle', 'watermark', 'watermarkStyle', 'lockModelConfig', 'disabledFeatures', 'allowedPlugins', 'pluginRegistry']
+
+export function bumpPolicyVersion(note = '') {
+  const cur = String(config.policy.version ?? '1.0.0')
+  const m = cur.match(/^(\d+)\.(\d+)\.(\d+)$/)
+  const [maj, min, pat] = m ? [Number(m[1]), Number(m[2]), Number(m[3]) + 1] : [1, 0, 1]
+  config.policy.version = `${maj}.${min}.${pat}`
+  try {
+    mkdirSync(dirname(versionsPath), { recursive: true })
+    let list = []
+    try { list = JSON.parse(readFileSync(versionsPath, 'utf8')) } catch { /* 首次 */ }
+    // 快照：仅客户端相关字段（完整 policy 太大且含服务端无关项）
+    const snap = {}
+    for (const k of POLICY_BUMP_KEYS) if (config.policy[k] !== undefined) snap[k] = config.policy[k]
+    list.unshift({ version: config.policy.version, policy: snap, ts: new Date().toISOString().slice(0, 19).replace('T', ' '), note: String(note ?? '').slice(0, 100) })
+    if (list.length > 50) list.length = 50      // 最多留 50 版
+    writeFileSync(versionsPath, JSON.stringify(list, null, 2))
+  } catch (e) { console.warn(`[config] 版本快照写入失败: ${e.message}`) }
+}
+
+/** 版本快照列表（管理台版本历史页） */
+export function listPolicyVersions() {
+  try { return JSON.parse(readFileSync(versionsPath, 'utf8')) ?? [] } catch { return [] }
+}
+
+/** 转正：清除灰度指向（全员拉 current） */
+export function promoteGray() { config.policy.gray = null; saveConfig() }
+
+/** 设灰度：version=灰度版本号，percent=0-100 */
+export function setGray(version, percent) {
+  if (version !== null) {
+    const hit = listPolicyVersions().find((v) => v.version === version)
+    if (!hit) throw new Error(`灰度版本 ${version} 不在版本历史中`)
+    const n = Number(percent)
+    if (!Number.isInteger(n) || n < 0 || n > 100) throw new Error('灰度比例须为 0-100 整数')
+    config.policy.gray = { version, percent: n }
+  } else {
+    config.policy.gray = null
+  }
+  saveConfig()
+}
+
+/** 回滚：把指定版本的快照写回当前策略（内容回退，版本继续向前 bump——回滚也是一次变更） */
+export function rollbackPolicy(version, note = '') {
+  const hit = listPolicyVersions().find((v) => v.version === version)
+  if (!hit) throw new Error(`版本 ${version} 不在版本历史中`)
+  Object.assign(config.policy, structuredClone(hit.policy))
+  bumpPolicyVersion(note ? `回滚自 ${version}: ${note}` : `回滚自 ${version}`)
+  saveConfig()
+  return config.policy.version
+}
+
+/** 员工端设备哈希 → 是否命中灰度（同哈希永远同侧，稳定不横跳） */
+export function grayHit(deviceHash) {
+  const gray = config.policy.gray
+  if (!gray?.version || !deviceHash) return false
+  let h = 0
+  const s = String(deviceHash)
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return (h % 100) < (Number(gray.percent) || 0)
+}
+
+/** 按设备取应下发的策略：灰度命中 → 灰度版快照合并 current 基座；否则 current */
+export function policyForDevice(deviceHash) {
+  const gray = config.policy.gray
+  if (gray?.version && grayHit(deviceHash)) {
+    const hit = listPolicyVersions().find((v) => v.version === gray.version)
+    if (hit) return { ...structuredClone(config.policy), ...structuredClone(hit.policy), grayActive: true }
+  }
+  return config.policy
 }
 
 /** 将当前配置写回配置文件（热更落盘；保留非托管字段如 auth，密钥不落明文以外泄） */
