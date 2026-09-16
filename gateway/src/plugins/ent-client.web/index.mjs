@@ -150,7 +150,7 @@ const pluginsHtml = `
         <button class="dlg-x" data-dlg-close title="关闭">✕</button>
       </div>
       <div class="dlg-body">
-        <div class="fgrid">
+        <div class="fgrid" style="grid-template-columns:96px minmax(0,1fr)">
           <label>企业插件源</label>
           <select id="regMode" class="input" style="width:100%">
             <option value="off">默认社区源（off · 不干预）</option>
