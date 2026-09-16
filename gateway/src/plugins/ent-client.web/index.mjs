@@ -229,7 +229,7 @@ const pluginsHtml = `
         </div>
         <div class="tablewrap" style="max-height:380px;overflow:auto">
           <table>
-            <thead><tr><th>版本</th><th>大小</th><th>来源</th><th>上传人</th><th>时间</th><th>说明</th><th style="width:132px">操作</th></tr></thead>
+            <thead><tr><th>版本</th><th>大小</th><th>上传人 / 时间</th><th>说明</th><th style="width:120px">操作</th></tr></thead>
             <tbody id="rvBody"></tbody>
           </table>
         </div>
@@ -728,15 +728,13 @@ function fillRepoVerDlg() {
     <tr>
       <td style="white-space:nowrap"><span class="mono" style="font-size:12px">${esc(v)}</span>${v === p.defaultVersion ? ' <span class="badge ok">默认</span>' : ''}</td>
       <td class="mono" style="font-size:12px">${fmtSize(meta.size)}</td>
-      <td><span class="badge dim">${meta.source === 'npm' ? 'npm' : '上传'}</span></td>
-      <td style="font-size:12px">${esc(meta.by || '-')}</td>
-      <td class="mono" style="font-size:11.5px;color:#94a3b8;white-space:nowrap">${esc(meta.ts ?? '')}</td>
-      <td style="font-size:12px;color:#64748b;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(meta.note ?? '')}">${esc(meta.note) || '—'}</td>
+      <td style="font-size:12px">${esc(meta.by || '-')}<div class="mono" style="font-size:10.5px;color:#94a3b8">${esc((meta.ts ?? '').slice(0, 10))}</div></td>
+      <td style="font-size:12px;color:#64748b;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(meta.note ?? '')}">${esc(meta.note) || '—'}</td>
       <td style="white-space:nowrap">
         ${v === p.defaultVersion ? '' : `<button class="btn sm" data-rv-default="${esc(v)}">设默认</button>`}
         <button class="btn sm danger" data-rv-del="${esc(v)}">删</button>
       </td>
-    </tr>`).join('') || '<tr><td colspan="7" class="empty">无版本</td></tr>'
+    </tr>`).join('') || '<tr><td colspan="5" class="empty">无版本</td></tr>'
 }
 
 async function repoVerAction(act, arg) {
