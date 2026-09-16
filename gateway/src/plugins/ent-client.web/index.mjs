@@ -94,11 +94,17 @@ const switchesHtml = `
 
   ${savebar('lp')}`
 
-/* ============ 子页 2 · 插件管控 ============ */
+/* ============ 子页 2 · 插件管控（页签：插件仓库 / 允许清单与插件源） ============ */
 const pluginsHtml = `
   ${headrow('插件管控', `<button class="btn sm primary" id="repoAddBtn">＋ 添加插件</button>`)}
 
-  <!-- ============ 企业插件仓库 ============ -->
+  <div class="tabs" id="plugTabs">
+    <span class="on" data-panetab="pane-repo">插件仓库</span>
+    <span data-panetab="pane-allow">允许清单与插件源</span>
+  </div>
+
+  <!-- ============ 页签 A · 企业插件仓库 ============ -->
+  <div class="pane on" id="pane-repo">
   <div class="card">
     <h2><span class="bar"></span>企业插件仓库 <span class="badge dim" id="repoCount">0 个</span>
       <span style="margin-left:auto"><input id="repoSearch" class="input" placeholder="搜插件名 / 描述…" style="width:200px;font-size:12px;height:28px"></span>
@@ -111,10 +117,12 @@ const pluginsHtml = `
       </table>
     </div>
   </div>
+  </div>
 
-  <!-- ============ 下发方式 ============ -->
+  <!-- ============ 页签 B · 允许清单与插件源 ============ -->
+  <div class="pane" id="pane-allow">
   <div class="card">
-    <h2><span class="bar"></span>允许清单与插件源</h2>
+    <h2><span class="bar"></span>允许清单</h2>
     <div style="margin-bottom:4px;font-size:12.5px;color:#475569">允许清单 <span class="badge dim" id="allowCount">0</span> <span style="color:#94a3b8">清单外插件员工端安装被拦截</span></div>
     <div id="allowList" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
@@ -122,8 +130,11 @@ const pluginsHtml = `
       <button class="btn sm" id="allowAddBtn">＋ 添加</button>
     </div>
     <div class="err" id="allowErr" style="margin-top:6px"></div>
+  </div>
 
-    <div class="fgrid" style="margin-top:14px">
+  <div class="card">
+    <h2><span class="bar"></span>插件源</h2>
+    <div class="fgrid">
       <label>企业插件源</label>
       <select id="regMode" class="input" style="width:100%">
         <option value="off">默认社区源（off · 不干预）</option>
@@ -148,7 +159,7 @@ const pluginsHtml = `
             自建 npm 私服（Verdaccio / Nexus 等），可缓存、可发私有插件
           </div>
           <div class="vs-b"><b>url 模式 —— 静态文件直连</b>
-            勾选「内置仓库直连」即用上方企业插件仓库；也可把 .tgz 放内网 HTTP 服务按前缀下载
+            勾选「内置仓库直连」即用插件仓库页签；也可把 .tgz 放内网 HTTP 服务按前缀下载
           </div>
         </div>
         <div class="codeblock"><span class="cmt">// 员工端安装时插件内部实际执行的等价命令：</span>
@@ -169,6 +180,7 @@ dsh plugin add <span class="hl">http://&lt;网关地址&gt;/plugin-packages/</sp
 
   <!-- 自动保存状态（无保存按钮：所有改动即时下发） -->
   <div style="margin-top:10px;font-size:12px;color:#94a3b8;min-height:16px" id="plugAutoMsg"></div>
+  </div>
 
   <!-- 添加插件弹窗（npm 地址 / 压缩包上传 二选一） -->
   <div class="dlg-mask" id="repoAddDlg" hidden>
@@ -1212,6 +1224,15 @@ function bindSwitches() {
 }
 
 function bindPlugins() {
+  /* ---- 页签切换：插件仓库 / 允许清单与插件源 ---- */
+  if ($('plugTabs')) {
+    $('plugTabs').addEventListener('click', (e) => {
+      const tab = e.target.closest('[data-panetab]')
+      if (!tab) return
+      for (const t of $('plugTabs').querySelectorAll('[data-panetab]')) t.classList.toggle('on', t === tab)
+      for (const p of document.querySelectorAll('.pane[id^="pane-"]:not(.dlg *)')) p.classList.toggle('on', p.id === tab.dataset.panetab)
+    })
+  }
   if ($('regMode')) {
     // 插件源改动自动保存：点选类立即，输入类防抖（autoSavePlug 内 600ms）
     $('regMode').addEventListener('change', () => { syncRegFields(); autoSavePlug(true) })
