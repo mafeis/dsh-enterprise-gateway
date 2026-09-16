@@ -10,7 +10,7 @@ function kv(label, value) {
   return `<div class="kv-row"><span class="kv-label">${esc(label)}</span><span class="kv-value">${esc(value ?? '-')}</span></div>`;
 }
 
-function deviceDetailHtml(x) {
+async function deviceDetailHtml(x) {
   const d = x.device ?? {};
   const rows = [
     kv('账号', x.account || '未登录'),
