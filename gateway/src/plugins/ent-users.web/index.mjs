@@ -256,10 +256,13 @@ async function openUserModal(username) {
       <div class="dlg wide" role="dialog" aria-modal="true">
         <div class="dlg-head">
           <h2>账号详情 · ${esc(username)}</h2>
-          <button class="dlg-x" data-dlg-close title="关闭 (Esc)">${icon('x', { size: 16 })}</button>
+          <span style="display:flex;gap:8px;flex-shrink:0">
+            <button class="btn sm" data-actset title="设置登录历史/心跳等默认显示条数">⚙ 显示设置</button>
+            <button class="dlg-x" data-dlg-close title="关闭 (Esc)">${icon('x', { size: 16 })}</button>
+          </span>
         </div>
         <div class="dlg-body">
-          ${a.limits ? `<div style="font-size:12px;color:#94a3b8;margin-bottom:6px">展示窗口：近 ${esc(a.limits.days)} 天 · 登录历史 ${esc(a.limits.logins)} 条 / 设备 ${esc(a.limits.devices)} 台 / 用量分组 ${esc(a.limits.usage)} 个（可在 gateway-config.json audit.activity* 调整）</div>` : ''}
+          ${a.limits ? `<div style="font-size:12px;color:#94a3b8;margin-bottom:6px">展示窗口：近 ${esc(a.limits.days)} 天 · 登录历史 ${esc(a.limits.logins)} 条 / 心跳设备 ${esc(a.limits.devices)} 台 / 用量分组 ${esc(a.limits.usage)} 个（点右上「⚙ 显示设置」可调整）</div>` : ''}
           <div class="user-kpis">
             <div class="kpi"><div class="lab">近7日请求</div><div class="val">${s.totalRequests ?? 0}</div></div>
             <div class="kpi"><div class="lab">近7日 Token</div><div class="val">${fmtBytes(s.totalTokens)}</div></div>
@@ -276,6 +279,8 @@ async function openUserModal(username) {
           ${sparkline(a.memSeries)}
         </div>
       </div>`
+    // ⚙ 显示设置：调整登录历史/心跳设备/用量分组的默认显示条数（全局落盘，与「安全防护 → 审计留存」同一配置）
+    m.querySelector('[data-actset]')?.addEventListener('click', () => openActivitySettings(username, a.limits ?? {}))
   } catch (e) {
     m.innerHTML = `<div class="dlg md" role="dialog" aria-modal="true">
       <div class="dlg-head">
@@ -285,6 +290,53 @@ async function openUserModal(username) {
       <div class="dlg-body">加载失败：${esc(e?.message ?? e)}</div>
     </div>`
   }
+}
+
+/* ============ 账号详情 · 显示设置弹层 ============ */
+/** 打开显示设置：登录历史 / 心跳设备 / 用量分组 / 活动窗口（保存到 audit.activity*，全局生效） */
+function openActivitySettings(username, limits) {
+  let m = document.getElementById('actSetModal')
+  if (!m) { m = document.createElement('div'); m.id = 'actSetModal'; m.className = 'dlg-mask'; document.body.appendChild(m) }
+  const f = (id, label, val, max) => `
+    <div>
+      <label>${label}</label>
+      <input class="input" id="${id}" type="number" min="1" max="${max}" value="${esc(val)}">
+    </div>`
+  m.innerHTML = `
+    <div class="dlg" style="width:min(380px,94vw)" role="dialog" aria-modal="true">
+      <div class="dlg-head">
+        <h2>显示设置</h2>
+        <button class="dlg-x" data-dlg-close title="关闭 (Esc)">${icon('x', { size: 16 })}</button>
+      </div>
+      <div class="dlg-body">
+        <div class="crumb" style="margin-bottom:10px">账号详情各区块的默认显示数量（全局生效，保存后落盘）</div>
+        <div style="display:grid;gap:10px">
+          ${f('asLogins', '登录历史条数（含失败尝试）', limits.logins ?? 20, 200)}
+          ${f('asDevices', '心跳设备条数（登录心跳聚合）', limits.devices ?? 20, 200)}
+          ${f('asUsage', '用量分组数', limits.usage ?? 20, 200)}
+          ${f('asDays', '活动窗口（天）', limits.days ?? 7, 90)}
+        </div>
+        <div class="hint" style="margin-top:10px">只影响展示范围，不删数据；与「安全防护 → 审计留存」是同一组配置。</div>
+      </div>
+      <div class="dlg-foot">
+        <span style="flex:1"></span>
+        <button class="btn" data-dlg-close>取消</button>
+        <button class="btn primary" id="asSaveBtn">保存</button>
+      </div>
+    </div>`
+  openDlg(m)
+  m.querySelector('#asSaveBtn').addEventListener('click', async () => {
+    const num = (id) => Number(m.querySelector('#' + id).value)
+    for (const [id, max] of [['asLogins', 200], ['asDevices', 200], ['asUsage', 200], ['asDays', 90]]) {
+      if (!Number.isInteger(num(id)) || num(id) < 1 || num(id) > max) { toast('✗ ' + id + ' 须为 1-' + max + ' 的整数', 'bad'); return }
+    }
+    try {
+      await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ audit: { activityLogins: num('asLogins'), activityDevices: num('asDevices'), activityUsage: num('asUsage'), activityDays: num('asDays') } }) })
+      closeDlg(m)
+      toast('显示设置已保存并落盘')
+      openUserModal(username)   // 按新条数重拉账号详情
+    } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
+  })
 }
 
 /* ============ 事件绑定（模块级防重入） ============ */

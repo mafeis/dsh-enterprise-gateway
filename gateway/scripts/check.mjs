@@ -4,7 +4,7 @@
  * 替代手工维护的文件清单——新增模块自动纳入，不会漏（此前 usage.mjs 就漏过）
  */
 import { spawnSync } from 'node:child_process'
-import { readdirSync, statSync } from 'node:fs'
+import { readdirSync, statSync, existsSync } from 'node:fs'
 import { join, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -37,5 +37,9 @@ if (failed) {
 console.log(`✓ check 通过：${files.length} 个模块语法正常`)
 
 // 插件页面统一设计契约 lint（R1-R5，规范 docs/admin-plugin-pages.zh.md）
-const lint = spawnSync(process.execPath, [join(root, 'scripts', 'lint-pages.mjs')], { stdio: 'inherit' })
-if (lint.status !== 0) process.exit(1)
+// lint-pages.mjs 已随 304a7ff 归档进开发期调试脚本；脚本不存在时跳过（存在则照常执行）
+const lintPath = join(root, 'scripts', 'lint-pages.mjs')
+if (existsSync(lintPath)) {
+  const lint = spawnSync(process.execPath, [lintPath], { stdio: 'inherit' })
+  if (lint.status !== 0) process.exit(1)
+}

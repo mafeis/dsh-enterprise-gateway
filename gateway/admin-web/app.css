@@ -199,12 +199,24 @@ blockquote.detail { background: #f8fafc; border-left: 3px solid var(--accent); b
 .nav-item .ic { width: 20px; text-align: center; font-size: 15px; }
 /* 二级菜单：分组头 + 缩进子项 */
 .nav-group { cursor: pointer; user-select: none; justify-content: flex-start; }
+.nav-group.open { color: #cbd5e1; }
+.nav-group.open .sub-arw { color: var(--accent); }
 .nav-group .sub-arw { margin-left: auto; font-size: 11px; transition: transform .15s; }
 .nav-group.open .sub-arw { transform: rotate(90deg); }
 .nav-group.active:not(.open) { background: rgba(255,255,255,.08); color: #e2e8f0; }
 .nav-sub { display: flex; flex-direction: column; gap: 2px; }
 .nav-sub[hidden] { display: none; }
-.nav-item.sub { padding: 7px 14px 7px 30px; font-size: 12.5px; }
+.nav-item.sub {
+  padding: 7px 14px 7px 30px; font-size: 12.5px; position: relative; color: #8b98ab;
+}
+.nav-item.sub::before {
+  content: ''; position: absolute; left: 20px; top: 4px; bottom: 4px; width: 2px;
+  background: rgba(255,255,255,.13); border-radius: 1px; transition: background .12s;
+}
+.nav-item.sub:hover { color: #e2e8f0; }
+.nav-item.sub:hover::before { background: rgba(255,255,255,.3); }
+.nav-item.sub.active { color: #fff; font-weight: 600; }
+.nav-item.sub.active::before { background: #fff; box-shadow: 0 0 6px rgba(255,255,255,.7); }
 .nav-foot { margin-top: auto; padding: 10px 6px 2px; border-top: 1px solid rgba(255,255,255,.08); }
 .content { flex: 1; padding: 24px 28px 60px; max-width: 1080px; }
 @media (max-width: 900px) {

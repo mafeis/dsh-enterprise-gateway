@@ -1,9 +1,9 @@
 /**
  * 应用装配：登录/登出 + 启动（页面逻辑全部在插件 .web/ 模块里，壳零页面代码）
  */
-import { $, api, session } from './core.mjs?v=20260914120000';
-import { doLogin, logout, checkHealth } from './login.mjs?v=20260914120000';
-import { navigate, initRouter, refreshCurrent } from './router.mjs?v=20260914120000';
+import { $, api, session } from './core.mjs?v=20260915180000';
+import { doLogin, logout, checkHealth } from './login.mjs?v=20260915180000';
+import { navigate, initRouter, refreshCurrent } from './router.mjs?v=20260915180000';
 
 /* ---- 事件绑定（仅壳私有区域：登录/顶栏；页面事件由各插件模块自带） ---- */
 function bindEvents() {

@@ -27,8 +27,14 @@ export function createPluginProtocolHandler({ config, store, auth }) {
       if (!b || !b.profile || !b.device || b.policyVersion === undefined) {
         return json(res, 400, { error: { message: '需要 profile、policyVersion、device', type: 'bad_request' } })
       }
-      insertAck(String(b.profile), String(b.policyVersion), String(b.device))
-      console.log(`[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] << 灰度回执: ${b.profile} v=${b.policyVersion}`)
+      // 设备指纹与 /heartbeat 同口径（sha256(Authorization)）：旧客户端 device 恒传占位符
+      // 'enterprise'，全员同指纹会让「已回执设备数」永远等于 1、灰度没法按设备核对——
+      // 带票请求一律按票重算，仅无票请求才退回客户端自报值（兼容老协议校验）。
+      const dh = req.headers.authorization
+        ? createHash('sha256').update(req.headers.authorization).digest('hex').slice(0, 16)
+        : String(b.device)
+      insertAck(String(b.profile), String(b.policyVersion), dh)
+      console.log(`[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] << 灰度回执: ${b.profile} v=${b.policyVersion} dev=${dh}`)
       return json(res, 200, { ok: true })
     }
     if (req.method === 'POST' && path === '/heartbeat') {

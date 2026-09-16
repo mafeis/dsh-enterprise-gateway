@@ -122,6 +122,7 @@ const DEFAULT_CONFIG = {
 }
 
 let config = structuredClone(DEFAULT_CONFIG)
+let __configLoaded = false
 const configPath = process.env.ENT_GATEWAY_CONFIG ?? join(DATA_DIR, 'gateway-config.json')
 /** 密钥文件：管理台输入的 API Key 落这里（KEY=value），绝不写进 gateway-config.json */
 const envFilePath = join(DATA_DIR, '.env')
@@ -233,15 +234,17 @@ export function loadConfig() {
   if (process.env.UPSTREAM_BASE_URL && config.providers[0]) {
     config.providers[0].baseUrl = process.env.UPSTREAM_BASE_URL
   }
+  __configLoaded = true
   return config
 }
 
-export function getConfig() { return config }
+export function getConfig() { if (!__configLoaded) loadConfig(); return config }
 
 /** 管理API热更新（仅白名单字段）· 持久化到配置文件，重启不丢
  *  规则不合法直接 throw（调用方转 400），绝不静默写入坏规则
  */
 export function patchConfig(patch) {
+  if (!__configLoaded) loadConfig()   // 防误写：未加载真实配置前禁止 patch（否则会把 DEFAULT_CONFIG 落盘覆盖线上配置）
   if (patch.policy) {
     if (patch.policy.allowedPlugins !== undefined) {
       if (!Array.isArray(patch.policy.allowedPlugins)) throw new Error('allowedPlugins 必须是字符串数组')
@@ -274,6 +277,23 @@ export function patchConfig(patch) {
           message: String(r.message ?? '').slice(0, 200),
         }
       })
+    }
+    if (patch.policy.bannerPosition !== undefined) {
+      if (!['top-right', 'top-center', 'top-left', 'bottom-right'].includes(patch.policy.bannerPosition)) throw new Error('bannerPosition 只能是 top-right/top-center/top-left/bottom-right')
+    }
+    if (patch.policy.bannerStyle !== undefined && patch.policy.bannerStyle !== null) {
+      const bs = patch.policy.bannerStyle
+      if (typeof bs !== 'object' || Array.isArray(bs)) throw new Error('bannerStyle 必须是对象或 null')
+      for (const k of ['maxWidth', 'top', 'right', 'bottom', 'left']) {
+        if (bs[k] !== undefined && bs[k] !== null) {
+          const n = Number(bs[k])
+          if (!Number.isFinite(n) || n < 0 || n > 4000) throw new Error(`bannerStyle.${k} 必须是 0-4000 的数字`)
+          bs[k] = n
+        }
+      }
+      for (const k of ['bg', 'border', 'color']) {
+        if (bs[k] !== undefined && bs[k] !== null && !/^#[0-9a-fA-F]{3,8}$/.test(String(bs[k]))) throw new Error(`bannerStyle.${k} 必须是 #hex 颜色`)
+      }
     }
     Object.assign(config.policy, patch.policy)
   }

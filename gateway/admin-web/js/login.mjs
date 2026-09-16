@@ -1,8 +1,8 @@
 /**
  * 页面模块 · 登录/登出 + 健康状态灯
  */
-import { GW, session, $, toast, confirmDlg } from './core.mjs?v=20260914120000';
-import { navigate } from './router.mjs?v=20260914120000';
+import { GW, session, $, toast, confirmDlg } from './core.mjs?v=20260915180000';
+import { navigate } from './router.mjs?v=20260915180000';
 
 export function showLogin() { $('loginMask').classList.remove('hidden'); $('mainWrap').style.display = 'none'; }
 

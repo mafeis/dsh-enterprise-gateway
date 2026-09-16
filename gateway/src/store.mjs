@@ -394,11 +394,56 @@ export function recentHeartbeats(seconds = 130) {
 
 /* ---------- 策略下发回执（灰度进度） ---------- */
 
-export function recentPolicyAcks(limit = 20) {
+/** 回执明细（下发回执页）。账号/环境/Node 版本取该设备最近一次心跳补齐（设备从未发过心跳则为空） */
+export function recentPolicyAcks(limit = 50) {
   return db.prepare(`
-    SELECT profile, policy_version, device_hash, datetime(ts, '+8 hours') AS ts_local
-    FROM policy_acks ORDER BY id DESC LIMIT ?
+    SELECT a.profile, a.policy_version, a.device_hash, datetime(a.ts, '+8 hours') AS ts_local,
+           (SELECT h.account FROM heartbeats h WHERE h.device_hash = a.device_hash AND h.account IS NOT NULL AND h.account != '' ORDER BY h.ts DESC LIMIT 1) AS account,
+           (SELECT h.env FROM heartbeats h WHERE h.device_hash = a.device_hash ORDER BY h.ts DESC LIMIT 1) AS env,
+           (SELECT h.node_version FROM heartbeats h WHERE h.device_hash = a.device_hash ORDER BY h.ts DESC LIMIT 1) AS node_version,
+           (SELECT datetime(h.ts, '+8 hours') FROM heartbeats h WHERE h.device_hash = a.device_hash ORDER BY h.ts DESC LIMIT 1) AS last_seen_local
+    FROM policy_acks a ORDER BY a.id DESC LIMIT ?
   `).all(limit)
+}
+
+/** 按策略版本聚合回执：各版本收到多少条、覆盖多少台设备、最早/最晚回执时间（按最近回执排序） */
+export function ackVersionStats() {
+  return db.prepare(`
+    SELECT policy_version,
+           COUNT(*) AS acks,
+           COUNT(DISTINCT device_hash) AS devices,
+           datetime(MIN(ts), '+8 hours') AS first_local,
+           datetime(MAX(ts), '+8 hours') AS last_local
+    FROM policy_acks
+    GROUP BY policy_version
+    ORDER BY MAX(ts) DESC
+  `).all()
+}
+
+/** 窗口内有心跳的设备数（灰度覆盖率的分母参考） */
+export function onlineDeviceCount(windowMinutes = 1440) {
+  return db.prepare(`SELECT COUNT(DISTINCT device_hash) AS n FROM heartbeats WHERE ts > datetime('now', '-${windowMinutes} minutes')`).get()?.n ?? 0
+}
+
+/** 灰度缺口：窗口内有心跳、但对 currentVersion 尚未回执的设备（含心跳侧最后上报的账号/版本，便于区分「没拉到新版」与「拉到了没回执」） */
+export function ackPendingDevices(currentVersion, windowMinutes = 1440, limit = 100) {
+  return db.prepare(`
+    SELECT * FROM (
+      SELECT h.device_hash,
+             (SELECT h2.account FROM heartbeats h2 WHERE h2.device_hash = h.device_hash AND h2.account IS NOT NULL AND h2.account != '' ORDER BY h2.ts DESC LIMIT 1) AS account,
+             (SELECT h2.profile FROM heartbeats h2 WHERE h2.device_hash = h.device_hash ORDER BY h2.ts DESC LIMIT 1) AS profile,
+             (SELECT h2.policy_version FROM heartbeats h2 WHERE h2.device_hash = h.device_hash ORDER BY h2.ts DESC LIMIT 1) AS hb_version,
+             (SELECT h2.env FROM heartbeats h2 WHERE h2.device_hash = h.device_hash ORDER BY h2.ts DESC LIMIT 1) AS env,
+             (SELECT h2.node_version FROM heartbeats h2 WHERE h2.device_hash = h.device_hash ORDER BY h2.ts DESC LIMIT 1) AS node_version,
+             MAX(h.ts) AS last_ts,
+             datetime(MAX(h.ts), '+8 hours') AS last_seen_local
+      FROM heartbeats h
+      WHERE h.ts > datetime('now', '-${windowMinutes} minutes')
+      GROUP BY h.device_hash
+    ) AS t
+    WHERE NOT EXISTS (SELECT 1 FROM policy_acks a WHERE a.device_hash = t.device_hash AND a.policy_version = ?)
+    ORDER BY last_ts DESC LIMIT ?
+  `).all(currentVersion, limit)
 }
 
 /* ---------- 过期留痕清理（audit.retentionDays） ---------- */

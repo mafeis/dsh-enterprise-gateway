@@ -6,7 +6,7 @@
  *   POST /heartbeat          员工端心跳（在线终端数据源）
  *   PATCH /admin/policy      管理侧策略热更（安全防护页与客户端管控页共用；校验失败 400 绝不写坏）
  *   GET  /admin/policy-detail 管理侧策略详情（含 DLP 规则/留存/登录保护/清单/回执）
- * 页面：客户端管控（界面策略开关 / 登录保护 / 插件清单与源 / 自助规则 / 下发回执）
+ * 页面：客户端管控 → 4 个二级页（策略与开关 / 插件管控 / 自助规则 / 下发回执）
  * 实现模块：src/routes/plugin.mjs（协议）
  */
 import { createPluginProtocolHandler } from '../routes/plugin.mjs'
@@ -16,9 +16,17 @@ export const name = 'ent-client'
 export const provides = []
 export const inject = ['config', 'store', 'auth', 'router']
 
-/** 自带页面：客户端管控（策略下发 / 登录保护 / 插件管控 / 自助规则 / 回执） */
+/** 自带页面：客户端管控（一级菜单 + 4 个二级页，壳按 nav.children 渲染分组导航） */
 export const admin = {
-  nav: { id: 'client', title: '客户端管控', icon: 'monitor', order: 70 },
+  nav: {
+    id: 'client', title: '客户端管控', icon: 'monitor', order: 70,
+    children: [
+      { id: 'client-switches', title: '策略与开关' },
+      { id: 'client-plugins', title: '插件管控' },
+      { id: 'client-rules', title: '自助规则' },
+      { id: 'client-acks', title: '下发回执' },
+    ],
+  },
   entry: 'index.mjs',
 }
 
@@ -28,7 +36,7 @@ export function apply(ctx) {
   const router = ctx.get('router')
   const auth = ctx.get('auth')
   const { getConfig, patchConfig } = ctx.get('config')
-  const { recentPolicyAcks } = ctx.get('store')
+  const { recentPolicyAcks, ackVersionStats, ackPendingDevices, onlineDeviceCount } = ctx.get('store')
   const handleProtocol = createPluginProtocolHandler({ config: ctx.get('config'), store: ctx.get('store'), auth })
 
   /* ---- 员工端协议（原 ent-protocol 并入：策略下发/回执/心跳） ---- */
@@ -67,7 +75,9 @@ export function apply(ctx) {
       audit: c.audit,
       dlp: c.dlp,
       loginProtection: c.auth.loginProtection ?? { enabled: false, maxFails: 10, windowMin: 15, lockMin: 15 },
-      acks: recentPolicyAcks(20),
+      acks: recentPolicyAcks(50),
+      ackStats: { versions: ackVersionStats(), onlineDevices: onlineDeviceCount(1440) },
+      pendingAcks: ackPendingDevices(c.policy?.version ?? null, 1440),
     })
   }), 'ent-client: route GET /admin/policy-detail')
 }

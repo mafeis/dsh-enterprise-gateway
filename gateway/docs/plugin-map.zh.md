@@ -44,7 +44,7 @@ demo（示例）     给插件作者看的活样册，生产可禁用
 | ent-catalog | 供应商与模型 | /admin/config、/admin/providers*、/admin/models* + 内置探活 | 供应商与模型页 | — |
 | ent-users | 用户管理 | /admin/users*（含账号活动详情） | 用户管理页 | — |
 | ent-billing | 用量与计费 | /admin/usage（管理账单）+ /usage/me（员工自助） | 计费账单页 | — |
-| ent-client | 客户端管控 | /policy/current、/policy/ack、/heartbeat（员工协议）+ /admin/policy*（策略热更） | 客户端管控页 | — |
+| ent-client | 客户端管控 | /policy/current、/policy/ack、/heartbeat（员工协议）+ /admin/policy*（策略热更） | 客户端管控页（4 个二级页：策略与开关/插件管控/自助规则/下发回执） | — |
 | ent-audit | 审计留痕 | /admin/logs*、/admin/verify-anchor、/admin/seal-anchor、/admin/purge | 审计留痕页 | — |
 | ent-console | 运营总览 | /admin/stats、/admin/terminals + 管理台壳（SPA 静态资源 + /admin/plug/* 分发） | 运营总览页 | — |
 
