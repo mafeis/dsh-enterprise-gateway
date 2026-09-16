@@ -13,10 +13,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import zlib from 'node:zlib'
-import { fileURLToPath } from 'node:url'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const REPO_DIR = path.join(__dirname, '..', '..', 'data', 'plugin-repo')
+/** 插件仓库目录:「启动目录/data/plugin-repo」(与 config.mjs 的 DATA_DIR 同规则) */
+const REPO_DIR = path.join(process.cwd(), 'data', 'plugin-repo')
 const PKG_DIR = path.join(REPO_DIR, 'packages')
 const INDEX_FILE = path.join(REPO_DIR, 'index.json')
 

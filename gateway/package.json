@@ -1,10 +1,22 @@
 {
   "name": "dsh-enterprise-gateway",
   "version": "3.0.0",
-  "private": true,
   "type": "module",
   "description": "企业版-网关：OpenAI 兼容转发 + JWT 鉴权 + DLP + 留痕防篡改",
+  "license": "MIT",
   "main": "gateway.mjs",
+  "bin": {
+    "dsh-enterprise-gateway": "./gateway.mjs"
+  },
+  "files": [
+    "gateway.mjs",
+    "src",
+    "admin-web",
+    "docs",
+    "scripts",
+    "gateway-config.example.json",
+    "README.md"
+  ],
   "scripts": {
     "start": "node gateway.mjs",
     "check": "node scripts/check.mjs",

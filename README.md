@@ -53,23 +53,37 @@ DSH 企业网关把所有大模型访问收敛到一个入口：员工终端只�
 
 ### 安装
 
+一条命令，从 npm 全局安装（推荐）：
+
 ```powershell
-# 1. 安装依赖（在 gateway/ 目录下）
-cd gateway
-npm install
+npm i -g dsh-enterprise-gateway
 
-# 2. 准备配置（首次）
-copy gateway-config.example.json data\gateway-config.json
-#    供应商密钥写入 data\.env，一行一个：ENT_PROV_<名字>_KEY=sk-xxx
+# 任意目录启动（首次自动生成 ./data 与引导管理员）
+dsh-enterprise-gateway
 
-# 3. 启动
-node gateway.mjs
-
-# 4. 打开管理台
+# 打开管理台
 # http://127.0.0.1:8899/admin
 #    首次启动自动创建引导管理员 admin，随机初始密码只在启动日志打印一次：
 #    在启动输出里找「初始密码: xxxx」；登录后请立即改密
 ```
+
+不想全局装？`npx dsh-enterprise-gateway` 直接跑；数据目录可用 `ENT_DATA_DIR` / `ENT_DB_PATH` 指定。
+
+<details>
+<summary>从源码运行（开发者）</summary>
+
+```powershell
+git clone https://github.com/mafeis/dsh-enterprise-gateway.git
+cd dsh-enterprise-gateway/gateway
+npm install
+
+# 准备配置（首次）：copy gateway-config.example.json data\gateway-config.json
+# 供应商密钥写入 data\.env，一行一个：ENT_PROV_<名字>_KEY=sk-xxx
+
+node gateway.mjs
+```
+
+</details>
 
 忘记管理员密码：
 
@@ -120,24 +134,38 @@ DSH Enterprise Gateway funnels all LLM traffic through a single entrypoint: empl
 
 ### Installation
 
+One command, install globally from npm (recommended):
+
 ```powershell
-# 1. Install dependencies (inside the gateway/ directory)
-cd gateway
-npm install
+npm i -g dsh-enterprise-gateway
 
-# 2. Prepare config (first run)
-copy gateway-config.example.json data\gateway-config.json
-#    Write provider keys into data\.env, one per line: ENT_PROV_<NAME>_KEY=sk-xxx
+# Start from any directory (./data and the bootstrap admin are created on first run)
+dsh-enterprise-gateway
 
-# 3. Start
-node gateway.mjs
-
-# 4. Open the admin console
+# Open the admin console
 # http://127.0.0.1:8899/admin
 #    A bootstrap admin account is created on first start; the random initial
 #    password is printed once in the startup log — look for「初始密码: xxxx」
 #    and change it right after signing in.
 ```
+
+Prefer not to install globally? Run `npx dsh-enterprise-gateway`; the data directory can be relocated via `ENT_DATA_DIR` / `ENT_DB_PATH`.
+
+<details>
+<summary>Run from source (developers)</summary>
+
+```powershell
+git clone https://github.com/mafeis/dsh-enterprise-gateway.git
+cd dsh-enterprise-gateway/gateway
+npm install
+
+# Prepare config (first run): copy gateway-config.example.json data\gateway-config.json
+# Write provider keys into data\.env, one per line: ENT_PROV_<NAME>_KEY=sk-xxx
+
+node gateway.mjs
+```
+
+</details>
 
 Forgot the admin password:
 

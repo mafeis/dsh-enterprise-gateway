@@ -6,11 +6,10 @@
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { getConfig } from './config.mjs'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const DB_PATH = process.env.ENT_DB_PATH ?? join(__dirname, '..', 'data', 'gateway.db')
+/** SQLite 路径:ENT_DB_PATH 优先;默认「启动目录/data/gateway.db」(与 config.mjs 的 DATA_DIR 同规则) */
+const DB_PATH = process.env.ENT_DB_PATH ?? join(process.cwd(), 'data', 'gateway.db')
 mkdirSync(dirname(DB_PATH), { recursive: true })
 
 export const db = new DatabaseSync(DB_PATH)

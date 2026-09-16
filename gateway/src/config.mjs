@@ -9,11 +9,10 @@
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const DATA_DIR = process.env.ENT_DATA_DIR ?? join(__dirname, '..', 'data')
+/** 数据目录:ENT_DATA_DIR 优先;默认「启动目录/data」——在 gateway/ 启动即 gateway/data,npm 全局安装后任意目录启动即 ./data */
+const DATA_DIR = process.env.ENT_DATA_DIR ?? join(process.cwd(), 'data')
 export const dataDir = DATA_DIR
 
 const DEFAULT_CONFIG = {
