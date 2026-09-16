@@ -5,6 +5,7 @@
  * 样式：.navmgr-* 为壳公开 CSS 类（app.css），遵守统一设计系统契约
  */
 import { api, toast, esc, icon, getNavState, applyNavPrefs } from '/admin/static/contract.mjs';
+import { T } from '/admin/static/js/i18n.mjs';
 
 let els = null;
 
@@ -22,12 +23,12 @@ function mergedItems(items, prefs) {
 
 function rowHtml(n, hidden) {
   return `<div class="navmgr-row${hidden ? ' off' : ''}" draggable="true" data-id="${esc(n.id)}">
-    <span class="navmgr-grip" title="拖拽排序">⠿</span>
+    <span class="navmgr-grip" title="${T('拖拽排序', 'Drag to sort')}">⠿</span>
     <span class="t">${icon(n.icon ?? 'puzzle', { size: 15 })}<span>${esc(n.title)}</span><span class="mono">${esc(n.id)}</span></span>
     <span class="navmgr-ops">
-      <button class="btn sm" data-up title="上移">↑</button>
-      <button class="btn sm" data-down title="下移">↓</button>
-      <label class="chk" title="取消勾选即从侧边栏隐藏（路由仍在）"><input type="checkbox" class="navmgr-vis" ${hidden ? '' : 'checked'}>显示</label>
+      <button class="btn sm" data-up title="${T('上移', 'Move up')}">↑</button>
+      <button class="btn sm" data-down title="${T('下移', 'Move down')}">↓</button>
+      <label class="chk" title="${T('取消勾选即从侧边栏隐藏（路由仍在）', 'Uncheck to hide from the side menu (route remains)')}"><input type="checkbox" class="navmgr-vis" ${hidden ? '' : 'checked'}>${T('显示', 'Show')}</label>
     </span>
   </div>`;
 }
@@ -44,16 +45,18 @@ function collect() {
 async function save(payload, close) {
   try {
     const r = await api('/admin/nav-config', { method: 'PATCH', body: JSON.stringify(payload) });
-    if (r && r.error) throw new Error(r.error.message || '请求失败');   // 老网关无此接口（404）等：明确报错而非静默
+    if (r && r.error) throw new Error(r.error.message || T('请求失败', 'Request failed'));   // 老网关无此接口（404）等：明确报错而非静默
     applyNavPrefs({ order: r.order, hidden: r.hidden });
-    toast(payload.order?.length || payload.hidden?.length ? '菜单设置已保存并落盘' : '已恢复默认菜单');
+    toast(payload.order?.length || payload.hidden?.length
+      ? T('菜单设置已保存并落盘', 'Menu settings saved')
+      : T('已恢复默认菜单', 'Default menu restored'));
     close();
   } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad'); }
 }
 
 export async function openNavManage() {
   const { items, prefs } = getNavState();
-  if (!items.length) { toast('导航尚未加载，请先进入任一页面', 'bad'); return; }
+  if (!items.length) { toast(T('导航尚未加载，请先进入任一页面', 'Menu not loaded yet, open any page first'), 'bad'); return; }
   let net = null;
   try { net = await api('/admin/nav-config'); } catch { /* 读取失败按本地偏好 */ }
   const work = mergedItems(items, net && Array.isArray(net.order) ? net : prefs);
@@ -67,14 +70,14 @@ export async function openNavManage() {
   els.mask.innerHTML = `
     <div class="modal" style="width:min(520px,94vw)">
       <button class="close" data-close>×</button>
-      <h3>菜单管理</h3>
-      <div class="crumb" style="margin-bottom:12px">拖拽或 ↑↓ 排序 · 取消「显示」隐藏菜单项</div>
+      <h3>${T('菜单管理', 'Menu management')}</h3>
+      <div class="crumb" style="margin-bottom:12px">${T('拖拽或 ↑↓ 排序 · 取消「显示」隐藏菜单项', 'Drag or ↑↓ to sort · uncheck "Show" to hide an item')}</div>
       <div class="navmgr-list">${work.map((n) => rowHtml(n, hiddenSet.has(n.id))).join('')}</div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
-        <button class="btn" id="navMgrReset">恢复默认</button>
+        <button class="btn" id="navMgrReset">${T('恢复默认', 'Reset default')}</button>
         <span style="flex:1"></span>
-        <button class="btn" data-close>取消</button>
-        <button class="btn primary" id="navMgrSave">保存</button>
+        <button class="btn" data-close>${T('取消', 'Cancel')}</button>
+        <button class="btn primary" id="navMgrSave">${T('保存', 'Save')}</button>
       </div>
     </div>`;
   els.mask.classList.add('show');

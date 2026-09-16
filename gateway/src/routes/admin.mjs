@@ -8,7 +8,7 @@ import { json } from '../core/http.mjs'
 
 export function createAdminHandler({ config, store, auth }) {
   const { authenticate } = auth
-  const { statsToday, statsByUser, recentHeartbeats, pluginInstallOverview } = store
+  const { statsToday, statsByUser, recentHeartbeats, pluginInstallOverview, pluginViolationHistory } = store
 
   async function requireAdmin(req, res) {
     const authResult = await authenticate(req)
@@ -37,6 +37,10 @@ export function createAdminHandler({ config, store, auth }) {
       const allowed = Array.isArray(config.getConfig().policy?.allowedPlugins) ? config.getConfig().policy.allowedPlugins : []
       for (const r of rows) r.violation = allowed.length > 0 && !allowed.includes(r.plugin)
       return json(res, 200, { installs: rows, allowedCount: allowed.length })
+    }
+    // 清单外插件历史（含已清除的）：来自 plugin_sightings 出现史表
+    if (path === '/admin/plugin-violations') {
+      return json(res, 200, { violations: pluginViolationHistory() })
     }
 
     // 未识别的 /admin/* 路径：返回 false 交回路由表，让其他插件（users/billing/client/…）有机会处理

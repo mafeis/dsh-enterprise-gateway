@@ -10,6 +10,10 @@
  */
 import { api, esc } from './core.mjs?v=20260915180000';
 import { icon } from '../icons.mjs?v=20260915180000';
+import { T } from './i18n.mjs';
+
+/** 导航标题取词：插件声明 title（中文，兼容老插件）+ titleEn（英文）时按当前语言选择 */
+const navTitle = (n) => T(n?.title ?? '', n?.titleEn) || n?.title || n?.id;
 
 /* ---------- 插件自带页面：动态发现 + 注册（整个会话只拉一次清单） ---------- */
 let plugRoutesPromise = null;
@@ -56,7 +60,7 @@ function renderSidebar() {
       g.className = 'nav-item nav-group';
       g.dataset.navgroup = n.id;
       g.href = '#/' + vis[0].id;   // 兜底：直接回车/中键打开落第一个子页（普通点击被 initRouter 拦下只做展开）
-      g.innerHTML = `<span class="ic">${icon(n.icon ?? 'puzzle', { size: 16 })}</span><span>${esc(n.title)}</span><span class="sub-arw">▸</span>`;
+      g.innerHTML = `<span class="ic">${icon(n.icon ?? 'puzzle', { size: 16 })}</span><span>${esc(navTitle(n))}</span><span class="sub-arw">▸</span>`;
       const sub = document.createElement('div');
       sub.className = 'nav-sub';
       sub.id = 'navSub-' + n.id;
@@ -65,7 +69,7 @@ function renderSidebar() {
         a.className = 'nav-item sub';
         a.href = '#/' + c.id;
         a.dataset.nav = c.id;
-        a.innerHTML = `<span>${esc(c.title)}</span>`;
+        a.innerHTML = `<span>${esc(navTitle(c))}</span>`;
         sub.appendChild(a);
       }
       aside.insertBefore(sub, foot);
@@ -76,7 +80,7 @@ function renderSidebar() {
     a.className = 'nav-item';
     a.href = '#/' + n.id;
     a.dataset.nav = n.id;
-    a.innerHTML = `<span class="ic">${icon(n.icon ?? 'puzzle', { size: 16 })}</span><span>${esc(n.title)}</span>`;
+    a.innerHTML = `<span class="ic">${icon(n.icon ?? 'puzzle', { size: 16 })}</span><span>${esc(navTitle(n))}</span>`;
     aside.insertBefore(a, foot);
   }
   // 恢复当前路由高亮（renderSidebar 可能在导航中途被调用）
@@ -120,15 +124,15 @@ async function ensurePluginRoutes() {
       const route = adm.nav.id;
       // 二级页声明（nav.children）：每个子页一个路由与 section；未声明则保持单页行为不变
       const children = Array.isArray(adm.nav.children) ? adm.nav.children.filter((c) => c?.id && c?.title) : [];
-      navRegistry.push({ id: route, title: adm.nav.title, icon: adm.nav.icon, order: adm.nav.order ?? 100, name: p.name, children });
+      navRegistry.push({ id: route, title: adm.nav.title, titleEn: adm.nav.titleEn, icon: adm.nav.icon, order: adm.nav.order ?? 100, name: p.name, children });
       // 懒加载插件页面模块（契约：default export { html, load, bind }；分组插件另可给 pages[id] 每子页一份）
       let mod = null;
       try {
         mod = await import(`/admin/plug/${encodeURIComponent(p.name)}/${adm.entry}?v=${Date.now()}`);
       } catch (e) { mod = { _err: e }; }
       const defs = children.length
-        ? children.map((c) => ({ id: c.id, title: c.title, def: mod.default?.pages?.[c.id] ?? mod.default }))
-        : [{ id: route, title: adm.nav.title, def: mod.default }];
+        ? children.map((c) => ({ id: c.id, title: navTitle(c), def: mod.default?.pages?.[c.id] ?? mod.default }))
+        : [{ id: route, title: navTitle(adm.nav), def: mod.default }];
       for (const { id, title, def } of defs) {
         // 页面 section（插件页 html 由 entry 模块提供）
         const sec = document.createElement('section');
@@ -138,12 +142,12 @@ async function ensurePluginRoutes() {
         content?.appendChild(sec);
         try {
           if (mod._err) throw mod._err;
-          if (!def?.html) throw new Error('页面模块缺少 html 导出');
+          if (!def?.html) throw new Error(T('页面模块缺少 html 导出', 'page module lacks html export'));
           sec.innerHTML = def.html;
           sec._mounted = true;
           def.bind?.();
         } catch (e) {
-          sec.innerHTML = `<div class="card"><h2><span class="bar"></span>页面装载失败</h2><div class="empty" style="white-space:normal">${esc(String(e?.message ?? e)).slice(0, 300)}</div></div>`;
+          sec.innerHTML = `<div class="card"><h2><span class="bar"></span>${T('页面装载失败', 'Failed to load page')}</h2><div class="empty" style="white-space:normal">${esc(String(e?.message ?? e)).slice(0, 300)}</div></div>`;
         }
         ROUTES[id] = {
           title,
@@ -178,7 +182,7 @@ export async function navigate(route) {
   if (!route) return;
   current = route;
   document.querySelectorAll('.page').forEach((p) => { p.hidden = p.id !== 'page-' + route; });
-  document.title = ROUTES[route].title + ' · DSH 企业网关';
+  document.title = ROUTES[route].title + T(' · DSH 企业网关', ' · DSH Enterprise Gateway');
   syncNavActive();
   if (location.hash !== '#/' + route) history.replaceState(null, '', '#/' + route);
   await ROUTES[route].load();

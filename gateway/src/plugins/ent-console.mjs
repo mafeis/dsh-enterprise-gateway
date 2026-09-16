@@ -15,7 +15,7 @@ export const inject = ['config', 'store', 'auth', 'router']
 /** 自带页面：运营总览（页面资源在本插件 ent-console.web/）
  *  order 控制导航位置（越小越靠前；核心壳页面从 20 起） */
 export const admin = {
-  nav: { id: 'overview', title: '运营总览', icon: 'layout-dashboard', order: 10 },
+  nav: { id: 'overview', title: '运营总览', titleEn: 'Overview', icon: 'layout-dashboard', order: 10 },
   entry: 'index.mjs',
 }
 
@@ -24,6 +24,9 @@ export const admin = {
 const SECTION_DEFAULTS = { req: true, tok: true, users: true, dlp: true, terminals: true, usage: true, installs: true }
 const SECTION_LABELS = {
   req: '今日请求数', tok: 'Token 消耗', users: '活跃用户', dlp: 'DLP 命中/拦截', terminals: '在线终端', usage: '用户用量 TOP', installs: '插件安装总览',
+}
+const SECTION_LABELS_EN = {
+  req: 'Requests today', tok: 'Token usage', users: 'Active users', dlp: 'DLP hits/blocks', terminals: 'Online devices', usage: 'Usage TOP', installs: 'Plugin installs',
 }
 /** 每个区块合法的展示方式（auto=系统按数据形态自动选） */
 const SECTION_MODES = {
@@ -36,6 +39,7 @@ const SECTION_MODES = {
   installs: ['auto', 'table'],
 }
 const MODE_LABELS = { auto: '自动', kpi: '数值卡', table: '表格', bar: '对比条', cards: '卡片墙' }
+const MODE_LABELS_EN = { auto: 'Auto', kpi: 'KPI card', table: 'Table', bar: 'Bars', cards: 'Cards' }
 
 export function apply(ctx) {
   const router = ctx.get('router')
@@ -82,7 +86,13 @@ export function apply(ctx) {
       const a = await ctx.get('auth').authenticate(req)
       if (!a.ok) return json(res, a.status, { error: a.error })
       if (req.method === 'GET') {
-        return json(res, 200, { sections: readSections(), labels: SECTION_LABELS, modes: SECTION_MODES, modeLabels: MODE_LABELS })
+        // 管理台界面语言由前端 localStorage 决定，服务端不感知——两组标签都下发，前端按语言取
+        return json(res, 200, {
+          sections: readSections(),
+          labels: SECTION_LABELS, labelsEn: SECTION_LABELS_EN,
+          modes: SECTION_MODES,
+          modeLabels: MODE_LABELS, modeLabelsEn: MODE_LABELS_EN,
+        })
       }
       if (req.method === 'PATCH') {
         const b = await readJson(req)
@@ -148,17 +158,17 @@ export function apply(ctx) {
         json(res, a.status, { error: a.error })
         return true
       }
-      if (servePluginWeb(res, path)) return true
+      if (servePluginWeb(res, path, url)) return true
       json(res, 404, { error: 'not found' })
       return true
     }
     if (path === '/admin' || path === '/admin/') {
-      if (serveStatic(res, path)) return true
+      if (serveStatic(res, path, url)) return true
       json(res, 404, { error: 'not found' })
       return true
     }
     if (path.startsWith('/admin/static/')) {
-      if (serveStatic(res, path)) return true
+      if (serveStatic(res, path, url)) return true
       json(res, 404, { error: 'not found' })
       return true
     }

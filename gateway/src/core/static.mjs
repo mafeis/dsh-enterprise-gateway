@@ -4,7 +4,7 @@
  * - /admin/static/*   → css / js 模块 / 其他白名单文件
  * 白名单扩展名 + 文件名校验防目录穿越
  */
-import { readFileSync, existsSync, statSync } from 'node:fs'
+import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs'
 import { dirname, join, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -18,10 +18,26 @@ const safeJoin = (rel) => {
   return file
 }
 
+/** 稳定版本号 = admin-web 全部文件的最新 mtime：文件一改 index 引用即换 URL；
+ *  不用 Date.now()（每次请求都变），否则浏览器/CDN 边缘永远无法缓存 index 引用的资源。
+ */
+function indexVer() {
+  let max = 0
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name)
+      if (e.isDirectory()) walk(p)
+      else { try { max = Math.max(max, statSync(p).mtimeMs) } catch {} }
+    }
+  }
+  try { walk(ADMIN_WEB_DIR) } catch {}
+  return String(Math.floor(max || Date.now()))
+}
+
 /** 组装 index.html：递归展开 @include 注释（views/ 内可再嵌套 include） */
 function composeIndex() {
   let html = readFileSync(join(ADMIN_WEB_DIR, 'index.html'), 'utf8')
-  const ver = String(Date.now()) // 每次请求生成新版本号 → 静态资源 URL 永不命中缓存
+  const ver = indexVer()
   for (let i = 0; i < 5; i++) {
     if (!html.includes('@include:')) break
     html = html.replace(/<!--\s*@include:\s*([\w./-]+\.html)\s*-->/g, (_, rel) => {
@@ -50,14 +66,22 @@ function versionMjs(file, raw) {
     .replace(/(import\(')(\.[^']+?\.mjs)(\?v=[\w.-]+)?(')/g, (_, a, p, _old, z) => a + p + '?v=' + verOf(p) + z)
 }
 
-export function serveStatic(res, path) {
+const CACHE_IMMUTABLE = 'public, max-age=31536000, immutable'   // 带 ?v= 的引用：文件改 → URL 变，长缓存绝对安全
+const CACHE_SHORT = 'public, max-age=60'                        // 无版本参数的兜底：有界过期，不会永久陈旧
+
+/** 带 ?v= 的 URL 用一年 immutable（浏览器+CDN 全命中），否则 60s 短缓存兜底 */
+const cacheControl = (url) => (url?.searchParams?.has('v') ? CACHE_IMMUTABLE : CACHE_SHORT)
+
+export function serveStatic(res, path, url) {
   let rel
   if (path === '/admin' || path === '/admin/') rel = '__index__'
   else if (path.startsWith('/admin/static/')) rel = path.replace('/admin/static/', '').split('?')[0]
   else return false
 
   const send = (data, ext) => {
-    res.writeHead(200, { 'content-type': MIME[ext] ?? 'text/plain; charset=utf-8', 'cache-control': 'no-store' })
+    // index.html 不带版本参数且是组装产物：必须 no-store（引用自身的 ?v= 已负责资源换版）
+    const cc = rel === '__index__' ? 'no-store' : cacheControl(url)
+    res.writeHead(200, { 'content-type': MIME[ext] ?? 'text/plain; charset=utf-8', 'cache-control': cc })
     res.end(data)
   }
 
@@ -81,7 +105,7 @@ export function serveStatic(res, path) {
  */
 import { pluginRegistry } from './plugin-registry.mjs'
 
-export function servePluginWeb(res, path) {
+export function servePluginWeb(res, path, url) {
   if (!path.startsWith('/admin/plug/')) return false
   const rest = path.replace('/admin/plug/', '').split('?')[0]
   const slash = rest.indexOf('/')
@@ -97,7 +121,7 @@ export function servePluginWeb(res, path) {
   if (!MIME[ext] || !existsSync(file)) return false
   try {
     const raw = readFileSync(file)
-    res.writeHead(200, { 'content-type': MIME[ext], 'cache-control': 'no-store' })
+    res.writeHead(200, { 'content-type': MIME[ext], 'cache-control': cacheControl(url) })
     res.end(ext === '.mjs' ? versionMjs(file, raw.toString('utf8')) : raw)
     return true
   } catch { return false }

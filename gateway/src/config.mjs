@@ -103,10 +103,18 @@ const DEFAULT_CONFIG = {
     lockModelConfig: true,
     watermark: true,
     disabledFeatures: [],
+    // 员工端设置页隐藏清单（按页面标签匹配，中英文都填；宿主改标签名时管理员在此加关键词即可）
+    // lockModelConfig=true 时「模型/Models」固定隐藏，无需写进这里
+    hiddenSettingsPages: ['桌面设置', 'Desktop settings'],
     // DSH 插件安装允许清单（bundle 名，如 dsh-enterprise）；空数组 = 不限制。
     // 客户端心跳比对本地安装清单，清单外插件由客户端启动/心跳时自动清理
     // （dsh-enterprise 自身与 DSH 必装组件为保护名单，不会被清）。
     allowedPlugins: [],
+    // 清单外插件处置档位（客户端执行）：
+    //   enforce = 严格：发现即自动卸载并要求重启（原行为）
+    //   warn    = 中级：仅警告不处理
+    //   off     = 宽松：不限制，仅心跳记录（管理台「清单外历史」仍可见）
+    pluginEnforce: 'enforce',
     // 企业自建插件源：员工安装插件时用此 registry 而非社区公共源。
     // mode: off=用默认源 | proxy=npm --registry=<url> | url=直接 file:/http: 包地址前缀
     pluginRegistry: {
@@ -118,6 +126,9 @@ const DEFAULT_CONFIG = {
     // 客户端自助规则：高频简单管控下发到插件本地执行（不占网关往返）。
     // 每条: { id, type, action, value, message }；type 见 dsh-enterprise/lib/index.js applyClientRules
     clientRules: [],
+    // 员工端接入地址（管理员维护）：局域网可达的本机地址，如 http://10.0.0.5:8900。
+    // 空 = /policy/current 回退下发 http://127.0.0.1:<port>（仅本机可达，员工端需手动填）
+    clientAccessUrl: '',
   },
 }
 
@@ -245,13 +256,21 @@ export function getConfig() { if (!__configLoaded) loadConfig(); return config }
  */
 export function patchConfig(patch) {
   if (!__configLoaded) loadConfig()   // 防误写：未加载真实配置前禁止 patch（否则会把 DEFAULT_CONFIG 落盘覆盖线上配置）
-  const _bumpKeys = ['clientRules', 'bannerPosition', 'bannerStyle', 'watermark', 'watermarkStyle', 'lockModelConfig', 'disabledFeatures', 'allowedPlugins', 'pluginRegistry']
+  const _bumpKeys = ['clientRules', 'bannerPosition', 'bannerStyle', 'watermark', 'watermarkStyle', 'lockModelConfig', 'disabledFeatures', 'hiddenSettingsPages', 'allowedPlugins', 'pluginRegistry', 'pluginEnforce', 'clientAccessUrl']
   const _shouldBump = patch.policy ? _bumpKeys.some((k) => patch.policy[k] !== undefined) : false
   if (patch.policy) {
+    if (patch.policy.pluginEnforce !== undefined) {
+      if (!['enforce', 'warn', 'off'].includes(patch.policy.pluginEnforce)) throw new Error('pluginEnforce 只能是 enforce/warn/off')
+    }
     if (patch.policy.allowedPlugins !== undefined) {
       if (!Array.isArray(patch.policy.allowedPlugins)) throw new Error('allowedPlugins 必须是字符串数组')
       // 允许组织名前缀（@scope/name，如 @deepseek-ai/dsh-base）
       if (patch.policy.allowedPlugins.some((x) => !/^(@[a-zA-Z0-9_-]{1,64}\/)?[a-zA-Z0-9_-]{2,64}$/.test(String(x)))) throw new Error('插件名限 2-64 位字母数字_-，可带 @组织/ 前缀（每项）')
+    }
+    if (patch.policy.hiddenSettingsPages !== undefined) {
+      if (!Array.isArray(patch.policy.hiddenSettingsPages)) throw new Error('hiddenSettingsPages 必须是字符串数组')
+      if (patch.policy.hiddenSettingsPages.length > 20) throw new Error('hiddenSettingsPages 最多 20 项')
+      patch.policy.hiddenSettingsPages = patch.policy.hiddenSettingsPages.map((x) => String(x ?? '').trim().slice(0, 40)).filter(Boolean)
     }
     if (patch.policy.pluginRegistry !== undefined) {
       const pr = patch.policy.pluginRegistry
@@ -288,6 +307,11 @@ export function patchConfig(patch) {
     }
     if (patch.policy.bannerPosition !== undefined) {
       if (!['top-right', 'top-center', 'top-left', 'bottom-right'].includes(patch.policy.bannerPosition)) throw new Error('bannerPosition 只能是 top-right/top-center/top-left/bottom-right')
+    }
+    if (patch.policy.clientAccessUrl !== undefined) {
+      const v = String(patch.policy.clientAccessUrl ?? '').trim().replace(/\/+$/, '')
+      if (v && !/^https?:\/\/[\w.-]+(:\d+)?(\/[\w./-]*)?$/.test(v)) throw new Error('clientAccessUrl 必须是 http(s)://host[:port] 形式的员工端可达地址')
+      patch.policy.clientAccessUrl = v
     }
     if (patch.policy.watermarkStyle !== undefined && patch.policy.watermarkStyle !== null) {
       const ws = patch.policy.watermarkStyle
@@ -362,7 +386,7 @@ export function patchConfig(patch) {
    - data/policy-versions.json: 版本快照 [{version, policy, ts, note}]（灰度/回滚的数据源）
    - policy.gray: { version, percent } —— version=null=无灰度（全员 current）；percent=设备哈希分流比例 */
 const versionsPath = join(DATA_DIR, 'policy-versions.json')
-const POLICY_BUMP_KEYS = ['clientRules', 'bannerPosition', 'bannerStyle', 'watermark', 'watermarkStyle', 'lockModelConfig', 'disabledFeatures', 'allowedPlugins', 'pluginRegistry']
+const POLICY_BUMP_KEYS = ['clientRules', 'bannerPosition', 'bannerStyle', 'watermark', 'watermarkStyle', 'lockModelConfig', 'disabledFeatures', 'hiddenSettingsPages', 'allowedPlugins', 'pluginRegistry', 'clientAccessUrl']
 
 export function bumpPolicyVersion(note = '') {
   const cur = String(config.policy.version ?? '1.0.0')

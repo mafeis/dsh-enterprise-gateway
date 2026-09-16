@@ -4,6 +4,7 @@
  * 设置面：默认每页条数 + 列显隐 + 导出上限（GET/PATCH /admin/audit-config，落盘持久化）
  */
 import { api, $, toast, esc, icon, openDlg, closeDlg } from '/admin/static/contract.mjs';
+import { T } from '/admin/static/js/i18n.mjs';
 
 const state = { page: 1, size: 30, total: 0 };
 let ui = { pageSize: 30, exportLimit: 200, columns: { upstream: true, tokens: true, duration: true, flag: true } };
@@ -13,30 +14,30 @@ export default {
   page: 'ent-audit',
   html: `
   <div class="headrow" data-ent-page="ent-audit">
-    <div><h1>审计留痕</h1></div>
+    <div><h1>${T('审计留痕','Audit trail')}</h1></div>
     <div class="sp"></div>
-    <button class="btn sm" id="auditSettingsBtn" title="设置本页展示"></button>
+    <button class="btn sm" id="auditSettingsBtn" title="${T('设置本页展示','Page settings')}"></button>
   </div>
 
   <div class="card">
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-      <input class="input" id="filterUser" placeholder="用户（工号）" style="width:140px">
-      <input class="input" id="filterModel" placeholder="模型关键字" style="width:140px">
+      <input class="input" id="filterUser" placeholder="${T('用户（工号）','User (employee ID)')}" style="width:140px">
+      <input class="input" id="filterModel" placeholder="${T('模型关键字','Model keyword')}" style="width:140px">
       <select class="input" id="filterFlag" style="width:110px">
-        <option value="">全部标记</option>
-        <option value="dlp">DLP 命中</option>
-        <option value="blocked">已拦截</option>
+        <option value="">${T('全部标记','All flags')}</option>
+        <option value="dlp">${T('DLP 命中','DLP hit')}</option>
+        <option value="blocked">${T('已拦截','Blocked')}</option>
       </select>
-      <button class="btn primary" id="logSearchBtn">检索</button>
-      <button class="btn" id="logClearBtn">清除</button>
+      <button class="btn primary" id="logSearchBtn">${T('检索','Search')}</button>
+      <button class="btn" id="logClearBtn">${T('清除','Clear')}</button>
       <span style="flex:1"></span>
-      <select class="input" id="pageSize" style="width:100px" title="每页条数">
-        <option value="15">15 条/页</option>
-        <option value="30" selected>30 条/页</option>
-        <option value="50">50 条/页</option>
-        <option value="100">100 条/页</option>
+      <select class="input" id="pageSize" style="width:100px" title="${T('每页条数','Rows per page')}">
+        <option value="15">${T('15 条/页','15 / page')}</option>
+        <option value="30" selected>${T('30 条/页','30 / page')}</option>
+        <option value="50">${T('50 条/页','50 / page')}</option>
+        <option value="100">${T('100 条/页','100 / page')}</option>
       </select>
-      <button class="btn" id="exportBtn">导出 CSV</button>
+      <button class="btn" id="exportBtn">${T('导出 CSV','Export CSV')}</button>
     </div>
     <div id="auditTableHost"></div>
     <div class="pager" id="logPager"></div>
@@ -99,22 +100,22 @@ function COLUMN_VISIBLE_COUNT() {
 }
 
 function renderRows(logs) {
-  const head = `<thead><tr><th>时间</th><th>用户</th><th>企业模型</th>
-    ${ui.columns.upstream !== false ? '<th>上游模型</th>' : ''}
-    ${ui.columns.tokens !== false ? '<th class="num">Tokens (入/出)</th>' : ''}
-    ${ui.columns.duration !== false ? '<th class="num">耗时</th>' : ''}
-    ${ui.columns.flag !== false ? '<th>标记</th>' : ''}
+  const head = `<thead><tr><th>${T('时间','Time')}</th><th>${T('用户','User')}</th><th>${T('企业模型','Enterprise model')}</th>
+    ${ui.columns.upstream !== false ? `<th>${T('上游模型','Upstream model')}</th>` : ''}
+    ${ui.columns.tokens !== false ? `<th class="num">${T('Tokens (入/出)','Tokens (in/out)')}</th>` : ''}
+    ${ui.columns.duration !== false ? `<th class="num">${T('耗时','Duration')}</th>` : ''}
+    ${ui.columns.flag !== false ? `<th>${T('标记','Flag')}</th>` : ''}
     <th></th></tr></thead>`;
   const host = $('auditTableHost');
   if (!logs.length) {
     const filtered = filterParams().u || filterParams().m || filterParams().flag;
-    host.innerHTML = `<table>${head}<tbody><tr><td colspan="${colSpan() + 1}" class="empty">${filtered ? '无匹配留痕' : '暂无留痕'}</td></tr></tbody></table>`;
+    host.innerHTML = `<table>${head}<tbody><tr><td colspan="${colSpan() + 1}" class="empty">${filtered ? T('无匹配留痕','No matching records') : T('暂无留痕','No audit records')}</td></tr></tbody></table>`;
     return;
   }
   const rows = logs.map((l) => {
     let flagHtml = '';
     if (ui.columns.flag !== false) {
-      flagHtml = `<td>${l.blocked ? `<span class="badge bad">${icon('shield-alert', { size: 12 })} 拦截</span>`
+      flagHtml = `<td>${l.blocked ? `<span class="badge bad">${icon('shield-alert', { size: 12 })} ${T('拦截','Blocked')}</span>`
         : l.dlp_flag ? `<span class="badge warn">DLP:${esc(l.dlp_flag)}</span>` : ''}</td>`;
     }
     return `<tr>
@@ -124,7 +125,7 @@ function renderRows(logs) {
       ${ui.columns.tokens !== false ? `<td class="num">${l.tokens_in ?? '?'} / ${l.tokens_out ?? '?'}</td>` : ''}
       ${ui.columns.duration !== false ? `<td class="num">${l.duration_ms ? l.duration_ms + 'ms' : '-'}</td>` : ''}
       ${flagHtml}
-      <td><button class="btn sm" data-log="${l.id}">详情</button></td>
+      <td><button class="btn sm" data-log="${l.id}">${T('详情','Details')}</button></td>
     </tr>`;
   }).join('');
   host.innerHTML = `<table>${head}<tbody>${rows}</tbody></table>`;
@@ -149,13 +150,13 @@ function renderPager() {
     prev = p;
   }
   el.innerHTML = `
-    <span class="pg-info">共 <b>${state.total}</b> 条 · 第 ${state.page} / ${totalPages} 页</span>
+    <span class="pg-info">${T('共 {n} 条','{n} records',{ n: state.total })} · ${T('第 {p} / {t} 页','Page {p} / {t}',{ p: state.page, t: totalPages })}</span>
     ${btn('«', 1, { dis: state.page <= 1 })}
     ${btn('‹', state.page - 1, { dis: state.page <= 1 })}
     ${nums}
     ${btn('›', state.page + 1, { dis: state.page >= totalPages })}
     ${btn('»', totalPages, { dis: state.page >= totalPages })}
-    <span class="pg-jump">跳至 <input class="input" id="pgJump" type="number" min="1" max="${totalPages}" value="${state.page}" style="width:56px;padding:2px 6px"> 页</span>`;
+    <span class="pg-jump">${T('跳至','Go to')} <input class="input" id="pgJump" type="number" min="1" max="${totalPages}" value="${state.page}" style="width:56px;padding:2px 6px"> ${T('页','')}</span>`;
 }
 
 /* ---------- 详情：按 id 从服务端直取（弹层自带，不依赖壳） ---------- */
@@ -168,28 +169,28 @@ async function showLogById(id) {
     if (e.message !== '401') toast('✗ ' + e.message, 'bad');
     return;
   }
-  if (!l) return toast('留痕记录不存在', 'bad');
+  if (!l) return toast(T('留痕记录不存在','Record not found'), 'bad');
   openLogModal(l);
 }
 
 function openLogModal(l) {
   let m = document.getElementById('auditLogModal');
   if (!m) { m = document.createElement('div'); m.id = 'auditLogModal'; m.className = 'dlg-mask'; document.body.appendChild(m); }
-  const meta = `用户 <b>${esc(l.user_name)}</b> · ${esc(l.ts)} · ${esc(l.model)} → ${esc(l.upstream_model ?? '?')} · ${l.duration_ms ?? '?'}ms · 状态 ${l.status_code}${l.note ? ' · ' + esc(l.note) : ''}`;
+  const meta = `${T('用户','User')} <b>${esc(l.user_name)}</b> · ${esc(l.ts)} · ${esc(l.model)} → ${esc(l.upstream_model ?? '?')} · ${l.duration_ms ?? '?'}ms · ${T('状态','Status')} ${l.status_code}${l.note ? ' · ' + esc(l.note) : ''}`;
   const promptHtml = l.prompt ? renderContext(l.prompt)
-    : '（未存储正文 · metadata_only 模式）\n哈希: ' + (l.prompt_hash ?? '-');
+    : T('（未存储正文 · metadata_only 模式）\n哈希: ', '(No content stored · metadata_only mode)\nHash: ') + (l.prompt_hash ?? '-');
   m.innerHTML = `
     <div class="dlg wide" role="dialog" aria-modal="true">
       <div class="dlg-head">
-        <h2>留痕详情 <span class="mono">#${l.id}</span></h2>
-        <button class="dlg-x" data-dlg-close title="关闭 (Esc)">${icon('x', { size: 16 })}</button>
+        <h2>${T('留痕详情','Record details')} <span class="mono">#${l.id}</span></h2>
+        <button class="dlg-x" data-dlg-close title="${T('关闭 (Esc)','Close (Esc)')}">${icon('x', { size: 16 })}</button>
       </div>
       <div class="dlg-body">
         <div style="font-size:13px;color:var(--dim);margin-bottom:10px">${meta}</div>
-        <b style="font-size:13px">完整上下文（system + 历史对话 + 本轮输入 · 按 DLP 策略脱敏）</b>
+        <b style="font-size:13px">${T('完整上下文（system + 历史对话 + 本轮输入 · 按 DLP 策略脱敏）','Full context (system + history + input · DLP masked)')}</b>
         <blockquote class="detail" style="max-height:52vh">${promptHtml}</blockquote>
         <b style="font-size:13px">Response</b>
-        <blockquote class="detail" style="max-height:38vh">${esc(l.response ?? '（该记录为修复前写入，响应正文未收集；流式请求已自 v2.2 起完整留痕）')}</blockquote>
+        <blockquote class="detail" style="max-height:38vh">${esc(l.response ?? T('（该记录为修复前写入，响应正文未收集；流式请求已自 v2.2 起完整留痕）','(Response not collected; streaming fully recorded since v2.2)'))}</blockquote>
       </div>
     </div>`;
   openDlg(m);
@@ -220,7 +221,7 @@ async function exportLogs() {
     return;
   }
   const stamp = new Date().toLocaleString('sv-SE');
-  const watermark = `# 审计导出 · 操作人=${localStorage.getItem('ent_user') || 'admin'} · 时间=${stamp} · 记录数=${(r.logs ?? []).length} · 水印=${hashCode(stamp)}`;
+  const watermark = T('# 审计导出 · 操作人={u} · 时间={t} · 记录数={n} · 水印={w}', '# Audit export · operator={u} · time={t} · records={n} · watermark={w}', { u: localStorage.getItem('ent_user') || 'admin', t: stamp, n: (r.logs ?? []).length, w: hashCode(stamp) });
   const rows = [['id', 'ts', 'user', 'model', 'upstream', 'tokens_in', 'tokens_out', 'ms', 'status', 'dlp', 'blocked', 'prompt_hash', 'prompt', 'response']];
   (r.logs ?? []).forEach((l) => rows.push([
     l.id, l.ts, l.user_name, l.model, l.upstream_model, l.tokens_in, l.tokens_out, l.duration_ms, l.status_code, l.dlp_flag ?? '', l.blocked, l.prompt_hash,
@@ -231,7 +232,7 @@ async function exportLogs() {
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
   a.download = `gateway-logs-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
-  toast(`已导出 ${(r.logs ?? []).length} 条（当前过滤范围）· 含操作人水印`);
+  toast(T('已导出 {n} 条（当前过滤范围）· 含操作人水印','Exported {n} records (current filters) · watermarked',{ n: (r.logs ?? []).length }));
 }
 
 /* ---------- 事件绑定（一次性委托） ---------- */
@@ -274,7 +275,7 @@ function openSettings() {
   let m = document.getElementById('auditSettingsModal');
   if (!m) { m = document.createElement('div'); m.id = 'auditSettingsModal'; m.className = 'dlg-mask'; document.body.appendChild(m); }
   const sizeOpts = (uiMeta.pageSizes ?? []).map((n) =>
-    `<option value="${n}" ${ui.pageSize === n ? 'selected' : ''}>${n} 条/页</option>`).join('');
+    `<option value="${n}" ${ui.pageSize === n ? 'selected' : ''}>${T('{n} 条/页','{n} / page',{ n })}</option>`).join('');
   const colRows = uiMeta.columnKeys.map((k) => `
     <label class="ov-set-row">
       <input type="checkbox" data-col-key="${k}" ${ui.columns[k] !== false ? 'checked' : ''}>
@@ -283,19 +284,19 @@ function openSettings() {
   m.innerHTML = `
     <div class="dlg sm" role="dialog" aria-modal="true">
       <div class="dlg-head">
-        <h2>审计留痕展示设置</h2>
-        <button class="dlg-x" data-dlg-close title="关闭 (Esc)">${icon('x', { size: 16 })}</button>
+        <h2>${T('审计留痕展示设置','Audit display settings')}</h2>
+        <button class="dlg-x" data-dlg-close title="${T('关闭 (Esc)','Close (Esc)')}">${icon('x', { size: 16 })}</button>
       </div>
       <div class="dlg-body">
-        <div class="ov-set-row"><span class="ov-sec-label">默认每页条数</span>
+        <div class="ov-set-row"><span class="ov-sec-label">${T('默认每页条数','Rows per page')}</span>
           <select class="ov-sec-mode" id="auditSetSize">${sizeOpts}</select></div>
-        <div class="ov-set-row"><span class="ov-sec-label">CSV 导出上限</span>
+        <div class="ov-set-row"><span class="ov-sec-label">${T('CSV 导出上限','CSV export limit')}</span>
           <input class="input" id="auditSetExport" type="number" min="20" max="200" value="${ui.exportLimit}" style="width:80px;padding:3px 6px"></div>
         ${colRows}
       </div>
       <div class="dlg-foot">
-        <button class="btn" data-dlg-close>取消</button>
-        <button class="btn primary" id="auditSetSave">保存</button>
+        <button class="btn" data-dlg-close>${T('取消','Cancel')}</button>
+        <button class="btn primary" id="auditSetSave">${T('保存','Save')}</button>
       </div>
     </div>`;
   openDlg(m);
@@ -313,7 +314,7 @@ function openSettings() {
       const r = await api('/admin/audit-config', { method: 'PATCH', body: JSON.stringify(body) });
       ui = r.ui;
       closeDlg(m);
-      toast('审计留痕展示设置已保存并落盘');
+      toast(T('审计留痕展示设置已保存并落盘','Audit display settings saved'));
       $('pageSize').value = String(ui.pageSize);
       await loadLogs(1);
     } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad'); }

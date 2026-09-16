@@ -25,7 +25,7 @@ export const manifest = {
 /** 自带页面声明：管理台壳发现它，导航自动多出「插件管理」页（页面资源在本插件 ent-registry.web/）
  *  icon 为 lucide 图标名（官方图标契约 admin-web/icons.mjs），禁止 emoji */
 export const admin = {
-  nav: { id: 'plugreg', title: '插件管理', icon: 'puzzle' },
+  nav: { id: 'plugreg', title: '插件管理', titleEn: 'Plugins', icon: 'puzzle' },
   entry: 'index.mjs',
 }
 

@@ -15,7 +15,7 @@ export const inject = ['config', 'store', 'auth', 'router']
 
 /** 自带页面：计费账单（按日聚合 + 按企业模型单价折算） */
 export const admin = {
-  nav: { id: 'billing', title: '计费账单', icon: 'receipt', order: 50 },
+  nav: { id: 'billing', title: '计费账单', titleEn: 'Billing', icon: 'receipt', order: 50 },
   entry: 'index.mjs',
 }
 

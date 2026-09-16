@@ -13,7 +13,7 @@ import { probeStatsOf } from './ent-upstream.mjs'
 
 /** 自带页面：供应商与模型（页面资源在本插件 ent-catalog.web/）；nav.id=channels 兼容历史书签/深链 */
 export const admin = {
-  nav: { id: 'channels', title: '供应商与模型', icon: 'plug-zap', order: 30 },
+  nav: { id: 'channels', title: '供应商与模型', titleEn: 'Providers & Models', icon: 'plug-zap', order: 30 },
   entry: 'index.mjs',
 }
 

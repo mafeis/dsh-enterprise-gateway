@@ -42,6 +42,24 @@ const DESC_ZH = {
   '@anysearch/anysearch-dsh': 'AnySearch 联网搜索与网页抓取提供方',
   '@vlln/dsh-navbar': '对话节点导航条：快速跳转到任意 user 消息',
 }
+/** 英文名录：入库时包自述是中文（没有英文原文）时的 descriptionEn 兜底 */
+const DESC_EN = {
+  'dsh-enterprise': 'Enterprise sign-in, model gateway and security governance',
+  'dshmarket': 'Visual plugin market built into DSH',
+  'dsh-better-sidebar': 'VSCode-style sidebar: conversation outline / terminal / file tree',
+  'dsh-context': 'Conversation context: inject workspace and project background',
+  'dsh-mnemon': 'Three-tier memory management (session / project / long-term)',
+  'dsh-startup-guard': 'Startup guard: auto-restore session after abnormal host shutdown',
+  'dsh-hot-reload': 'Hot plugin updates: upgrade installed plugins without restarting DSH',
+  'dsh-image-guard': 'Image cropping',
+  'dsh-net-proxy': 'Network proxy',
+  'dsh-review': 'Multi-agent adversarial code review (bundled)',
+  '@deepseek-ai/dsh-headless': 'Headless mode: run DSH sessions on servers / CI',
+  '@deepseek-ai/dsh-base': 'DSH host base component (required)',
+  '@deepseek-ai/dsh-web-app': 'DSH web UI (required)',
+  '@anysearch/anysearch-dsh': 'AnySearch web search and fetch provider',
+  '@vlln/dsh-navbar': 'Conversation node navbar: jump to any user message',
+}
 const hasCJK = (s) => /[\u4e00-\u9fff\u3400-\u4dbf]/.test(String(s ?? ''))
 
 /* ---------- 索引读写 ---------- */
@@ -127,12 +145,19 @@ function putTarball(buf, { by = '-', note = '', source = 'upload' } = {}) {
 
   const idx = loadIndex()
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
-  const p = (idx.plugins[name] ??= { name, description: '', descriptionManual: false, createdAt: now, versions: {} })
+  const p = (idx.plugins[name] ??= { name, description: '', descriptionEn: '', descriptionManual: false, createdAt: now, versions: {} })
   if (!p.defaultVersion) p.defaultVersion = version
   if (manifest.description && !p.descriptionManual) {
     const raw = String(manifest.description).slice(0, 300)
-    // 英文自述 → 中文名录优先（名录没有且原文无中文才保留原文）
-    p.description = hasCJK(raw) ? raw : (DESC_ZH[name] ?? raw)
+    if (hasCJK(raw)) {
+      // 包自述是中文：description 用原文，descriptionEn 走英文名录兜底
+      p.description = raw
+      if (!p.descriptionEnManual) p.descriptionEn = DESC_EN[name] ?? ''
+    } else {
+      // 包自述是英文：description 用中文名录（没有才保留原文），英文原文存 descriptionEn
+      p.description = DESC_ZH[name] ?? raw
+      if (!p.descriptionEnManual) p.descriptionEn = raw
+    }
   }
   p.versions[version] = {
     size: buf.length,
@@ -199,6 +224,7 @@ export function listRepo() {
     return {
       name: p.name,
       description: p.description ?? '',
+      descriptionEn: p.descriptionEn ?? '',
       defaultVersion: p.defaultVersion,
       versionCount: vers.length,
       totalSize,
@@ -212,7 +238,7 @@ export function getPlugin(name) {
   return loadIndex().plugins[String(name)] ?? null
 }
 
-export function setMeta(name, { description } = {}) {
+export function setMeta(name, { description, descriptionEn } = {}) {
   const idx = loadIndex()
   const p = idx.plugins[String(name)]
   if (!p) throw new Error(`仓库中没有插件 ${name}`)
@@ -221,6 +247,11 @@ export function setMeta(name, { description } = {}) {
     // 空描述 = 管理台误清空的常见来源：名录里有就回填中文，没有才真留空
     p.description = raw || DESC_ZH[String(name)] || ''
     p.descriptionManual = true
+  }
+  if (descriptionEn !== undefined) {
+    const raw = String(descriptionEn ?? '').trim().slice(0, 300)
+    p.descriptionEn = raw || DESC_EN[String(name)] || ''
+    p.descriptionEnManual = true
   }
   p.updatedAt = new Date().toISOString().slice(0, 19).replace('T', ' ')
   saveIndex()

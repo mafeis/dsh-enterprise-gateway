@@ -4,6 +4,7 @@
 import { $, api, session } from './core.mjs?v=20260915180000';
 import { doLogin, logout, checkHealth } from './login.mjs?v=20260915180000';
 import { navigate, initRouter, refreshCurrent } from './router.mjs?v=20260915180000';
+import { applyShellI18n, bindLangToggle } from './i18n.mjs';
 
 /* ---- 事件绑定（仅壳私有区域：登录/顶栏；页面事件由各插件模块自带） ---- */
 function bindEvents() {
@@ -14,6 +15,8 @@ function bindEvents() {
 }
 
 /* ---- 启动 ---- */
+applyShellI18n();
+bindLangToggle();
 bindEvents();
 initRouter();
 checkHealth();

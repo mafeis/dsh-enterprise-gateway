@@ -4,6 +4,7 @@
  * 页面归本插件所有
  */
 import { api, $, toast, esc, confirmDlg, icon, openDlg, closeDlg } from '/admin/static/contract.mjs'
+import { T } from '/admin/static/js/i18n.mjs';
 
 let pwdTargetId = null
 
@@ -27,76 +28,76 @@ export default {
   page: 'ent-users',
   html: `
   <div class="headrow" data-ent-page="ent-users">
-    <div><h1>用户管理</h1></div>
+    <div><h1>${T('用户管理','Users')}</h1></div>
   </div>
 
   <div class="kpirow">
-    <div class="kpi"><div class="lab">账号总数</div><div class="val" id="kpiTotal">–</div></div>
-    <div class="kpi"><div class="lab">启用中</div><div class="val" id="kpiEnabled">–</div></div>
-    <div class="kpi"><div class="lab">管理员</div><div class="val" id="kpiAdmin">–</div></div>
-    <div class="kpi"><div class="lab">近 7 日活跃</div><div class="val" id="kpiActive">–</div><div class="sub2" id="kpiActiveSub"></div></div>
+    <div class="kpi"><div class="lab">${T('账号总数','Total accounts')}</div><div class="val" id="kpiTotal">–</div></div>
+    <div class="kpi"><div class="lab">${T('启用中','Enabled')}</div><div class="val" id="kpiEnabled">–</div></div>
+    <div class="kpi"><div class="lab">${T('管理员','Admins')}</div><div class="val" id="kpiAdmin">–</div></div>
+    <div class="kpi"><div class="lab">${T('近 7 日活跃','Active in 7 days')}</div><div class="val" id="kpiActive">–</div><div class="sub2" id="kpiActiveSub"></div></div>
   </div>
 
   <div class="card">
-    <h2><span class="bar"></span>账号列表 <span class="badge dim" id="userCount"></span>
+    <h2><span class="bar"></span>${T('账号列表','Accounts')} <span class="badge dim" id="userCount"></span>
       <span style="flex:1"></span>
-      <button class="btn primary" id="openCreateBtn">＋ 新增账号</button>
+      <button class="btn primary" id="openCreateBtn">${T('＋ 新增账号','＋ New account')}</button>
     </h2>
   
     <div style="display:flex;align-items:center;gap:8px;margin:12px 0 10px">
-      <input class="input" id="userSearch" placeholder="搜索用户名 / 展示名…（Esc 清空）" style="width:240px" autocomplete="off">
+      <input class="input" id="userSearch" placeholder="${T('搜索用户名 / 展示名…（Esc 清空）','Search username / display name… (Esc clears)')}" style="width:240px" autocomplete="off">
       <span class="dim2" id="userFilterHint" style="font-size:12px"></span>
     </div>
-    <div id="userList"><div class="empty">加载中…</div></div>
+    <div id="userList"><div class="empty">${T('加载中…','Loading…')}</div></div>
   </div>
 
   <!-- 新增账号弹窗（dlg lg 档） -->
   <div class="dlg-mask" id="nuModal" hidden>
     <div class="dlg lg" role="dialog" aria-modal="true">
       <div class="dlg-head">
-        <h3><span class="bar"></span>新增账号</h3>
-        <button class="dlg-x" data-dlg-close title="关闭 (Esc)">${icon('x', { size: 16 })}</button>
+        <h3><span class="bar"></span>${T('新增账号','New account')}</h3>
+        <button class="dlg-x" data-dlg-close title="${T('关闭 (Esc)','Close (Esc)')}">${icon('x', { size: 16 })}</button>
       </div>
       <div class="dlg-body">
         <div class="mrow two">
           <div class="mfield">
-            <label>用户名 <i>*</i></label>
-            <input class="input" id="nuName" placeholder="工号，如 0356" autocomplete="off">
+            <label>${T('用户名','Username')} <i>*</i></label>
+            <input class="input" id="nuName" placeholder="${T('工号，如 0356','Employee ID, e.g. 0356')}" autocomplete="off">
           </div>
           <div class="mfield">
-            <label>展示名</label>
-            <input class="input" id="nuDisp" placeholder="张三" autocomplete="off">
+            <label>${T('展示名','Display name')}</label>
+            <input class="input" id="nuDisp" placeholder="${T('张三','Zhang San')}" autocomplete="off">
           </div>
         </div>
         <div class="mfield">
-          <label>部门路径</label>
-          <input class="input" id="nuOrg" placeholder="/产品部/研发组" autocomplete="off">
+          <label>${T('部门路径','Department path')}</label>
+          <input class="input" id="nuOrg" placeholder="${T('/产品部/研发组','/Product/Dev')}" autocomplete="off">
         </div>
         <div class="mfield">
-          <label>初始密码 <i>*</i></label>
+          <label>${T('初始密码','Initial password')} <i>*</i></label>
           <div class="prow">
-            <input class="input" id="nuPass" placeholder="≥ 8 位" autocomplete="new-password" style="flex:1">
-            <button class="btn sm" id="nuGenBtn" type="button">随机生成</button>
+            <input class="input" id="nuPass" placeholder="${T('≥ 8 位','≥ 8 chars')}" autocomplete="new-password" style="flex:1">
+            <button class="btn sm" id="nuGenBtn" type="button">${T('随机生成','Generate')}</button>
           </div>
         </div>
         <div class="mfield">
-          <label>角色权限</label>
+          <label>${T('角色权限','Role')}</label>
           <div class="role-cards">
             <label class="role-card">
               <input type="radio" name="nuRole" value="user" checked>
-              <span class="rc-txt"><b>普通员工</b><span>只对话、看自助用量</span></span>
+              <span class="rc-txt"><b>${T('普通员工','Employee')}</b><span>${T('只对话、看自助用量','Chat and view own usage')}</span></span>
             </label>
             <label class="role-card">
               <input type="radio" name="nuRole" value="admin">
-              <span class="rc-txt"><b>管理员</b><span>可进管理台，管理全部配置</span></span>
+              <span class="rc-txt"><b>${T('管理员','Admin')}</b><span>${T('可进管理台，管理全部配置','Access admin console, manage all settings')}</span></span>
             </label>
           </div>
         </div>
       </div>
       <div class="dlg-foot">
         <span class="err" id="nuErr"></span>
-        <button class="btn" data-dlg-close>取消</button>
-        <button class="btn primary" id="createUserBtn">创建账号</button>
+        <button class="btn" data-dlg-close>${T('取消','Cancel')}</button>
+        <button class="btn primary" id="createUserBtn">${T('创建账号','Create account')}</button>
       </div>
     </div>
   </div>
@@ -104,22 +105,22 @@ export default {
   <div class="dlg-mask" id="pwdModal" hidden>
     <div class="dlg sm" role="dialog" aria-modal="true">
       <div class="dlg-head">
-        <h3><span class="bar"></span>重置密码 <span class="mono" id="pwdUser"></span></h3>
-        <button class="dlg-x" data-dlg-close title="关闭 (Esc)">${icon('x', { size: 16 })}</button>
+        <h3><span class="bar"></span>${T('重置密码','Reset password')} <span class="mono" id="pwdUser"></span></h3>
+        <button class="dlg-x" data-dlg-close title="${T('关闭 (Esc)','Close (Esc)')}">${icon('x', { size: 16 })}</button>
       </div>
       <div class="dlg-body">
         <div class="mfield">
-          <label>新密码 <i>*</i></label>
+          <label>${T('新密码','New password')} <i>*</i></label>
           <div class="prow">
-            <input class="input" id="pwdNew" placeholder="≥ 8 位" autocomplete="new-password" style="flex:1">
-            <button class="btn sm" id="pwdGenBtn" type="button">随机生成</button>
+            <input class="input" id="pwdNew" placeholder="${T('≥ 8 位','≥ 8 chars')}" autocomplete="new-password" style="flex:1">
+            <button class="btn sm" id="pwdGenBtn" type="button">${T('随机生成','Generate')}</button>
           </div>
         </div>
       </div>
       <div class="dlg-foot">
         <span class="err" id="pwdErr"></span>
-        <button class="btn" data-dlg-close>取消</button>
-        <button class="btn primary" id="pwdConfirmBtn">确认重置</button>
+        <button class="btn" data-dlg-close>${T('取消','Cancel')}</button>
+        <button class="btn primary" id="pwdConfirmBtn">${T('确认重置','Confirm reset')}</button>
       </div>
     </div>
   </div>`,
@@ -150,7 +151,7 @@ function renderKpis() {
   $('kpiEnabled').textContent = enabled
   $('kpiAdmin').textContent = admins
   $('kpiActive').textContent = active
-  $('kpiActiveSub').textContent = active ? '近 7 日有调用' : '近 7 日无调用'
+  $('kpiActiveSub').textContent = active ? T('近 7 日有调用','Active in last 7 days') : T('近 7 日无调用','No calls in 7 days')
 }
 
 function matchUser(u, q) {
@@ -161,17 +162,17 @@ function matchUser(u, q) {
 function renderUsers() {
   const q = ($('userSearch')?.value ?? '').trim().toLowerCase()
   const shown = cachedUsers.filter((u) => matchUser(u, q))
-  $('userCount').textContent = cachedUsers.length + ' 个账号'
-  $('userFilterHint').textContent = q ? `匹配 ${shown.length}/${cachedUsers.length} 个` : ''
+  $('userCount').textContent = T('共 {n} 个账号', '{n} accounts', { n: cachedUsers.length })
+  $('userFilterHint').textContent = q ? T('匹配 {a}/{b} 个', '{a}/{b} matched', { a: shown.length, b: cachedUsers.length }) : ''
   if (!shown.length) {
-    $('userList').innerHTML = `<div class="empty">${q ? '没有匹配的用户' : '暂无账号，用上方表单创建第一个'}</div>`
+    $('userList').innerHTML = `<div class="empty">${q ? T('没有匹配的用户','No matching users') : T('暂无账号，用上方表单创建第一个','No accounts yet — create one above')}</div>`
     return
   }
   $('userList').innerHTML = shown.map((u) => {
     const usage = cachedUsage.get(u.username)
     const usageTxt = usage
-      ? `近 7 日 <b>${usage.requests}</b> 次调用 · ${fmtBytes(usage.tokens)} tokens`
-      : '近 7 日无调用'
+      ? T('近 7 日 <b>{n}</b> 次调用 · {t} tokens', '<b>{n}</b> calls in 7 days · {t} tokens', { n: usage.requests, t: fmtBytes(usage.tokens) })
+      : T('近 7 日无调用', 'No calls in 7 days')
     const display = u.display_name && u.display_name !== u.username
       ? `<span class="dim2">${esc(u.display_name)}</span>` : ''
     return `<div class="user-item ${u.enabled ? '' : 'off'}">
@@ -179,20 +180,20 @@ function renderUsers() {
       <div class="user-main">
         <div class="user-title">
           <b>${esc(u.username)}</b>${display}
-          <span class="badge ${u.role === 'admin' ? 'warn' : 'dim'}">${u.role === 'admin' ? 'admin · 管理员' : 'user · 员工'}</span>
-          ${u.enabled ? '<span class="badge ok">启用</span>' : '<span class="badge bad">停用</span>'}
+          <span class="badge ${u.role === 'admin' ? 'warn' : 'dim'}">${u.role === 'admin' ? T('admin · 管理员','admin · Admin') : T('user · 员工','user · Employee')}</span>
+          ${u.enabled ? `<span class="badge ok">${T('启用','Enabled')}</span>` : `<span class="badge bad">${T('停用','Disabled')}</span>`}
         </div>
         <div class="user-meta">
-          <span>部门 <span class="mono">${esc(u.org_path ?? '/')}</span></span>
-          <span>创建于 ${esc((u.created_at ?? '').slice(0, 10))}</span>
+          <span>${T('部门','Dept')} <span class="mono">${esc(u.org_path ?? '/')}</span></span>
+          <span>${T('创建于','Created')} ${esc((u.created_at ?? '').slice(0, 10))}</span>
           <span>${usageTxt}</span>
         </div>
       </div>
       <div class="user-ops">
-        <button class="btn sm primary" data-activity="${esc(u.username)}">活动</button>
-        <button class="btn sm" data-pwd="${u.id}" data-name="${esc(u.username)}">改密</button>
-        ${u.username !== 'admin' ? `<button class="btn sm" data-toggle="${u.id}" data-to="${u.enabled ? 0 : 1}">${u.enabled ? '停用' : '启用'}</button>` : ''}
-        ${u.username !== 'admin' ? `<button class="btn sm danger" data-del="${u.id}" data-name="${esc(u.username)}">删除</button>` : ''}
+        <button class="btn sm primary" data-activity="${esc(u.username)}">${T('活动','Activity')}</button>
+        <button class="btn sm" data-pwd="${u.id}" data-name="${esc(u.username)}">${T('改密','Change password')}</button>
+        ${u.username !== 'admin' ? `<button class="btn sm" data-toggle="${u.id}" data-to="${u.enabled ? 0 : 1}">${u.enabled ? T('停用','Disable') : T('启用','Enable')}</button>` : ''}
+        ${u.username !== 'admin' ? `<button class="btn sm danger" data-del="${u.id}" data-name="${esc(u.username)}">${T('删除','Delete')}</button>` : ''}
       </div>
     </div>`
   }).join('')
@@ -211,9 +212,9 @@ function deviceLine(d) {
 }
 
 function sparkline(series) {
-  if (!series || series.length < 2) return '<div class="kv-empty">暂无内存采样数据（设备需在线产生心跳）</div>'
+  if (!series || series.length < 2) return `<div class="kv-empty">${T('暂无内存采样数据（设备需在线产生心跳）','No memory samples (device must be online to send heartbeat)')}</div>`
   const vals = series.map((p) => p.v).filter((v) => v != null)
-  if (!vals.length) return '<div class="kv-empty">暂无内存采样</div>'
+  if (!vals.length) return `<div class="kv-empty">${T('暂无内存采样','No memory samples')}</div>`
   const min = Math.min(...vals), max = Math.max(...vals)
   const range = max - min || 1
   const W = 440, H = 60, n = series.length
@@ -226,7 +227,7 @@ function sparkline(series) {
     <svg viewBox="0 0 ${W} ${H}" class="spark">
       <polyline points="${pts}" fill="none" stroke="#2563eb" stroke-width="1.6"/>
     </svg>
-    <div class="spark-cap">空闲内存 ${min.toFixed(1)} ~ ${max.toFixed(1)} GB · ${series.length} 个采样点（近 24h）</div>`
+    <div class="spark-cap">${T('空闲内存 {a} ~ {b} GB · {n} 个采样点（近 24h）','Free memory {a} ~ {b} GB · {n} samples (24h)', { a: min.toFixed(1), b: max.toFixed(1), n: series.length })}</div>`
 }
 
 async function openUserModal(username) {
@@ -234,48 +235,48 @@ async function openUserModal(username) {
   if (!m) { m = document.createElement('div'); m.id = 'userModal'; m.className = 'dlg-mask'; document.body.appendChild(m) }
   m.innerHTML = `<div class="dlg md" role="dialog" aria-modal="true">
     <div class="dlg-head">
-      <h2>账号详情 · ${esc(username)}</h2>
-      <button class="dlg-x" data-dlg-close title="关闭 (Esc)">${icon('x', { size: 16 })}</button>
+      <h2>${T('账号详情','Account details')} · ${esc(username)}</h2>
+      <button class="dlg-x" data-dlg-close title="${T('关闭 (Esc)','Close (Esc)')}">${icon('x', { size: 16 })}</button>
     </div>
-    <div class="dlg-body" style="text-align:center;color:#6b7280">加载中…</div>
+    <div class="dlg-body" style="text-align:center;color:#6b7280">${T('加载中…','Loading…')}</div>
   </div>`
   openDlg(m)
   try {
     const a = await api(`/admin/users/${encodeURIComponent(username)}/activity`)
     const s = a.stats ?? {}
     const loginRows = (a.logins ?? []).map((l) =>
-      `<tr><td class="mono">${esc(l.ts_local)}</td><td>${l.ok ? '<span class="badge ok">成功</span>' : '<span class="badge bad">失败</span>'}</td><td class="mono">${esc(l.ip ?? '-')}</td></tr>`
-    ).join('') || '<tr><td colspan="3" class="empty">暂无登录记录</td></tr>'
+      `<tr><td class="mono">${esc(l.ts_local)}</td><td>${l.ok ? `<span class="badge ok">${T('成功','Success')}</span>` : `<span class="badge bad">${T('失败','Failed')}</span>`}</td><td class="mono">${esc(l.ip ?? '-')}</td></tr>`
+    ).join('') || `<tr><td colspan="3" class="empty">${T('暂无登录记录','No sign-in records')}</td></tr>`
     const devRows = (a.devices ?? []).map((d) =>
       `<tr><td class="mono">${esc(d.device_hash?.slice(0, 10))}…</td><td>${esc(d.device?.hostname || '-')}</td><td>${esc(deviceLine(d))}</td><td>${esc(d.device?.ips?.join('、') ?? '-')}</td><td class="mono">${esc(d.ts_local)}</td></tr>`
-    ).join('') || '<tr><td colspan="5" class="empty">近 7 日无设备心跳</td></tr>'
+    ).join('') || `<tr><td colspan="5" class="empty">${T('近 7 日无设备心跳','No device heartbeat in 7 days')}</td></tr>`
     const usageRows = (a.usage ?? []).map((u) =>
       `<tr><td>${esc(u.model)}</td><td class="num">${u.requests}</td><td class="num">${fmtBytes(u.tokens_in + u.tokens_out)}</td><td class="mono">${esc(u.last_use)}</td></tr>`
-    ).join('') || '<tr><td colspan="4" class="empty">近 7 日无调用记录</td></tr>'
+    ).join('') || `<tr><td colspan="4" class="empty">${T('近 7 日无调用记录','No usage records in 7 days')}</td></tr>`
     m.innerHTML = `
       <div class="dlg wide" role="dialog" aria-modal="true">
         <div class="dlg-head">
-          <h2>账号详情 · ${esc(username)}</h2>
+          <h2>${T('账号详情','Account details')} · ${esc(username)}</h2>
           <span style="display:flex;gap:8px;flex-shrink:0">
-            <button class="btn sm" data-actset title="设置登录历史/心跳等默认显示条数">⚙ 显示设置</button>
-            <button class="dlg-x" data-dlg-close title="关闭 (Esc)">${icon('x', { size: 16 })}</button>
+            <button class="btn sm" data-actset title="${T('设置登录历史/心跳等默认显示条数','Default rows for sign-in history / heartbeat')}">⚙ ${T('显示设置','Display settings')}</button>
+            <button class="dlg-x" data-dlg-close title="${T('关闭 (Esc)','Close (Esc)')}">${icon('x', { size: 16 })}</button>
           </span>
         </div>
         <div class="dlg-body">
-          ${a.limits ? `<div style="font-size:12px;color:#94a3b8;margin-bottom:6px">展示窗口：近 ${esc(a.limits.days)} 天 · 登录历史 ${esc(a.limits.logins)} 条 / 心跳设备 ${esc(a.limits.devices)} 台 / 用量分组 ${esc(a.limits.usage)} 个（点右上「⚙ 显示设置」可调整）</div>` : ''}
+          ${a.limits ? `<div style="font-size:12px;color:#94a3b8;margin-bottom:6px">${T('展示窗口：近 {d} 天 · 登录历史 {l} 条 / 心跳设备 {v} 台 / 用量分组 {u} 个（点右上「⚙ 显示设置」可调整）','Window: last {d} days · {l} sign-ins / {v} heartbeat devices / {u} usage groups (adjust via ⚙ Display settings)', { d: esc(a.limits.days), l: esc(a.limits.logins), v: esc(a.limits.devices), u: esc(a.limits.usage) })}</div>` : ''}
           <div class="user-kpis">
-            <div class="kpi"><div class="lab">近7日请求</div><div class="val">${s.totalRequests ?? 0}</div></div>
-            <div class="kpi"><div class="lab">近7日 Token</div><div class="val">${fmtBytes(s.totalTokens)}</div></div>
-            <div class="kpi"><div class="lab">活跃设备</div><div class="val">${s.deviceCount ?? 0}</div></div>
-            <div class="kpi"><div class="lab">最近登录</div><div class="val" style="font-size:13px">${esc(s.lastLogin ?? '-')}</div></div>
+            <div class="kpi"><div class="lab">${T('近7日请求','Requests (7d)')}</div><div class="val">${s.totalRequests ?? 0}</div></div>
+            <div class="kpi"><div class="lab">${T('近7日 Token','Tokens (7d)')}</div><div class="val">${fmtBytes(s.totalTokens)}</div></div>
+            <div class="kpi"><div class="lab">${T('活跃设备','Active devices')}</div><div class="val">${s.deviceCount ?? 0}</div></div>
+            <div class="kpi"><div class="lab">${T('最近登录','Last sign-in')}</div><div class="val" style="font-size:13px">${esc(s.lastLogin ?? '-')}</div></div>
           </div>
-          <div class="detail-sub">登录历史（含失败尝试）</div>
-          <table><thead><tr><th>时间</th><th>结果</th><th>来源 IP</th></tr></thead><tbody>${loginRows}</tbody></table>
-          <div class="detail-sub">登录设备（近 7 日心跳）</div>
-          <table><thead><tr><th>指纹</th><th>主机名</th><th>硬件</th><th>IP</th><th>最后在线</th></tr></thead><tbody>${devRows}</tbody></table>
-          <div class="detail-sub">使用记录（近 7 日 · 关联审计日志）</div>
-          <table><thead><tr><th>模型</th><th class="num">请求数</th><th class="num">Token</th><th>最近使用</th></tr></thead><tbody>${usageRows}</tbody></table>
-          <div class="detail-sub">设备空闲内存变化（近 24h）</div>
+          <div class="detail-sub">${T('登录历史（含失败尝试）','Sign-in history (incl. failures)')}</div>
+          <table><thead><tr><th>${T('时间','Time')}</th><th>${T('结果','Result')}</th><th>${T('来源 IP','Source IP')}</th></tr></thead><tbody>${loginRows}</tbody></table>
+          <div class="detail-sub">${T('登录设备（近 7 日心跳）','Sign-in devices (7-day heartbeat)')}</div>
+          <table><thead><tr><th>${T('指纹','Fingerprint')}</th><th>${T('主机名','Hostname')}</th><th>${T('硬件','Hardware')}</th><th>IP</th><th>${T('最后在线','Last online')}</th></tr></thead><tbody>${devRows}</tbody></table>
+          <div class="detail-sub">${T('使用记录（近 7 日 · 关联审计日志）','Usage (7 days · audit logs)')}</div>
+          <table><thead><tr><th>${T('模型','Model')}</th><th class="num">${T('请求数','Requests')}</th><th class="num">Token</th><th>${T('最近使用','Last used')}</th></tr></thead><tbody>${usageRows}</tbody></table>
+          <div class="detail-sub">${T('设备空闲内存变化（近 24h）','Device free memory (24h)')}</div>
           ${sparkline(a.memSeries)}
         </div>
       </div>`
@@ -284,10 +285,10 @@ async function openUserModal(username) {
   } catch (e) {
     m.innerHTML = `<div class="dlg md" role="dialog" aria-modal="true">
       <div class="dlg-head">
-        <h2>账号详情 · ${esc(username)}</h2>
-        <button class="dlg-x" data-dlg-close title="关闭 (Esc)">${icon('x', { size: 16 })}</button>
+        <h2>${T('账号详情','Account details')} · ${esc(username)}</h2>
+        <button class="dlg-x" data-dlg-close title="${T('关闭 (Esc)','Close (Esc)')}">${icon('x', { size: 16 })}</button>
       </div>
-      <div class="dlg-body">加载失败：${esc(e?.message ?? e)}</div>
+      <div class="dlg-body">${T('加载失败：{m}','Load failed: {m}', { m: esc(e?.message ?? e) })}</div>
     </div>`
   }
 }
@@ -305,35 +306,35 @@ function openActivitySettings(username, limits) {
   m.innerHTML = `
     <div class="dlg" style="width:min(380px,94vw)" role="dialog" aria-modal="true">
       <div class="dlg-head">
-        <h2>显示设置</h2>
-        <button class="dlg-x" data-dlg-close title="关闭 (Esc)">${icon('x', { size: 16 })}</button>
+        <h2>${T('显示设置','Display settings')}</h2>
+        <button class="dlg-x" data-dlg-close title="${T('关闭 (Esc)','Close (Esc)')}">${icon('x', { size: 16 })}</button>
       </div>
       <div class="dlg-body">
-        <div class="crumb" style="margin-bottom:10px">账号详情各区块的默认显示数量（全局生效，保存后落盘）</div>
+        <div class="crumb" style="margin-bottom:10px">${T('账号详情各区块的默认显示数量（全局生效，保存后落盘）','Default row counts for account details (global, persisted)')}</div>
         <div style="display:grid;gap:10px">
-          ${f('asLogins', '登录历史条数（含失败尝试）', limits.logins ?? 20, 200)}
-          ${f('asDevices', '心跳设备条数（登录心跳聚合）', limits.devices ?? 20, 200)}
-          ${f('asUsage', '用量分组数', limits.usage ?? 20, 200)}
-          ${f('asDays', '活动窗口（天）', limits.days ?? 7, 90)}
+          ${f('asLogins', T('登录历史条数（含失败尝试）','Sign-in history rows'), limits.logins ?? 20, 200)}
+          ${f('asDevices', T('心跳设备条数（登录心跳聚合）','Heartbeat device rows'), limits.devices ?? 20, 200)}
+          ${f('asUsage', T('用量分组数','Usage groups'), limits.usage ?? 20, 200)}
+          ${f('asDays', T('活动窗口（天）','Activity window (days)'), limits.days ?? 7, 90)}
         </div>
-        <div class="hint" style="margin-top:10px">只影响展示范围，不删数据；与「安全防护 → 审计留存」是同一组配置。</div>
+        <div class="hint" style="margin-top:10px">${T('只影响展示范围，不删数据；与「安全防护 → 审计留存」是同一组配置。','Display range only, no data deleted; shared with Security → Audit retention')}</div>
       </div>
       <div class="dlg-foot">
         <span style="flex:1"></span>
-        <button class="btn" data-dlg-close>取消</button>
-        <button class="btn primary" id="asSaveBtn">保存</button>
+        <button class="btn" data-dlg-close>${T('取消','Cancel')}</button>
+        <button class="btn primary" id="asSaveBtn">${T('保存','Save')}</button>
       </div>
     </div>`
   openDlg(m)
   m.querySelector('#asSaveBtn').addEventListener('click', async () => {
     const num = (id) => Number(m.querySelector('#' + id).value)
     for (const [id, max] of [['asLogins', 200], ['asDevices', 200], ['asUsage', 200], ['asDays', 90]]) {
-      if (!Number.isInteger(num(id)) || num(id) < 1 || num(id) > max) { toast('✗ ' + id + ' 须为 1-' + max + ' 的整数', 'bad'); return }
+      if (!Number.isInteger(num(id)) || num(id) < 1 || num(id) > max) { toast('✗ ' + T('{id} 须为 1-{max} 的整数', '{id} must be an integer 1-{max}', { id, max }), 'bad'); return }
     }
     try {
       await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ audit: { activityLogins: num('asLogins'), activityDevices: num('asDevices'), activityUsage: num('asUsage'), activityDays: num('asDays') } }) })
       closeDlg(m)
-      toast('显示设置已保存并落盘')
+      toast(T('显示设置已保存并落盘','Display settings saved'))
       openUserModal(username)   // 按新条数重拉账号详情
     } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
   })
@@ -389,9 +390,9 @@ function openResetPwd(id, username) {
 
 async function doResetPwd() {
   const p = $('pwdNew').value
-  if (p.length < 8) { $('pwdErr').textContent = '密码至少 8 位'; return }
+  if (p.length < 8) { $('pwdErr').textContent = T('密码至少 8 位','Password must be 8+ characters'); return }
   const r = await api('/admin/users/' + pwdTargetId, { method: 'PATCH', body: JSON.stringify({ password: p }) })
-  if (r.ok) { closeDlg($('pwdModal')); toast('密码已重置') }
+  if (r.ok) { closeDlg($('pwdModal')); toast(T('密码已重置','Password reset')) }
 }
 
 function openCreateModal() {
@@ -410,32 +411,32 @@ async function createUser() {
   const displayName = $('nuDisp').value.trim()
   const orgPath = $('nuOrg').value.trim() || '/'
   const role = document.querySelector('input[name="nuRole"]:checked')?.value ?? 'user'
-  if (!username) { errEl.textContent = '用户名不能为空'; $('nuName').focus(); return }
-  if (!password) { errEl.textContent = '初始密码不能为空'; $('nuPass').focus(); return }
-  if (password.length < 8) { errEl.textContent = '初始密码至少 8 位'; $('nuPass').focus(); return }
+  if (!username) { errEl.textContent = T('用户名不能为空','Username is required'); $('nuName').focus(); return }
+  if (!password) { errEl.textContent = T('初始密码不能为空','Initial password is required'); $('nuPass').focus(); return }
+  if (password.length < 8) { errEl.textContent = T('初始密码至少 8 位','Initial password must be 8+ characters'); $('nuPass').focus(); return }
   const body = await api('/admin/users', { method: 'POST', body: JSON.stringify({ username, password, role, displayName: displayName || undefined, orgPath }) })
-  if (body?.error) { errEl.textContent = body.error.message ?? '创建失败'; return }
+  if (body?.error) { errEl.textContent = body.error.message ?? T('创建失败','Create failed'); return }
   closeDlg($('nuModal'))
-  toast(`已创建 ${username}${displayName ? '（' + displayName + '）' : ''}`)
+  toast(T('已创建 {u}{d}', 'Created {u}{d}', { u: username, d: displayName ? '(' + displayName + ')' : '' }))
   loadUsers()
 }
 
 async function deleteUser(id, username) {
   const ok = await confirmDlg({
-    title: '删除用户',
-    message: `确定删除用户「${username}」？该账号的登录身份立即失效，历史留痕与计费记录保留（审计需要）。`,
-    confirmText: '确认删除',
+    title: T('删除用户', 'Delete user'),
+    message: T('确定删除用户「{u}」？该账号的登录身份立即失效，历史留痕与计费记录保留（审计需要）。', 'Delete user {u}? Sign-in is revoked immediately; logs and billing records are kept for audit.', { u: username }),
+    confirmText: T('确认删除', 'Delete'),
     danger: true,
   })
   if (!ok) return
   const r = await api('/admin/users/' + id, { method: 'DELETE' })
-  if (r?.error) return toast(r.error.message ?? '删除失败')
-  toast(`已删除 ${username}`)
+  if (r?.error) return toast(r.error.message ?? T('删除失败','Delete failed'))
+  toast(T('已删除 {u}','Deleted {u}', { u: username }))
   loadUsers()
 }
 
 async function toggleUser(id, enabled) {
   await api('/admin/users/' + id, { method: 'PATCH', body: JSON.stringify({ enabled }) })
-  toast(enabled ? '已启用' : '已停用')
+  toast(enabled ? T('已启用','Enabled') : T('已停用','Disabled'))
   loadUsers()
 }

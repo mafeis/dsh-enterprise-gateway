@@ -1,12 +1,13 @@
 <!-- ===== 登录 ===== -->
 <div id="loginMask">
   <div class="login-box">
-    <h2>登录管理台</h2>
-    <div class="sub">DSH 企业网关 · 需管理员账号</div>
+    <div style="display:flex;justify-content:flex-end"><button class="btn sm" data-lang-toggle style="background:transparent;border-color:#e2e8f0;color:#64748b;min-width:52px">EN</button></div>
+    <h2 id="loginTitle">登录管理台</h2>
+    <div class="sub" id="loginSub">DSH 企业网关 · 需管理员账号</div>
     <div class="login-err" id="loginErr"></div>
     <input id="loginUser" placeholder="用户名" autocomplete="username">
     <input id="loginPass" type="password" placeholder="密码" autocomplete="current-password">
     <button class="btn primary" id="loginBtn">登 录</button>
-    <div class="login-hint">首次启动的初始密码在网关控制台日志中（仅打印一次）<br>登录后所有数据来自网关实时接口：<span class="mono">本页地址即网关（同源直连）</span></div>
+    <div class="login-hint"><span id="loginHint1">首次启动的初始密码在网关控制台日志中（仅打印一次）</span><br><span id="loginHint2">登录后所有数据来自网关实时接口：</span><span class="mono" id="loginHintSrc">本页地址即网关（同源直连）</span></div>
   </div>
 </div>

@@ -28,7 +28,7 @@ export const manifest = {
 
 /** 自带页面：协作视图（页面资源在本插件 ent-inspector.web/）；icon 为 lucide 图标名 */
 export const admin = {
-  nav: { id: 'inspector', title: '协作视图', icon: 'git-merge' },
+  nav: { id: 'inspector', title: '协作视图', titleEn: 'Collaboration', icon: 'git-merge' },
   entry: 'index.mjs',
 }
 

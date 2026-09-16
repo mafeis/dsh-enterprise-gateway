@@ -8,12 +8,16 @@ import { listRepo } from '../core/repo-store.mjs'
 
 export function createPluginProtocolHandler({ config, store, auth }) {
   const { getConfig } = config
-  const { insertAck, insertHeartbeat, latestHeartbeatDevice } = store
-  /** 策略下发附带插件元数据（管理员在插件仓库维护的描述）——仓库为空时省略该字段 */
+  const { insertAck, insertHeartbeat, latestHeartbeatDevice, recordPluginSightings } = store
+  /** 策略下发附带插件元数据（管理员在插件仓库维护的中英描述）——仓库为空时省略该字段 */
   const pluginMeta = () => {
     try {
       const meta = {}
-      for (const p of listRepo()) if (p.description) meta[p.name] = { description: p.description }
+      for (const p of listRepo()) {
+        if (p.description || p.descriptionEn) {
+          meta[p.name] = { description: p.description ?? '', descriptionZh: p.description ?? '', descriptionEn: p.descriptionEn ?? '' }
+        }
+      }
       return Object.keys(meta).length ? meta : undefined
     } catch { return undefined }
   }
@@ -35,7 +39,8 @@ export function createPluginProtocolHandler({ config, store, auth }) {
         auditLevel: cfg.audit.level,
         dlpEnabled: cfg.dlp.enabled,
         dlpRuleCount: cfg.dlp.rules.length,
-        gatewayBaseUrl: `http://127.0.0.1:${cfg.server.port}`,
+        // 员工端接入地址：管理员在客户端管控维护的局域网地址；未配置回退本机回环（仅同机可用）
+        gatewayBaseUrl: cfg.policy.clientAccessUrl || `http://127.0.0.1:${cfg.server.port}`,
         models: cfg.models.map((m) => m.id),
         pluginMeta: pluginMeta(),
       })
@@ -82,6 +87,8 @@ export function createPluginProtocolHandler({ config, store, auth }) {
       const allowed = Array.isArray(cfg.policy.allowedPlugins) ? cfg.policy.allowedPlugins : []
       const installed = Array.isArray(dev?.plugins) ? dev.plugins : null
       const pluginViolations = (allowed.length && installed) ? installed.filter((x) => !allowed.includes(x)) : []
+      // 插件出现史落库（含历史）：清单外即打违规标，快照里消失的插件标"已清除"但记录保留
+      try { recordPluginSightings(dh, installed ?? [], { account: b.account, hostname: dev?.hostname, env: b.env, allowed }) } catch { /* 记录失败不影响心跳 */ }
       // deviceAccepted=false 告知客户端「网关无快照」，客户端下次强制全量
       // auth：账号状态显式透出（终端据此自动清场回登录页）——心跳不鉴权（设备遥测语义），
       // 但带 Bearer 时顺带 authenticate 一次，把停用/吊销/删除状态放进 200 响应；
@@ -93,7 +100,7 @@ export function createPluginProtocolHandler({ config, store, auth }) {
           return a.ok ? { ok: true, user: a.user?.username ?? '' } : { ok: false, reason: a.error?.type ?? 'auth_invalid' }
         } catch { return null }
       })()
-      return json(res, 200, { ok: true, deviceAccepted: deviceJson !== null, modelFingerprint: modelFp, pluginViolations, ...(authState ? { auth: authState } : {}) })
+      return json(res, 200, { ok: true, deviceAccepted: deviceJson !== null, modelFingerprint: modelFp, pluginViolations, pluginEnforce: cfg.policy.pluginEnforce ?? 'enforce', ...(authState ? { auth: authState } : {}) })
     }
 
     return false

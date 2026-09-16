@@ -4,6 +4,7 @@
  * 约定：网关 4xx 返回 JSON {error:{message}}，统一经 must() 转异常后进错误提示
  */
 import { api, $, toast, esc, must, confirmDlg } from '/admin/static/contract.mjs';
+import { T } from '/admin/static/js/i18n.mjs';
 
 let cachedConfig = { providers: [], models: [] };
 // 思考档位 = DSH 终端 schema 白名单（与客户端 settings.yaml 校验严格一致）。
@@ -53,7 +54,7 @@ async function loadConfig() {
     renderProviders();
     renderModels();
   } catch (e) {
-    if (e.message !== '401') toast('✗ 配置加载失败：' + e.message, 'bad');   // 401 已由 api() 弹登录
+    if (e.message !== '401') toast('✗ ' + T('配置加载失败：{msg}', 'Failed to load config: {msg}', { msg: e.message }), 'bad');   // 401 已由 api() 弹登录
   }
 }
 
@@ -75,16 +76,16 @@ function matchFilter(...fields) {
 function renderProviders() {
   const { providers, models } = cachedConfig;
   const shown = providers.filter((p) => matchFilter(p.id, p.name, p.baseUrl, ...models.filter((m) => m.providerId === p.id).map((m) => m.id + ' ' + m.upstreamModel)));
-  $('provCount').textContent = providers.length + ' 个';
+  $('provCount').textContent = T('{n} 个', '{n} total', { n: providers.length });
   $('provList').innerHTML = shown.map((p) => {
     const served = models.filter((m) => m.providerId === p.id);
     const fbOf = models.filter((m) => (m.fallbackProviders ?? []).includes(p.id));
-    const keyTxt = p.apiKeyEnv ? '.env:' + esc(p.apiKeyEnv) : '未配置密钥';
+    const keyTxt = p.apiKeyEnv ? '.env:' + esc(p.apiKeyEnv) : T('未配置密钥', 'No API key');
     const protoTxt = { anthropic: 'Anthropic', gemini: 'Gemini' }[p.protocol] ?? '';
-    const protoBadge = protoTxt ? `<span class="badge" title="上游协议：${protoTxt}">${protoTxt}</span>` : '';
+    const protoBadge = protoTxt ? `<span class="badge" title="${T('上游协议：{p}', 'Upstream protocol: {p}', { p: protoTxt })}">${protoTxt}</span>` : '';
     const keyOk = p.hasKey
-      ? '<span class="badge ok">密钥 ✓</span>'
-      : '<span class="badge bad">密钥 ✗</span>';
+      ? `<span class="badge ok">${T('密钥 ✓', 'API key ✓')}</span>`
+      : `<span class="badge bad">${T('密钥 ✗', 'API key ✗')}</span>`;
     const upAll = served.every((m) => m.enabled !== false);
     return `<div class="prov-item ${p.enabled ? '' : 'off'}">
       <div class="prov-avatar" style="background:${avatarColor(p.id)}">${esc((p.name || p.id || '?').trim().charAt(0).toUpperCase())}</div>
@@ -93,45 +94,45 @@ function renderProviders() {
           <b>${esc(p.name)}</b>
           <span class="mapchip mono">${esc(p.id)}</span>
           ${protoBadge}
-          ${p.enabled ? '' : '<span class="badge dim">已禁用</span>'}
-          ${served.length ? (upAll ? `<span class="badge">${served.length} 模型</span>` : `<span class="badge warn">${served.filter((m) => m.enabled !== false).length}/${served.length} 上架</span>`) : ''}
+          ${p.enabled ? '' : `<span class="badge dim">${T('已禁用', 'Disabled')}</span>`}
+          ${served.length ? (upAll ? `<span class="badge">${T('{n} 模型', '{n} models', { n: served.length })}</span>` : `<span class="badge warn">${T('{a}/{b} 上架', '{a}/{b} listed', { a: served.filter((m) => m.enabled !== false).length, b: served.length })}</span>`) : ''}
           ${keyOk}
         </div>
         <div class="prov-meta">
           <span class="mapchip mono">${esc(p.baseUrl)}</span>
-          <span class="dim2">超时 ${Math.round((p.timeoutMs ?? 120000) / 1000)}s · 权重 ${p.weight ?? 0} · ${keyTxt}</span>
+          <span class="dim2">${T('超时 {t}s · 权重 {w} · {k}', 'Timeout {t}s · Weight {w} · {k}', { t: Math.round((p.timeoutMs ?? 120000) / 1000), w: p.weight ?? 0, k: keyTxt })}</span>
         </div>
         <div class="prov-served">
           ${served.length
-            ? '承载 ' + served.map((m) => `<span class="mapchip mono">${esc(m.id)}</span>`).join(' ')
-            : '<span class="dim2">尚未承载模型</span>'}
-          ${fbOf.length ? `<span class="dim2">· 容灾: ${fbOf.map((m) => esc(m.id)).join(', ')}</span>` : ''}
+            ? T('承载 {list}', 'Serving {list}', { list: served.map((m) => `<span class="mapchip mono">${esc(m.id)}</span>`).join(' ') })
+            : `<span class="dim2">${T('尚未承载模型', 'No models yet')}</span>`}
+          ${fbOf.length ? `<span class="dim2">${T('· 容灾: {list}', '· Failover: {list}', { list: fbOf.map((m) => esc(m.id)).join(', ') })}</span>` : ''}
         </div>
       </div>
       <div class="prov-ops">
-        <button class="btn sm" data-phealth="${esc(p.id)}" title="状态检测与统计">状态</button>
-        <button class="btn sm" data-ptest="${esc(p.id)}" title="模型设置">模型设置</button>
-        <button class="btn sm" data-pedit="${esc(p.id)}">编辑</button>
-        <button class="btn sm danger" data-pdel="${esc(p.id)}">删除</button>
-        <span class="rowswitch ${p.enabled ? 'on' : ''}" data-ptoggle="${esc(p.id)}" title="${p.enabled ? '点击禁用（其下模型走容灾）' : '点击启用'}"></span>
+        <button class="btn sm" data-phealth="${esc(p.id)}" title="${T('状态检测与统计', 'Health check & stats')}">${T('状态', 'Status')}</button>
+        <button class="btn sm" data-ptest="${esc(p.id)}" title="${T('模型设置', 'Model settings')}">${T('模型设置', 'Model settings')}</button>
+        <button class="btn sm" data-pedit="${esc(p.id)}">${T('编辑', 'Edit')}</button>
+        <button class="btn sm danger" data-pdel="${esc(p.id)}">${T('删除', 'Delete')}</button>
+        <span class="rowswitch ${p.enabled ? 'on' : ''}" data-ptoggle="${esc(p.id)}" title="${p.enabled ? T('点击禁用（其下模型走容灾）', 'Click to disable (models use failover)') : T('点击启用', 'Click to enable')}"></span>
       </div>
     </div>`;
   }).join('') || (providers.length
-    ? '<div class="empty">无匹配结果</div>'
-    : '<div class="empty">暂无供应商 —— 点右上角「＋ 新增供应商」</div>');
+    ? `<div class="empty">${T('无匹配结果', 'No matches')}</div>`
+    : `<div class="empty">${T('暂无供应商 —— 点右上角「＋ 新增供应商」', 'No providers yet — add one at top right')}</div>`);
 }
 
 /** 思考档位徽章（模型表与模型设置弹窗共用）——表达的是配置：可选/强制 + 默认档位 */
 const thinkBadge = (m) => {
-  if (m.thinking === 'none') return '<span class="badge dim">不支持思考</span>';
-  if (m.thinking === 'always') return `<span class="badge warn">强制档位 · ${esc(m.defaultThinking ?? 'medium')}</span>`;
-  return `<span class="badge">支持思考 · 默认 ${esc(m.defaultThinking ?? 'off')}</span>`;
+  if (m.thinking === 'none') return `<span class="badge dim">${T('不支持思考', 'No thinking')}</span>`;
+  if (m.thinking === 'always') return `<span class="badge warn">${T('强制档位 · {lv}', 'Forced · {lv}', { lv: esc(m.defaultThinking ?? 'medium') })}</span>`;
+  return `<span class="badge">${T('支持思考 · 默认 {lv}', 'Thinking · default {lv}', { lv: esc(m.defaultThinking ?? 'off') })}</span>`;
 };
 /** 输入模式徽章（共用）：图片/视频/音频 */
 const modeChipOf = (m) => {
   const extra = (m.inputModes ?? []).filter((x) => x !== 'text');
   if (!extra.length) return '';
-  const names = { image: '图片', video: '视频', audio: '音频' };
+  const names = { image: T('图片', 'Image'), video: T('视频', 'Video'), audio: T('音频', 'Audio') };
   return `<span class="badge dim">${esc(extra.map((x) => names[x] ?? x).join('+'))}</span>`;
 };
 
@@ -139,14 +140,14 @@ function renderModels() {
   const { providers, models } = cachedConfig;
   const provName = (id) => providers.find((p) => p.id === id)?.name ?? id;
   const shown = models.filter((m) => matchFilter(m.id, m.displayName, m.upstreamModel, provName(m.providerId)));
-  $('modelCount').textContent = models.length + ' 个';
+  $('modelCount').textContent = T('{n} 个', '{n} total', { n: models.length });
   // 手工维护的自定义档位/注入参数 → 一枚紧凑徽章（hover 看明细），不再逐个铺开
   const customChip = (m) => {
     const lv = (m.thinkingLevels ?? []).filter((x) => !PRESET_LEVELS.includes(x));
     if (!lv.length && !m.thinkingParams) return '';
-    const tip = lv.length ? `自定义档位：${lv.join('、')}` : '';
-    const tipP = m.thinkingParams ? `注入参数：${Object.keys(m.thinkingParams).join('、')}` : '';
-    return `<span class="badge dim" title="${esc([tip, tipP].filter(Boolean).join('（含每档注入参数）\n'))}">自定义${lv.length ? '×' + lv.length : ''}${m.thinkingParams ? '·参数' : ''}</span>`;
+    const tip = lv.length ? T('自定义档位：{lv}', 'Custom levels: {lv}', { lv: lv.join(T('、', ', ')) }) : '';
+    const tipP = m.thinkingParams ? T('注入参数：{p}', 'Injected params: {p}', { p: Object.keys(m.thinkingParams).join(T('、', ', ')) }) : '';
+    return `<span class="badge dim" title="${esc([tip, tipP].filter(Boolean).join(T('（含每档注入参数）\n', ' (with per-level params)\n')))}">${T('自定义', 'Custom')}${lv.length ? '×' + lv.length : ''}${m.thinkingParams ? T('·参数', '·params') : ''}</span>`;
   };
   // 输入模式：非文本模式缩为一枚徽章（hover 明细）
   const modeChip = modeChipOf;
@@ -162,33 +163,33 @@ function renderModels() {
     const unservable = !provOn && !fbProv.length;   // 主家停用且无可用容灾：终端已自动隐藏，表格同步标注
     const routeCell = unservable
       ? `<span class="route-chip">${esc(provName(m.providerId))}</span><span class="route-arrow">→</span><span class="mono">${esc(m.upstreamModel)}</span>` +
-        '<div class="msub" style="color:var(--warn)">⚠ 主供应商不可用且无容灾</div>'
+        '<div class="msub" style="color:var(--warn)">⚠ ' + T('主供应商不可用且无容灾', 'Main provider down, no failover') + '</div>'
       : (!provOn && fbProv.length
         ? `<span class="route-chip">${esc(fbName)}</span><span class="route-arrow">→</span><span class="mono">${esc(fbUpstream)}</span>` +
-          `<div class="msub" title="主供应商禁用/密钥失效/上游不可用时自动切换">容灾运行中</div>`
+          `<div class="msub" title="${T('主供应商禁用/密钥失效/上游不可用时自动切换', 'Auto-switches when the provider is disabled, key invalid, or upstream down')}">${T('容灾运行中', 'Running on failover')}</div>`
         : `<span class="route-chip">${esc(provName(m.providerId))}</span><span class="route-arrow">→</span><span class="mono">${esc(m.upstreamModel)}</span>` +
-          (fbIds.length ? `<div class="msub" style="color:var(--dim)">容灾：${esc(fbName)} → ${esc(fbUpstream)}</div>` : ''));
+          (fbIds.length ? `<div class="msub" style="color:var(--dim)">${T('容灾：{a} → {b}', 'Failover: {a} → {b}', { a: esc(fbName), b: esc(fbUpstream) })}</div>` : ''));
     return `<tr ${off || unservable ? 'style="opacity:.6"' : ''}>
       <td>
         <div class="mname">${esc(m.id)}</div>
-        <div class="msub">${esc(m.displayName ?? '')}${m.mode === 'reasoning' ? ' · 深度推理' : ''}</div>
+        <div class="msub">${esc(m.displayName ?? '')}${m.mode === 'reasoning' ? T(' · 深度推理', ' · deep reasoning') : ''}</div>
       </td>
       <td>${routeCell}</td>
       <td class="num">${fmt1k(m.contextWindow)} / ${fmt1k(m.maxTokens)}</td>
       <td><div class="think-cell">${thinkBadge(m)}${customChip(m)}${modeChip(m)}</div></td>
-      <td class="num mono" title="输入 / 输出 / 缓存命中输入">${fmtPrice(m.pricePer1MIn)} / ${fmtPrice(m.pricePer1MOut)} / <span style="color:var(--dim)">${fmtPrice(m.pricePer1MCacheIn ?? m.pricePer1MIn)}</span></td>
+      <td class="num mono" title="${T('输入 / 输出 / 缓存命中输入', 'Input / output / cached input')}">${fmtPrice(m.pricePer1MIn)} / ${fmtPrice(m.pricePer1MOut)} / <span style="color:var(--dim)">${fmtPrice(m.pricePer1MCacheIn ?? m.pricePer1MIn)}</span></td>
       <td style="white-space:nowrap">
-        <span class="rowswitch ${off ? '' : 'on'}" data-mtoggle="${esc(m.id)}" data-to="${off ? 1 : 0}" title="${off ? '已下架，点击上架' : '上架中，点击下架'}"></span>
-        <span class="dim2">${off ? '已下架' : unservable ? '不可服务' : '上架中'}</span>
+        <span class="rowswitch ${off ? '' : 'on'}" data-mtoggle="${esc(m.id)}" data-to="${off ? 1 : 0}" title="${off ? T('已下架，点击上架', 'Unlisted, click to list') : T('上架中，点击下架', 'Listed, click to unlist')}"></span>
+        <span class="dim2">${off ? T('已下架', 'Unlisted') : unservable ? T('不可服务', 'Unservable') : T('上架中', 'Listed')}</span>
       </td>
       <td style="white-space:nowrap">
-        <button class="btn sm" data-medit="${esc(m.id)}">编辑</button>
-        <button class="btn sm danger" data-mdel="${esc(m.id)}">删除</button>
+        <button class="btn sm" data-medit="${esc(m.id)}">${T('编辑', 'Edit')}</button>
+        <button class="btn sm danger" data-mdel="${esc(m.id)}">${T('删除', 'Delete')}</button>
       </td>
     </tr>`;
   }).join('') || (models.length
-    ? '<tr><td colspan="7" class="empty">无匹配结果</td></tr>'
-    : '<tr><td colspan="7" class="empty">暂无模型 —— 先新增供应商</td></tr>');
+    ? `<tr><td colspan="7" class="empty">${T('无匹配结果', 'No matches')}</td></tr>`
+    : `<tr><td colspan="7" class="empty">${T('暂无模型 —— 先新增供应商', 'No models yet — add a provider first')}</td></tr>`);
 }
 
 /** 131072 → 128k（K=1024，与官方上下文口径一致）· 1536 → 1.5k · 999 → 999 */
@@ -220,7 +221,7 @@ const clampNum = (v, min, max, def) => {
 /* ---------- 供应商编辑器 ---------- */
 function openProvEditor(p = null) {
   $('provEditorCard').hidden = false;
-  $('provEditorTitle').textContent = p ? '编辑供应商 · ' + p.id : '新增供应商';
+  $('provEditorTitle').textContent = p ? T('编辑供应商 · {id}', 'Edit provider · {id}', { id: p.id }) : T('新增供应商', 'Add provider');
   $('peId').value = p?.id ?? '';
   if (p) $('peId').dataset.orig = p.id; else delete $('peId').dataset.orig;   // 编辑态保持可输入：改动 ID = 改名（保存时确认）
   $('peName').value = p?.name ?? '';
@@ -228,7 +229,7 @@ function openProvEditor(p = null) {
   $('peProtocol').value = ['openai', 'anthropic', 'gemini'].includes(p?.protocol) ? p.protocol : 'openai';
   // 密钥：单一输入框。输入 → 服务端落 data/.env（配置文件只存变量名引用，永不明文）；留空 = 不修改
   $('peKey').value = '';
-  $('peKey').placeholder = p?.hasKey ? '已保存，留空不修改' : 'sk-…';
+  $('peKey').placeholder = p?.hasKey ? T('已保存，留空不修改', 'Saved; leave blank to keep') : 'sk-…';
   $('peKeyEnv').value = p?.apiKeyEnv ?? '';
   $('peKeyEnv').dataset.orig = p?.apiKeyEnv ?? '';   // 保存时对比：变了才传 apiKeyEnv
   $('peTimeout').value = p?.timeoutMs ?? 120000;
@@ -248,12 +249,12 @@ async function saveProvEditor() {
   errEl.textContent = '';
   const idVal = $('peId').value.trim();
   // 客户端预校验：必填项 + 格式，减少一次无谓往返
-  if (!idVal) { errEl.textContent = 'ID 不能为空'; $('peId').focus(); return; }
-  if (!ID_RE.test(idVal)) { errEl.textContent = 'ID 只能包含字母、数字、下划线、中划线'; $('peId').focus(); return; }
+  if (!idVal) { errEl.textContent = T('ID 不能为空', 'ID is required'); $('peId').focus(); return; }
+  if (!ID_RE.test(idVal)) { errEl.textContent = T('ID 只能包含字母、数字、下划线、中划线', 'ID allows only letters, digits, underscore, dash'); $('peId').focus(); return; }
   const name = $('peName').value.trim();
-  if (!name) { errEl.textContent = '名称不能为空'; $('peName').focus(); return; }
+  if (!name) { errEl.textContent = T('名称不能为空', 'Name is required'); $('peName').focus(); return; }
   const baseUrl = $('peUrl').value.trim();
-  if (!/^https?:\/\//.test(baseUrl)) { errEl.textContent = 'Base URL 必须以 http:// 或 https:// 开头'; $('peUrl').focus(); return; }
+  if (!/^https?:\/\//.test(baseUrl)) { errEl.textContent = T('Base URL 必须以 http:// 或 https:// 开头', 'Base URL must start with http:// or https://'); $('peUrl').focus(); return; }
   const b = {
     name,
     baseUrl,
@@ -277,9 +278,9 @@ async function saveProvEditor() {
   const editing = !!$('peId').dataset.orig;   // 编辑态由 openProvEditor 设 orig；peId 可输入（改名），不能用 disabled 判断
   if (editing && idVal && idVal !== $('peId').dataset.orig) {
     const ok = await confirmDlg({
-      title: '供应商改名',
-      message: `确定把供应商 ID 从「${$('peId').dataset.orig}」改名为「${idVal}」？其下所有模型与容灾引用将自动级联更新。`,
-      confirmText: '确认改名',
+      title: T('供应商改名', 'Rename provider'),
+      message: T('确定把供应商 ID 从「{a}」改名为「{b}」？其下所有模型与容灾引用将自动级联更新。', 'Rename provider ID from "{a}" to "{b}"? Models and failover references update automatically', { a: $('peId').dataset.orig, b: idVal }),
+      confirmText: T('确认改名', 'Confirm rename'),
       danger: true,
     });
     if (!ok) return;
@@ -290,7 +291,7 @@ async function saveProvEditor() {
   try {
     if (editing) await must(api('/admin/providers/' + encodeURIComponent($('peId').dataset.orig), { method: 'PATCH', body: JSON.stringify(b) }));
     else await must(api('/admin/providers', { method: 'POST', body: JSON.stringify({ ...b, id: idVal }) }));
-    toast(b.newId ? `供应商已改名为 ${b.newId}（挂载引用已级联更新）` : '供应商已保存，即时生效');
+    toast(b.newId ? T('供应商已改名为 {id}（挂载引用已级联更新）', 'Provider renamed to {id}; references updated', { id: b.newId }) : T('供应商已保存，即时生效', 'Provider saved, effective now'));
     closeModal($('provEditorCard'));
     loadConfig();
   } catch (e) {
@@ -303,11 +304,11 @@ async function saveProvEditor() {
 /* ---------- 模型编辑器 ---------- */
 function openModelEditor(m = null) {
   const providers = cachedConfig.providers;
-  if (!providers.length) { toast('请先新增一个供应商，再上架模型', 'bad'); return; }
+  if (!providers.length) { toast(T('请先新增一个供应商，再上架模型', 'Add a provider before listing models'), 'bad'); return; }
   $('modelEditorCard').hidden = false;
-  $('modelEditorTitle').textContent = m ? '编辑模型 · ' + m.id : '上架模型';
+  $('modelEditorTitle').textContent = m ? T('编辑模型 · {id}', 'Edit model · {id}', { id: m.id }) : T('上架模型', 'Add model');
   $('meProv').innerHTML = providers.map((p) =>
-    `<option value="${esc(p.id)}" ${m?.providerId === p.id ? 'selected' : ''}>${esc(p.name)}（${esc(p.id)}）${p.enabled ? '' : ' · 已禁用'}</option>`).join('');
+    `<option value="${esc(p.id)}" ${m?.providerId === p.id ? 'selected' : ''}>${esc(p.name)}${T('（{id}）', ' ({id})', { id: esc(p.id) })}${p.enabled ? '' : T(' · 已禁用', ' · disabled')}</option>`).join('');
   const renderFb = () => {
     const main = $('meProv').value;
     const others = providers.filter((p) => p.id !== main);
@@ -322,13 +323,13 @@ function openModelEditor(m = null) {
           const sameName = theirModels.find((x) => x.upstreamModel === m?.upstreamModel);
           const initVal = mapped || (m ? (sameName ? sameName.upstreamModel : '') : '');
           const needPick = !initVal;
-          const opts = (needPick ? ['<option value="" class="ph">⚠ 无同名，必选一个</option>'] : [])
-            .concat(theirModels.map((x) => `<option value="${esc(x.upstreamModel)}" ${initVal === x.upstreamModel ? 'selected' : ''}>${esc(x.displayName || x.id)}（${esc(x.upstreamModel)}）</option>`))
+          const opts = (needPick ? [`<option value="" class="ph">${T('⚠ 无同名，必选一个', '⚠ No same-name model, pick one')}</option>`] : [])
+            .concat(theirModels.map((x) => `<option value="${esc(x.upstreamModel)}" ${initVal === x.upstreamModel ? 'selected' : ''}>${esc(x.displayName || x.id)}${T('（{v}）', ' ({v})', { v: esc(x.upstreamModel) })}</option>`))
             .join('');
           return `<label class="chk" style="align-items:center"><input type="checkbox" class="meFb" value="${esc(p.id)}" ${checked ? 'checked' : ''}> ${esc(p.name)}</label>` +
             `<select class="input meFbName" data-pid="${esc(p.id)}" style="width:200px;padding:3px 8px;font-size:12px;${needPick && checked ? 'border-color:var(--warn)' : ''}" ${checked ? '' : 'disabled'}>${opts}</select>`;
         }).join(' ')
-      : '<span class="dim2">暂无其他供应商可作容灾</span>';
+      : '<span class="dim2">' + T('暂无其他供应商可作容灾', 'No other providers for failover') + '</span>';
   };
   renderFb();
   // 勾选/取消容灾供应商联动右侧的"该家模型名"输入框可用性
@@ -357,8 +358,8 @@ function openModelEditor(m = null) {
   // 思考档位：只读回显（来源 = 探测应用写入的实测档位）；新增模型提示档位由探测写入
   const levels = m?.thinkingLevels ?? [];
   $('meThinkLevelsView').innerHTML = levels.length
-    ? levels.map((x) => `<span class="badge ${x === 'off' ? 'dim' : 'ok'}" title="${x === 'off' ? '关闭思考档' : '实测支持的思考档位'}">${esc(x)}</span>`).join('')
-    : '<span class="dim2">暂无档位——逐档实测后写入</span>';
+    ? levels.map((x) => `<span class="badge ${x === 'off' ? 'dim' : 'ok'}" title="${x === 'off' ? T('关闭思考档', 'Thinking off') : T('实测支持的思考档位', 'Verified thinking levels')}">${esc(x)}</span>`).join('')
+    : '<span class="dim2">' + T('暂无档位——逐档实测后写入', 'No levels yet — run per-level probe') + '</span>';
   $('meThinkBox').hidden = ($('meThink').value === 'none');   // 不支持思考时收起档位区，编辑器更清爽
   refreshThinkDefOptions(levels, m?.defaultThinking ?? 'off');
   $('mePin').value = m?.pricePer1MIn ?? '';
@@ -383,10 +384,10 @@ async function saveModelEditor() {
   const errEl = $('meErr');
   errEl.textContent = '';
   const idVal = $('meId').value.trim();
-  if (!idVal) { errEl.textContent = '模型名不能为空'; $('meId').focus(); return; }
-  if (!MODEL_ID_RE.test(idVal)) { errEl.textContent = '模型名只能包含字母、数字、点、下划线、中划线'; $('meId').focus(); return; }
+  if (!idVal) { errEl.textContent = T('模型名不能为空', 'Model ID is required'); $('meId').focus(); return; }
+  if (!MODEL_ID_RE.test(idVal)) { errEl.textContent = T('模型名只能包含字母、数字、点、下划线、中划线', 'Model ID allows only letters, digits, dot, underscore, dash'); $('meId').focus(); return; }
   const upstream = $('meUpstream').value.trim();
-  if (!upstream) { errEl.textContent = '上游模型名不能为空'; $('meUpstream').focus(); return; }
+  if (!upstream) { errEl.textContent = T('上游模型名不能为空', 'Upstream model is required'); $('meUpstream').focus(); return; }
   const b = {
     displayName: $('meDisp').value.trim() || undefined,
     providerId: $('meProv').value,
@@ -411,7 +412,7 @@ async function saveModelEditor() {
     const v = inp.value.trim();
     if (!v) {
       const pname = cachedConfig.providers.find((p) => p.id === pid)?.name ?? pid;
-      errEl.textContent = `容灾供应商「${pname}」尚未选择兜底模型`;
+      errEl.textContent = T('容灾供应商「{p}」尚未选择兜底模型', 'Failover provider "{p}" has no model selected', { p: pname });
       inp.focus();
       return;
     }
@@ -420,20 +421,20 @@ async function saveModelEditor() {
   }
   if (Object.keys(fbMap).length) b.upstreamModelByProvider = fbMap;
   else b.upstreamModelByProvider = null;   // 全部取消勾选 = 显式清空映射（否则后端联动规则会把孤儿映射当已配置补回勾选）
-  if (!b.providerId) { errEl.textContent = '请选择供应商'; $('meProv').focus(); return; }
+  if (!b.providerId) { errEl.textContent = T('请选择供应商', 'Select a provider'); $('meProv').focus(); return; }
   if (!b.inputModes.length) b.inputModes = ['text'];
   // 默认档位必须在模型档位名单内（名单只读，来源 = 探测应用写入）
   const lvNow = [...$('meThinkDef').options].map((o) => o.value);
   if (!lvNow.includes(b.defaultThinking)) {
-    errEl.textContent = `默认档位 ${b.defaultThinking} 不在模型档位名单里`;
+    errEl.textContent = T('默认档位 {lv} 不在模型档位名单里', 'Default level {lv} is not in the model level list', { lv: b.defaultThinking });
     return;
   }
   const editing = !!$('meId').dataset.orig;   // 编辑态由 openModelEditor 设 orig；meId 可输入（改名）
   if (editing && idVal && idVal !== $('meId').dataset.orig) {
     const ok = await confirmDlg({
-      title: '模型改名',
-      message: `确定把模型从「${$('meId').dataset.orig}」改名为「${idVal}」？旧模型名立即失效，正在使用旧名的 DSH 终端需改用新名。`,
-      confirmText: '确认改名',
+      title: T('模型改名', 'Rename model'),
+      message: T('确定把模型从「{a}」改名为「{b}」？旧模型名立即失效，正在使用旧名的 DSH 终端需改用新名。', 'Rename model from "{a}" to "{b}"? The old name becomes invalid at once; DSH clients using it must switch', { a: $('meId').dataset.orig, b: idVal }),
+      confirmText: T('确认改名', 'Confirm rename'),
       danger: true,
     });
     if (!ok) return;
@@ -444,7 +445,7 @@ async function saveModelEditor() {
   try {
     if (editing) await must(api('/admin/models/' + encodeURIComponent($('meId').dataset.orig), { method: 'PATCH', body: JSON.stringify(b) }));
     else await must(api('/admin/models', { method: 'POST', body: JSON.stringify({ ...b, id: idVal }) }));
-    toast(b.newId ? `模型已改名为 ${b.newId}，旧名立即失效` : '模型已保存，即时生效');
+    toast(b.newId ? T('模型已改名为 {id}，旧名立即失效', 'Model renamed to {id}; old name invalid now', { id: b.newId }) : T('模型已保存，即时生效', 'Model saved, effective now'));
     closeModal($('modelEditorCard'));
     loadConfig();
   } catch (e) {
@@ -473,10 +474,10 @@ function bindPage() {
       if (detail?.dataset.probe) {
         probe = JSON.parse(detail.dataset.probe);
       } else {
-        ap.disabled = true; ap.textContent = '测试中…';
+        ap.disabled = true; ap.textContent = T('测试中…', 'Testing…');
         try {
           probe = await api('/admin/providers/' + encodeURIComponent(ap.dataset.apply) + '/probe-levels', { method: 'POST', body: JSON.stringify({ model, levels: selectedProbeLevels() }) });
-          renderDetail(detail, probe, '<span class="dim2">自动逐档测试完成，可直接应用</span>');
+          renderDetail(detail, probe, '<span class="dim2">' + T('自动逐档测试完成，可直接应用', 'Auto probe done, apply now') + '</span>');
         } catch (e2) { toast('✗ ' + e2.message, 'bad'); ap.disabled = false; return; }
       }
       await applyProbeResult(ap.dataset.apply, model, probe, ap, card);
@@ -484,7 +485,7 @@ function bindPage() {
     }
     const pb = e.target.closest('[data-probe]');
     if (pb) {
-      pb.disabled = true; pb.textContent = '探测中…';
+      pb.disabled = true; pb.textContent = T('探测中…', 'Probing…');
       try {
         const r = await api('/admin/providers/' + encodeURIComponent(pb.dataset.probe) + '/probe', { method: 'POST', body: JSON.stringify({ model: pb.dataset.model }) });
         const cell = document.getElementById('probe-out-' + cssId(pb.dataset.model));
@@ -493,10 +494,10 @@ function bindPage() {
             const cls = r.thinking === 'real' ? 'ok' : r.thinking === 'rejected' ? 'warn' : r.thinking === 'silent' ? 'dim' : 'bad';
             cell.innerHTML = `<span class="badge ${cls}">${esc(r.verdict)}</span><span class="dim2">${r.ms}ms</span>${modalBadges(r.modalities)}`;
           } else {
-            cell.innerHTML = `<span class="badge bad">✗ ${esc(r.error || '探针失败')}</span>`;
+            cell.innerHTML = `<span class="badge bad">✗ ${esc(r.error || T('探针失败', 'Probe failed'))}</span>`;
           }
         }
-      } finally { pb.disabled = false; pb.textContent = '探测思考'; }
+      } finally { pb.disabled = false; pb.textContent = T('探测思考', 'Probe thinking'); }
       return;
     }
     const imp = e.target.closest('[data-imp]');
@@ -512,7 +513,7 @@ function bindPage() {
         $('probeModal').hidden = true;
         unlockScroll();   // 从探测弹窗跳转编辑弹窗：先解锁再重新锁定，避免滚动锁计数错乱
         openModal($('modelEditorCard'));
-        toast('已预填模型编辑器，补齐展示名/价格后保存', 'ok');
+        toast(T('已预填模型编辑器，补齐展示名/价格后保存', 'Model editor prefilled; set display name and price, then save'), 'ok');
       }
       return;
     }
@@ -526,7 +527,7 @@ function bindPage() {
       const r = await must(api('/admin/probe-config', { method: 'PATCH', body: JSON.stringify({ thinkingLevels: levels }) }));
       probeLevelsCfg = r.thinkingLevels ?? levels;
       renderProbeLvBoxes();
-      toast(`✓ 探测默认档位已设为 ${probeLevelsCfg.join(' / ')}（已落盘）`, 'ok');
+      toast(T('✓ 探测默认档位已设为 {lv}（已落盘）', '✓ Probe default levels set to {lv}', { lv: probeLevelsCfg.join(' / ') }), 'ok');
     } catch (e) { toast('✗ ' + e.message, 'bad'); }
   });
   // 探测结果筛选：关键字（匹配卡片全部文字，含模型 id）+ 下拉（全部/真思考/问题项）叠加生效
@@ -553,7 +554,7 @@ function bindPage() {
         empty.style.padding = '40px 0';
         $('probeBody').appendChild(empty);
       }
-      empty.textContent = '无匹配模型';
+      empty.textContent = T('无匹配模型', 'No matching models');
     } else if (empty) empty.remove();
   }
   $('probeSearch').addEventListener('input', applyProbeFilter);
@@ -601,7 +602,9 @@ function bindPage() {
       const target = !sw.classList.contains('on');
       try {
         await must(api('/admin/providers/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ enabled: target }) }));
-        toast(`${id} 已${target ? '启用' : '禁用'}${target ? '' : '，其下模型将走容灾供应商'}`);
+        toast(target
+          ? T('{id} 已启用', '{id} enabled', { id })
+          : T('{id} 已禁用，其下模型将走容灾供应商', '{id} disabled; its models use failover', { id }));
       } catch (err) { toast(err.message, 'bad'); }
       return loadConfig();
     }
@@ -610,14 +613,14 @@ function bindPage() {
     const t = e.target.closest('[data-ptest]');
     if (t) {
       const origText = t.textContent;   // 记住原文案（'模型设置'），完成后恢复
-      t.disabled = true; t.textContent = '获取中…';
+      t.disabled = true; t.textContent = T('获取中…', 'Fetching…');
       try {
         // 只拉上游 /models 目录（秒回，不真实发探测请求）；真实测试在弹窗打开后按模型逐个执行
         const r = await api('/admin/providers/' + encodeURIComponent(t.dataset.ptest) + '/test', { method: 'POST' });
         if (r.ok) showProbeModal(t.dataset.ptest, r);
-        else toast('✗ ' + (r.error?.message || r.error || '获取失败'), 'bad');
+        else toast('✗ ' + (r.error?.message || r.error || T('获取失败', 'Fetch failed')), 'bad');
       } catch (err) {
-        if (err.message !== '401') toast('✗ 请求失败：' + err.message, 'bad');
+        if (err.message !== '401') toast('✗ ' + T('请求失败：{msg}', 'Request failed: {msg}', { msg: err.message }), 'bad');
       } finally { t.disabled = false; t.textContent = origText; }
       return;
     }
@@ -634,19 +637,19 @@ function bindPage() {
       const c = await api('/admin/config');
       const used = (c.models ?? []).filter((m) => m.providerId === id || (m.fallbackProviders ?? []).includes(id));
       if (used.length) {
-        toast(`供应商「${id}」仍被 ${used.length} 个模型使用（${used.map((m) => m.id).join(', ')}），无法删除。请先编辑这些模型换供应商或删除模型。`, 'bad');
+        toast(T('供应商「{id}」仍被 {n} 个模型使用（{list}），无法删除。请先编辑这些模型换供应商或删除模型。', 'Provider "{id}" is used by {n} models ({list}); edit or delete those models first', { id, n: used.length, list: used.map((m) => m.id).join(', ') }), 'bad');
         return;
       }
       const ok = await confirmDlg({
-        title: '删除供应商',
-        message: `确定删除供应商「${id}」？此操作不可撤销。`,
-        confirmText: '确认删除',
+        title: T('删除供应商', 'Delete provider'),
+        message: T('确定删除供应商「{id}」？此操作不可撤销。', 'Delete provider "{id}"? This cannot be undone', { id }),
+        confirmText: T('确认删除', 'Confirm delete'),
         danger: true,
       });
       if (!ok) return;
       try {
         await must(api('/admin/providers/' + encodeURIComponent(id), { method: 'DELETE' }));
-        toast('供应商已删除');
+        toast(T('供应商已删除', 'Provider deleted'));
       } catch (err) { toast(err.message, 'bad'); }
       loadConfig();
     }
@@ -659,22 +662,22 @@ function bindPage() {
       const up = mt.dataset.to === '1';
       try {
         await must(api('/admin/models/' + encodeURIComponent(mt.dataset.mtoggle), { method: 'PATCH', body: JSON.stringify({ enabled: up }) }));
-        toast(up ? '已上架，/v1/models 即时可见' : '已下架，终端立即不可选');
+        toast(up ? T('已上架，/v1/models 即时可见', 'Listed, visible in /v1/models now') : T('已下架，终端立即不可选', 'Unlisted, hidden from clients now'));
       } catch (err) { toast(err.message, 'bad'); }
       return loadConfig();
     }
     const md = e.target.closest('[data-mdel]');
     if (md) {
       const ok = await confirmDlg({
-        title: '删除模型',
-        message: `确定删除模型「${md.dataset.mdel}」？正在使用该模型的终端会立即收到"模型不存在"。`,
-        confirmText: '确认删除',
+        title: T('删除模型', 'Delete model'),
+        message: T('确定删除模型「{id}」？正在使用该模型的终端会立即收到"模型不存在"。', 'Delete model "{id}"? Clients using it will get "model not found" at once', { id: md.dataset.mdel }),
+        confirmText: T('确认删除', 'Confirm delete'),
         danger: true,
       });
       if (!ok) return;
       try {
         await must(api('/admin/models/' + encodeURIComponent(md.dataset.mdel), { method: 'DELETE' }));
-        toast('模型已删除');
+        toast(T('模型已删除', 'Model deleted'));
       } catch (err) { toast(err.message, 'bad'); }
       loadConfig();
       return;
@@ -691,30 +694,30 @@ function bindPage() {
 /* ---------- 供应商测活状态弹窗 ---------- */
 async function showHealthModal(pid) {
   const modal = $('healthModal');
-  if (!modal) { toast('✗ 状态弹窗元素缺失，请硬刷新（Ctrl+Shift+R）', 'bad'); return; }
+  if (!modal) { toast('✗ ' + T('状态弹窗元素缺失，请硬刷新（Ctrl+Shift+R）', 'Health modal missing; hard refresh (Ctrl+Shift+R)'), 'bad'); return; }
   const prov = cachedConfig.providers.find((p) => p.id === pid);
-  $('healthTitle').textContent = `状态检测 · ${prov?.name ?? pid}`;
-  $('healthBody').innerHTML = '<span class="dim2">加载中…</span>';
+  $('healthTitle').textContent = T('状态检测 · {name}', 'Health check · {name}', { name: prov?.name ?? pid });
+  $('healthBody').innerHTML = `<span class="dim2">${T('加载中…', 'Loading…')}</span>`;
   modal.hidden = false; openModal(modal);
   let s;
   try { s = await api('/admin/providers/' + encodeURIComponent(pid) + '/probe-stats'); }
-  catch (e) { $('healthBody').innerHTML = '<span class="err">加载失败：' + esc(e.message) + '</span>'; return; }
-  const fmtT = (t) => t ? new Date(t).toLocaleTimeString('zh-CN', { hour12: false }) : '—';
-  const state = !prov?.enabled ? '<span class="badge warn">已停用</span>'
-    : s.autoDisabled ? '<span class="badge warn">检测自动停用中</span>'
-    : s.failStreak > 0 ? `<span class="badge warn">连续失败 ${s.failStreak} 次</span>`
-    : s.total ? '<span class="badge ok">正常</span>'
-    : '<span class="badge dim">尚未探测</span>';
+  catch (e) { $('healthBody').innerHTML = '<span class="err">' + T('加载失败：{msg}', 'Load failed: {msg}', { msg: esc(e.message) }) + '</span>'; return; }
+  const fmtT = (t) => t ? new Date(t).toLocaleTimeString(undefined, { hour12: false }) : '—';
+  const state = !prov?.enabled ? `<span class="badge warn">${T('已停用', 'Disabled')}</span>`
+    : s.autoDisabled ? `<span class="badge warn">${T('检测自动停用中', 'Auto-disabled by health check')}</span>`
+    : s.failStreak > 0 ? `<span class="badge warn">${T('连续失败 {n} 次', '{n} consecutive failures', { n: s.failStreak })}</span>`
+    : s.total ? `<span class="badge ok">${T('正常', 'Healthy')}</span>`
+    : `<span class="badge dim">${T('尚未探测', 'Not probed yet')}</span>`;
   const okRate = s.total ? Math.round((s.ok / s.total) * 100) : null;
   $('healthBody').innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       ${state}
-      <span class="dim2">检测 ${prov?.probeEnabled !== false ? '每 ' + (prov?.probeIntervalSec ?? 15) + 's 一次 · 连续 ' + (prov?.probeFailLimit ?? 2) + ' 次失败自动停用' : '未开启'}</span>
+      <span class="dim2">${T('检测', 'Check')} ${prov?.probeEnabled !== false ? T('每 {i}s 一次 · 连续 {n} 次失败自动停用', 'every {i}s · auto-disable after {n} failures', { i: prov?.probeIntervalSec ?? 15, n: prov?.probeFailLimit ?? 2 }) : T('未开启', 'off')}</span>
     </div>
     <div class="frm" style="grid-template-columns:repeat(3,1fr);gap:10px">
-      <div class="card" style="padding:10px"><div class="dim2">累计探测</div><div style="font-size:22px;font-weight:600">${s.total}</div><div class="dim2">成功 ${s.ok} · 失败 ${s.fail}${okRate != null ? ' · 成功率 ' + okRate + '%' : ''}</div></div>
-      <div class="card" style="padding:10px"><div class="dim2">平均延迟</div><div style="font-size:22px;font-weight:600">${s.avgMs != null ? s.avgMs + '<span style="font-size:12px">ms</span>' : '—'}</div><div class="dim2">最近一次 ${s.lastMs != null ? s.lastMs + 'ms' : '—'}</div></div>
-      <div class="card" style="padding:10px"><div class="dim2">最近探测</div><div style="font-size:14px;font-weight:600" title="${s.lastError ? esc(s.lastError) : ''}">${s.lastFailAt ? '<span style="color:var(--warn)">✗ ' + fmtT(s.lastFailAt) + '</span>' : s.lastOkAt ? '<span style="color:var(--ok)">✓ ' + fmtT(s.lastOkAt) + '</span>' : '—'}</div><div class="dim2">${s.lastError ? esc(s.lastError.slice(0, 60)) : '最近成功 ' + fmtT(s.lastOkAt)}</div></div>
+      <div class="card" style="padding:10px"><div class="dim2">${T('累计探测', 'Total probes')}</div><div style="font-size:22px;font-weight:600">${s.total}</div><div class="dim2">${T('成功 {ok} · 失败 {fail}', '{ok} ok · {fail} fail', { ok: s.ok, fail: s.fail })}${okRate != null ? T(' · 成功率 {r}%', ' · {r}% ok', { r: okRate }) : ''}</div></div>
+      <div class="card" style="padding:10px"><div class="dim2">${T('平均延迟', 'Avg latency')}</div><div style="font-size:22px;font-weight:600">${s.avgMs != null ? s.avgMs + '<span style="font-size:12px">ms</span>' : '—'}</div><div class="dim2">${T('最近一次 {v}', 'Last {v}', { v: s.lastMs != null ? s.lastMs + 'ms' : '—' })}</div></div>
+      <div class="card" style="padding:10px"><div class="dim2">${T('最近探测', 'Last probe')}</div><div style="font-size:14px;font-weight:600" title="${s.lastError ? esc(s.lastError) : ''}">${s.lastFailAt ? '<span style="color:var(--warn)">✗ ' + fmtT(s.lastFailAt) + '</span>' : s.lastOkAt ? '<span style="color:var(--ok)">✓ ' + fmtT(s.lastOkAt) + '</span>' : '—'}</div><div class="dim2">${s.lastError ? esc(s.lastError.slice(0, 60)) : T('最近成功 {t}', 'Last ok {t}', { t: fmtT(s.lastOkAt) })}</div></div>
     </div>`;
 }
 
@@ -729,28 +732,28 @@ function metaModalChips(m) {
   const hasVid = sp.some((x) => /video/i.test(String(x))) || im.includes('video');
   if (!hasImg && !hasVid) return '';
   const chips = [];
-  if (hasImg) chips.push('<span class="badge dim" title="上游 /models 元数据声明支持图片输入，实测以逐档测试为准">元数据·图片</span>');
-  if (hasVid) chips.push('<span class="badge dim" title="上游 /models 元数据声明支持视频输入，实测以逐档测试为准">元数据·视频</span>');
+  if (hasImg) chips.push(`<span class="badge dim" title="${T('上游 /models 元数据声明支持图片输入，实测以逐档测试为准', 'Declared by upstream /models metadata; per-level probe decides')}">${T('元数据·图片', 'Meta·image')}</span>`);
+  if (hasVid) chips.push(`<span class="badge dim" title="${T('上游 /models 元数据声明支持视频输入，实测以逐档测试为准', 'Declared by upstream /models metadata; per-level probe decides')}">${T('元数据·视频', 'Meta·video')}</span>`);
   return chips.join(' ');
 }
 
 function showProbeModal(pid, r) {
   // 全量探测结果优先（results 含每个模型的快速判定）；逐档测试在行内展开
   const modal = $('probeModal');
-  if (!modal) { toast('✗ 探测弹窗元素缺失（页面结构异常），请硬刷新（Ctrl+Shift+R）', 'bad'); return; }
+  if (!modal) { toast('✗ ' + T('探测弹窗元素缺失（页面结构异常），请硬刷新（Ctrl+Shift+R）', 'Probe modal missing; hard refresh (Ctrl+Shift+R)'), 'bad'); return; }
   const results = r.results ?? null;
   const details = results ?? (r.modelDetails ?? (r.upstreamModels ?? []).map((id) => ({ id })));
   const servedIds = new Set((cachedConfig.models ?? []).filter((m) => m.providerId === pid).map((m) => m.upstreamModel));
-  $('probeTitle').textContent = `模型设置 · ${pid}`;
+  $('probeTitle').textContent = T('模型设置 · {id}', 'Model settings · {id}', { id: pid });
   const summary = r.verdict ? `<span class="badge ok">${esc(r.verdict)}</span> ` : '';
   // 汇总：总数 / 真思考 / 问题项 / 已导入，一眼看清这批上游模型质量
   const realN = results ? details.filter((m) => m.thinking === 'real').length : null;
   const badN = results ? details.filter((m) => m.ok === false || m.thinking === 'rejected' || m.thinking === 'unavailable').length : null;
   const servedN = details.filter((m) => servedIds.has(m.id)).length;
-  $('probeMeta').innerHTML = `${summary}<span class="dim2">${details.length} 个模型${realN != null ? ` · ✓ 真思考 ${realN}${badN ? ` · ⚠ 问题项 ${badN}` : ''}` : ''} · 已导入 ${servedN} · ${r.ms ?? '—'}ms</span>`;
+  $('probeMeta').innerHTML = `${summary}<span class="dim2">${T('{n} 个模型', '{n} models', { n: details.length })}${realN != null ? ` · ${T('✓ 真思考 {n}', '✓ {n} real thinking', { n: realN })}${badN ? ` · ${T('⚠ 问题项 {n}', '⚠ {n} issues', { n: badN })}` : ''}` : ''} · ${T('已导入 {n}', '{n} imported', { n: servedN })} · ${r.ms ?? '—'}ms</span>`;
   $('probeBody').innerHTML = details.map((m) => {
     const served = servedIds.has(m.id);
-    const ctx = m.context_length ? '上下文 ' + fmt1k(m.context_length) : '';
+    const ctx = m.context_length ? T('上下文 {v}', 'Context {v}', { v: fmt1k(m.context_length) }) : '';
     // 上游 /models 元数据里的多模态声明（OpenRouter architecture.input_modalities 等）——仅提示，实测以逐档测试为准
     const metaMod = metaModalChips(m);
     // 已导入模型：显示企业模型当前的思考档位配置（支持思考·默认off / 强制档位 / 不支持思考）
@@ -758,19 +761,19 @@ function showProbeModal(pid, r) {
     const thinkNow = served && ent ? thinkBadge(ent) : '';
     // 已导入模型：企业侧配置明细（上下文 / 输入 / 输出 / 默认档位）——来自上架时的配置，不是上游元数据
     const entMeta = served && ent
-      ? `<div class="dim2" style="margin-top:6px">上下文 ${fmt1k(ent.contextWindow)} / 输出 ${fmt1k(ent.maxTokens)}${modeChipOf(ent)} · 默认档位 ${esc(ent.defaultThinking ?? 'off')}${(ent.thinkingLevels ?? []).length ? ' · 档位 ' + esc(ent.thinkingLevels.join('/')) : ''}</div>`
+      ? `<div class="dim2" style="margin-top:6px">${T('上下文 {c} / 输出 {o}', 'Context {c} / output {o}', { c: fmt1k(ent.contextWindow), o: fmt1k(ent.maxTokens) })}${modeChipOf(ent)} · ${T('默认档位 {d}', 'default {d}', { d: esc(ent.defaultThinking ?? 'off') })}${(ent.thinkingLevels ?? []).length ? T(' · 档位 {lv}', ' · levels {lv}', { lv: esc(ent.thinkingLevels.join('/')) }) : ''}</div>`
       : '';
     let judge;
     if (results) {
       const cls = m.thinking === 'real' ? 'ok' : m.thinking === 'rejected' ? 'warn' : m.thinking === 'silent' ? 'dim' : 'bad';
-      const label = m.thinking === 'real' ? '✓ 支持思考' : m.thinking === 'rejected' ? '⛔ 不可用' : m.thinking === 'silent' ? '△ 无思考输出' : '✗ 不可用';
+      const label = m.thinking === 'real' ? T('✓ 支持思考', '✓ Thinking') : m.thinking === 'rejected' ? T('⛔ 不可用', '⛔ Rejected') : m.thinking === 'silent' ? T('△ 无思考输出', '△ No thinking output') : T('✗ 不可用', '✗ Unavailable');
       judge = `<span class="badge ${cls}">${label}</span><span class="dim2">${esc(m.verdict ?? '')}${m.ms != null ? ' · ' + m.ms + 'ms' : ''}</span>`;
     } else if (served && ent?.lastProbe?.supportedThinking?.length) {
-      judge = '<span class="badge ok">✓ 已测试</span>';
+      judge = `<span class="badge ok">${T('✓ 已测试', '✓ Tested')}</span>`;
     } else if (served && ent?.lastProbe) {
-      judge = '<span class="badge dim">已测试 · 无思考</span>';
+      judge = `<span class="badge dim">${T('已测试 · 无思考', 'Tested · no thinking')}</span>`;
     } else {
-      judge = '<span class="badge dim">未测试</span>';
+      judge = `<span class="badge dim">${T('未测试', 'Not tested')}</span>`;
     }
     return `<div class="pcard" data-probe-row data-thinking="${m.thinking ?? 'unknown'}" data-ok="${m.ok !== false}" data-model="${esc(m.id)}">
       <div class="pcard-head">
@@ -778,16 +781,16 @@ function showProbeModal(pid, r) {
           <span class="mname mono">${esc(m.id)}</span>
           <span class="dim2">${esc(m.owned_by ?? '')}${ctx ? ' · ' + ctx : ''}</span>
         </div>
-        <div class="pcard-flags">${served ? '<span class="badge ok">已导入</span>' : ''}${thinkNow}${metaMod}</div>
+        <div class="pcard-flags">${served ? `<span class="badge ok">${T('已导入', 'Imported')}</span>` : ''}${thinkNow}${metaMod}</div>
       </div>
       <div class="pcard-judge" id="probe-out-${cssId(m.id)}">${judge}${entMeta}</div>
       <div class="pcard-detail" id="probe-detail-${cssId(m.id)}">${served && ent?.lastProbe ? renderLastProbeStatic(ent.lastProbe) : ''}</div>
       <div class="pcard-foot">
-        <button class="btn sm" data-levels="${esc(pid)}" data-model="${esc(m.id)}">逐档测试</button>
-        <button class="btn sm primary" data-apply="${esc(pid)}" data-model="${esc(m.id)}" ${m.ok === false ? 'disabled title="模型不可用，无法应用"' : ''}>应用</button>
+        <button class="btn sm" data-levels="${esc(pid)}" data-model="${esc(m.id)}">${T('逐档测试', 'Per-level probe')}</button>
+        <button class="btn sm primary" data-apply="${esc(pid)}" data-model="${esc(m.id)}" ${m.ok === false ? `disabled title="${T('模型不可用，无法应用', 'Model unavailable; cannot apply')}"` : ''}>${T('应用', 'Apply')}</button>
       </div>
     </div>`;
-  }).join('') || '<div class="empty" style="padding:40px 0">上游 /models 返回空列表</div>';
+  }).join('') || '<div class="empty" style="padding:40px 0">' + T('上游 /models 返回空列表', 'Upstream /models returned an empty list') + '</div>';
   // 筛选条：全部 / 支持思考 / 问题项
   const flt = $('probeFilter');
   if (flt) {
@@ -803,10 +806,10 @@ function showProbeModal(pid, r) {
 async function runLevelProbe(pid, model, cardEl) {
   const cell = cardEl?.querySelector('.pcard-detail');
   if (!cell) return null;
-  cell.innerHTML = '<span class="dim2">逐档测试中…</span>';
+  cell.innerHTML = '<span class="dim2">' + T('逐档测试中…', 'Probing levels…') + '</span>';
   try {
     const r = await api('/admin/providers/' + encodeURIComponent(pid) + '/probe-levels', { method: 'POST', body: JSON.stringify({ model, levels: selectedProbeLevels() }) });
-    if (!r.ok) { cell.innerHTML = `<span class="badge bad">✗ ${esc(r.error || '逐档测试失败')}</span>`; return null; }
+    if (!r.ok) { cell.innerHTML = `<span class="badge bad">✗ ${esc(r.error || T('逐档测试失败', 'Per-level probe failed'))}</span>`; return null; }
     renderDetail(cell, r);
     // 已导入模型：结果持久化到企业模型 lastProbe（下次打开弹窗自动显示，不用重测）
     const ent = (cachedConfig.models ?? []).find((x) => x.providerId === pid && x.upstreamModel === model);
@@ -825,8 +828,8 @@ async function runLevelProbe(pid, model, cardEl) {
 /** 渲染持久化的上次逐档结果（模型设置弹窗打开时对已导入模型自动展开，不用重新点） */
 function renderLastProbe(cell, lp) {
   if (!lp?.levels?.length) return;
-  const age = lp.ts ? ' · ' + new Date(lp.ts).toLocaleString('zh-CN', { hour12: false }) : '';
-  renderDetail(cell, { levels: lp.levels, supportedThinking: lp.supportedThinking ?? [], supportsThinkingSwitch: false, modalities: lp.modalities ?? null }, `<span class="dim2">上次结果${age}</span>`);
+  const age = lp.ts ? ' · ' + new Date(lp.ts).toLocaleString(undefined, { hour12: false }) : '';
+  renderDetail(cell, { levels: lp.levels, supportedThinking: lp.supportedThinking ?? [], supportsThinkingSwitch: false, modalities: lp.modalities ?? null }, `<span class="dim2">${T('上次结果{age}', 'Last result{age}', { age })}</span>`);
 }
 
 /** lastProbe → HTML（弹窗初始渲染用，与 renderLastProbe 同一渲染路径） */
@@ -839,15 +842,15 @@ function renderLastProbeStatic(lp) {
 /** 逐档结果统一渲染：档位 pill + 结论徽章行 */
 function renderDetail(cell, r, noteHtml = '') {
   const badge = (x) => {
-    if (!x.accepted) return `<span class="badge bad" title="${esc(x.note ?? '')}">✗ ${esc(x.note ?? '被拒')}</span>`;
-    if (x.thought) return `<span class="badge ok" title="输出上限 ${x.cap ?? '—'} tk">✓ 思考${x.reasoningTokens ? ' ' + (/tk$/.test(String(x.reasoningTokens)) ? x.reasoningTokens : x.reasoningTokens + 'tk') : ''}</span>`;
-    return `<span class="badge dim" title="输出上限 ${x.cap ?? '—'} tk">○ 无思考</span>`;
+    if (!x.accepted) return `<span class="badge bad" title="${esc(x.note ?? '')}">✗ ${esc(x.note ?? T('被拒', 'Rejected'))}</span>`;
+    if (x.thought) return `<span class="badge ok" title="${T('输出上限 {cap} tk', 'Output cap {cap} tk', { cap: x.cap ?? '—' })}">✓ ${T('思考{tok}', 'thinking{tok}', { tok: x.reasoningTokens ? ' ' + (/tk$/.test(String(x.reasoningTokens)) ? x.reasoningTokens : x.reasoningTokens + 'tk') : '' })}</span>`;
+    return `<span class="badge dim" title="${T('输出上限 {cap} tk', 'Output cap {cap} tk', { cap: x.cap ?? '—' })}">${T('○ 无思考', '○ No thinking')}</span>`;
   };
   cell.innerHTML = `
     <div class="pd-pills">${r.levels.map((x) => `<span class="pd-pill mono"><b>${esc(x.level)}</b>${badge(x)}<span class="dim2">${x.ms}ms</span></span>`).join('')}</div>
     <div class="pd-verdict">
-      <span class="badge ${r.supportedThinking.length ? 'ok' : 'dim'}">实测支持档位：${r.supportedThinking.length ? esc(r.supportedThinking.join(' / ')) : '无（不思考）'}</span>
-      ${r.supportsThinkingSwitch ? '<span class="badge ok">开关有效</span>' : ''}
+      <span class="badge ${r.supportedThinking.length ? 'ok' : 'dim'}">${T('实测支持档位：{lv}', 'Verified levels: {lv}', { lv: r.supportedThinking.length ? esc(r.supportedThinking.join(' / ')) : T('无（不思考）', 'none (no thinking)') })}</span>
+      ${r.supportsThinkingSwitch ? `<span class="badge ok">${T('开关有效', 'Switch works')}</span>` : ''}
       ${modalBadges(r.modalities)}
       ${noteHtml}
     </div>`;
@@ -860,16 +863,16 @@ function modalBadges(modalities) {
   const one = (name, x) => {
     if (!x) return '';
     const map = {
-      real: ['ok', `${name} ✓可用`],
-      accepted: ['warn', `${name} △接受未确认`],
-      rejected: ['bad', `${name} ✗不支持`],
-      unavailable: ['dim', `${name} 未测（模型不可用）`],
-      error: ['warn', `${name} 测试失败`],
+      real: ['ok', T('{m} ✓可用', '{m} works', { m: name })],
+      accepted: ['warn', T('{m} △接受未确认', '{m} accepted, unconfirmed', { m: name })],
+      rejected: ['bad', T('{m} ✗不支持', '{m} not supported', { m: name })],
+      unavailable: ['dim', T('{m} 未测（模型不可用）', '{m} untested (model unavailable)', { m: name })],
+      error: ['warn', T('{m} 测试失败', '{m} probe failed', { m: name })],
     };
     const [cls, label] = map[x.status] ?? ['dim', `${name} ${esc(x.status)}`];
     return `<span class="badge ${cls}" title="${esc(x.verdict ?? '')}${x.ms != null ? ' · ' + x.ms + 'ms' : ''}">${label}</span>`;
   };
-  return one('图片', modalities.image) + ' ' + one('视频', modalities.video);
+  return one(T('图片', 'Image'), modalities.image) + ' ' + one(T('视频', 'Video'), modalities.video);
 }
 
 /** 由多模态实测结果推导 inputModes（image/video 任一通过即写入；没测过返回 null=不覆盖） */
@@ -890,16 +893,18 @@ async function applyProbeResult(pid, model, probe, btn, card = null) {
       body: JSON.stringify({ model, probe: { available: probe.available, supportedThinking: probe.supportedThinking, recommendation: probe.recommendation, contextLength: probe.contextLength, inputModes: probe.inputModes ?? undefined } }),
     });
     if (r.ok) {
-      const modeTxt = (r.inputModes ?? []).filter((x) => x !== 'text').join('/') || '纯文本';
-      toast(`✓ 已${r.applied === 'update' ? '更新' : '新增'}企业模型 ${r.modelId}（思考档位：${r.thinkingLevels.join(' / ')} · 输入：${modeTxt}）`, 'ok');
+      const modeTxt = (r.inputModes ?? []).filter((x) => x !== 'text').join('/') || T('纯文本', 'Text only');
+      toast(r.applied === 'update'
+        ? T('✓ 已更新企业模型 {id}（思考档位：{lv} · 输入：{m}）', '✓ Updated model {id} (levels: {lv} · input: {m})', { id: r.modelId, lv: r.thinkingLevels.join(' / '), m: modeTxt })
+        : T('✓ 已新增企业模型 {id}（思考档位：{lv} · 输入：{m}）', '✓ Added model {id} (levels: {lv} · input: {m})', { id: r.modelId, lv: r.thinkingLevels.join(' / '), m: modeTxt }), 'ok');
       // 卡片内同步「已导入」标记，不再等下一次打开弹窗才看到
       const flags = card?.querySelector('.pcard-flags');
-      if (flags && !flags.textContent.includes('已导入')) {
-        flags.insertAdjacentHTML('beforeend', '<span class="badge ok">已导入</span>');
+      if (flags && !flags.textContent.includes(T('已导入', 'Imported'))) {
+        flags.insertAdjacentHTML('beforeend', `<span class="badge ok">${T('已导入', 'Imported')}</span>`);
       }
       loadConfig();
     } else {
-      toast('✗ ' + (r.error?.message || '应用失败'), 'bad');
+      toast('✗ ' + (r.error?.message || T('应用失败', 'Apply failed')), 'bad');
     }
   } catch (e) {
     toast('✗ ' + e.message, 'bad');
@@ -914,84 +919,84 @@ export default {
   page: 'ent-catalog',
   html: `
   <div class="headrow" data-ent-page="ent-catalog">
-    <div><h1>供应商与模型</h1></div>
+    <div><h1>${T('供应商与模型', 'Providers & models')}</h1></div>
     <div class="sp"></div>
-    <input class="input" id="filterInput" placeholder="搜索供应商 / 模型…（Esc 清空）" style="width:220px" autocomplete="off">
-    <button class="btn" id="addProvBtn">＋ 新增供应商</button>
+    <input class="input" id="filterInput" placeholder="${T('搜索供应商 / 模型…（Esc 清空）', 'Search providers / models… (Esc clears)')}" style="width:220px" autocomplete="off">
+    <button class="btn" id="addProvBtn">${T('＋ 新增供应商', '+ Add provider')}</button>
   </div>
 
   <!-- 供应商编辑器（弹窗 · md 档） -->
   <div class="edit-modal-mask" id="provEditorCard" hidden>
     <div class="edit-modal md">
       <div class="modal-head">
-        <h3 id="provEditorTitle">新增供应商</h3>
-        <button class="close" id="peCloseBtn" title="关闭 (Esc)">×</button>
+        <h3 id="provEditorTitle">${T('新增供应商', 'Add provider')}</h3>
+        <button class="close" id="peCloseBtn" title="${T('关闭 (Esc)', 'Close (Esc)')}">×</button>
       </div>
       <div class="edit-modal-body">
       <div class="frm">
-        <div class="fldgrp full"><span class="fldgrp-t">基础信息</span></div>
+        <div class="fldgrp full"><span class="fldgrp-t">${T('基础信息', 'Basics')}</span></div>
         <div class="fld">
           <label>ID <i>*</i></label>
           <div class="ctrl"><input class="input" id="peId" placeholder="prov-openai"></div>
         </div>
         <div class="fld">
-          <label>名称 <i>*</i></label>
-          <div class="ctrl"><input class="input" id="peName" placeholder="OpenAI 官方"></div>
+          <label>${T('名称', 'Name')} <i>*</i></label>
+          <div class="ctrl"><input class="input" id="peName" placeholder="${T('OpenAI 官方', 'OpenAI official')}"></div>
         </div>
         <div class="fld full">
           <label>Base URL <i>*</i></label>
           <div class="ctrl"><input class="input grow" id="peUrl" placeholder="https://api.openai.com/v1"></div>
         </div>
         <div class="fld full">
-          <label>协议</label>
+          <label>${T('协议', 'Protocol')}</label>
           <div class="ctrl">
             <select id="peProtocol" style="flex:1">
-              <option value="openai">OpenAI 兼容（/chat/completions · Bearer）</option>
-              <option value="anthropic">Anthropic Messages（/v1/messages · x-api-key）— Claude 系</option>
-              <option value="gemini">Google Gemini（:generateContent · x-goog-api-key）— Gemini 系</option>
+              <option value="openai">${T('OpenAI 兼容（/chat/completions · Bearer）', 'OpenAI compatible (/chat/completions · Bearer)')}</option>
+              <option value="anthropic">${T('Anthropic Messages（/v1/messages · x-api-key）— Claude 系', 'Anthropic Messages (/v1/messages · x-api-key) — Claude')}</option>
+              <option value="gemini">${T('Google Gemini（:generateContent · x-goog-api-key）— Gemini 系', 'Google Gemini (:generateContent · x-goog-api-key) — Gemini')}</option>
             </select>
           </div>
         </div>
-        <div class="fldgrp full"><span class="fldgrp-t">密钥</span></div>
+        <div class="fldgrp full"><span class="fldgrp-t">${T('密钥', 'API key')}</span></div>
         <div class="fld full">
           <label>API Key</label>
           <div class="ctrl">
             <input class="input grow" id="peKey" type="password" autocomplete="new-password" placeholder="sk-…">
-            <span class="unit">变量名</span>
+            <span class="unit">${T('变量名', 'Env var')}</span>
             <input class="input" id="peKeyEnv" style="width:200px" placeholder="ENT_PROV_XXX_KEY">
           </div>
         </div>
-        <div class="fldgrp full"><span class="fldgrp-t">调用与容灾</span></div>
+        <div class="fldgrp full"><span class="fldgrp-t">${T('调用与容灾', 'Calls & failover')}</span></div>
         <div class="fld">
-          <label>超时</label>
+          <label>${T('超时', 'Timeout')}</label>
           <div class="ctrl"><input class="input" id="peTimeout" type="number" style="width:110px"><span class="unit">ms · 1000-600000</span></div>
         </div>
         <div class="fld">
-          <label>权重</label>
+          <label>${T('权重', 'Weight')}</label>
           <div class="ctrl"><input class="input" id="peWeight" type="number" style="width:110px"><span class="unit">0-1000</span></div>
         </div>
-        <div class="fldgrp full"><span class="fldgrp-t">状态检测</span></div>
+        <div class="fldgrp full"><span class="fldgrp-t">${T('状态检测', 'Health check')}</span></div>
         <div class="fld full">
-          <label>开关</label>
-          <div class="ctrl"><label class="chk"><input type="checkbox" id="peProbeEnabled" checked> 定期探测</label></div>
+          <label>${T('开关', 'Switch')}</label>
+          <div class="ctrl"><label class="chk"><input type="checkbox" id="peProbeEnabled" checked> ${T('定期探测', 'Periodic probe')}</label></div>
         </div>
         <div class="fld">
-          <label>间隔</label>
-          <div class="ctrl"><input class="input" id="peProbeInterval" type="number" style="width:110px"><span class="unit">秒</span></div>
+          <label>${T('间隔', 'Interval')}</label>
+          <div class="ctrl"><input class="input" id="peProbeInterval" type="number" style="width:110px"><span class="unit">${T('秒', 's')}</span></div>
         </div>
         <div class="fld">
-          <label>失败停用</label>
-          <div class="ctrl"><input class="input" id="peProbeFailLimit" type="number" style="width:110px"><span class="unit">次</span></div>
+          <label>${T('失败停用', 'Disable after failures')}</label>
+          <div class="ctrl"><input class="input" id="peProbeFailLimit" type="number" style="width:110px"><span class="unit">${T('次', 'fails')}</span></div>
         </div>
-        <div class="fldgrp full"><span class="fldgrp-t">状态</span></div>
+        <div class="fldgrp full"><span class="fldgrp-t">${T('状态', 'Status')}</span></div>
         <div class="fld full">
-          <label>状态</label>
-          <div class="ctrl"><label class="chk"><input type="checkbox" id="peEnabled" checked> 启用</label></div>
+          <label>${T('状态', 'Status')}</label>
+          <div class="ctrl"><label class="chk"><input type="checkbox" id="peEnabled" checked> ${T('启用', 'Enabled')}</label></div>
         </div>
       </div>
       <div class="editor-foot">
-        <button class="btn primary" id="peSaveBtn">保存供应商</button>
-        <button class="btn" id="peCancelBtn">取消</button>
+        <button class="btn primary" id="peSaveBtn">${T('保存供应商', 'Save provider')}</button>
+        <button class="btn" id="peCancelBtn">${T('取消', 'Cancel')}</button>
         <span class="err" id="peErr"></span>
       </div>
       </div>
@@ -1002,69 +1007,69 @@ export default {
   <div class="edit-modal-mask" id="modelEditorCard" hidden>
     <div class="edit-modal lg">
       <div class="modal-head">
-        <h3 id="modelEditorTitle">上架模型</h3>
-        <button class="close" id="meCloseBtn" title="关闭 (Esc)">×</button>
+        <h3 id="modelEditorTitle">${T('上架模型', 'Add model')}</h3>
+        <button class="close" id="meCloseBtn" title="${T('关闭 (Esc)', 'Close (Esc)')}">×</button>
       </div>
       <div class="edit-modal-body">
       <div class="frm">
-        <div class="fldgrp full"><span class="fldgrp-t">基础信息</span></div>
+        <div class="fldgrp full"><span class="fldgrp-t">${T('基础信息', 'Basics')}</span></div>
         <div class="fld">
-          <label>模型名 <i>*</i></label>
+          <label>${T('模型名', 'Model ID')} <i>*</i></label>
           <div class="ctrl"><input class="input" id="meId" placeholder="ent-gpt4o"></div>
         </div>
         <div class="fld">
-          <label>展示名</label>
-          <div class="ctrl"><input class="input" id="meDisp" placeholder="GPT-4o 企业版"></div>
+          <label>${T('展示名', 'Display name')}</label>
+          <div class="ctrl"><input class="input" id="meDisp" placeholder="${T('GPT-4o 企业版', 'GPT-4o enterprise')}"></div>
         </div>
         <div class="fld">
-          <label>供应商 <i>*</i></label>
+          <label>${T('供应商', 'Provider')} <i>*</i></label>
           <div class="ctrl"><select id="meProv"></select></div>
         </div>
         <div class="fld">
-          <label>上游模型名 <i>*</i></label>
+          <label>${T('上游模型名', 'Upstream model')} <i>*</i></label>
           <div class="ctrl"><input class="input" id="meUpstream" placeholder="gpt-4o-2024-11-20"></div>
         </div>
-        <div class="fldgrp full"><span class="fldgrp-t">上下文与输入</span></div>
+        <div class="fldgrp full"><span class="fldgrp-t">${T('上下文与输入', 'Context & input')}</span></div>
         <div class="fld">
-          <label>上下文长度</label>
+          <label>${T('上下文长度', 'Context window')}</label>
           <div class="ctrl"><input class="input" id="meCtx" type="number" step="1" style="width:110px"><span class="unit">k（×1024）</span></div>
         </div>
         <div class="fld">
-          <label>最大输出</label>
+          <label>${T('最大输出', 'Max output')}</label>
           <div class="ctrl"><input class="input" id="meMax" type="number" step="1" style="width:110px"><span class="unit">k（×1024）</span></div>
         </div>
         <div class="fld">
-          <label>支持的输入</label>
+          <label>${T('支持的输入', 'Input modes')}</label>
           <div class="ctrl" id="meInputs" style="flex-wrap:wrap;gap:4px 14px">
-            <label class="chk"><input type="checkbox" class="meIn" value="text" checked> 文本</label>
-            <label class="chk"><input type="checkbox" class="meIn" value="image"> 图片</label>
-            <label class="chk"><input type="checkbox" class="meIn" value="video"> 视频</label>
-            <label class="chk"><input type="checkbox" class="meIn" value="audio"> 音频</label>
+            <label class="chk"><input type="checkbox" class="meIn" value="text" checked> ${T('文本', 'Text')}</label>
+            <label class="chk"><input type="checkbox" class="meIn" value="image"> ${T('图片', 'Image')}</label>
+            <label class="chk"><input type="checkbox" class="meIn" value="video"> ${T('视频', 'Video')}</label>
+            <label class="chk"><input type="checkbox" class="meIn" value="audio"> ${T('音频', 'Audio')}</label>
           </div>
         </div>
         <div class="fld">
-          <label>模式</label>
+          <label>${T('模式', 'Mode')}</label>
           <div class="ctrl"><select id="meMode">
-            <option value="chat">chat · 对话</option>
-            <option value="reasoning">reasoning · 深度推理</option>
+            <option value="chat">${T('chat · 对话', 'chat · dialogue')}</option>
+            <option value="reasoning">${T('reasoning · 深度推理', 'reasoning · deep reasoning')}</option>
           </select></div>
         </div>
-        <div class="fldgrp full"><span class="fldgrp-t">思考能力</span></div>
+        <div class="fldgrp full"><span class="fldgrp-t">${T('思考能力', 'Thinking')}</span></div>
         <div class="fld">
-          <label>思考能力</label>
+          <label>${T('思考能力', 'Thinking')}</label>
           <div class="ctrl"><select id="meThink">
-            <option value="none">不支持思考</option>
-            <option value="optional">可选（按档位开关）</option>
-            <option value="always">强制思考</option>
+            <option value="none">${T('不支持思考', 'No thinking')}</option>
+            <option value="optional">${T('可选（按档位开关）', 'Optional (per level)')}</option>
+            <option value="always">${T('强制思考', 'Forced')}</option>
           </select></div>
         </div>
         <div class="fld">
-          <label>默认档位</label>
+          <label>${T('默认档位', 'Default level')}</label>
           <div class="ctrl"><select id="meThinkDef"></select></div>
         </div>
         <div class="think-box fld full" id="meThinkBox">
           <div class="think-box-row">
-            <span class="think-box-t">思考档位</span>
+            <span class="think-box-t">${T('思考档位', 'Thinking levels')}</span>
             <div class="ctrl" id="meThinkLevelsView" style="flex-wrap:wrap;gap:4px;min-height:22px"></div>
           </div>
           <div class="think-box-row">
@@ -1072,25 +1077,25 @@ export default {
             <div class="ctrl"></div>
           </div>
         </div>
-        <div class="fldgrp full"><span class="fldgrp-t">计费与容灾</span></div>
+        <div class="fldgrp full"><span class="fldgrp-t">${T('计费与容灾', 'Billing & failover')}</span></div>
         <div class="fld">
-          <label>单价 ¥/百万tok</label>
+          <label>${T('单价 ¥/百万tok', 'Price ¥/Mtok')}</label>
           <div class="ctrl">
-            <input class="input" id="mePin" type="number" step="0.01" style="width:90px" placeholder="输入">
+            <input class="input" id="mePin" type="number" step="0.01" style="width:90px" placeholder="${T('输入', 'In')}">
             <span class="unit">/</span>
-            <input class="input" id="mePout" type="number" step="0.01" style="width:90px" placeholder="输出">
+            <input class="input" id="mePout" type="number" step="0.01" style="width:90px" placeholder="${T('输出', 'Out')}">
             <span class="unit">/</span>
-            <input class="input" id="mePcache" type="number" step="0.01" style="width:90px" placeholder="缓存">
+            <input class="input" id="mePcache" type="number" step="0.01" style="width:90px" placeholder="${T('缓存', 'Cache')}">
           </div>
         </div>
         <div class="fld">
-          <label>容灾供应商</label>
+          <label>${T('容灾供应商', 'Failover providers')}</label>
           <div class="ctrl" id="meFallbacks" style="flex-wrap:wrap;gap:4px 14px"></div>
         </div>
       </div>
       <div class="editor-foot">
-        <button class="btn primary" id="meSaveBtn">保存模型</button>
-        <button class="btn" id="meCancelBtn">取消</button>
+        <button class="btn primary" id="meSaveBtn">${T('保存模型', 'Save model')}</button>
+        <button class="btn" id="meCancelBtn">${T('取消', 'Cancel')}</button>
         <span class="err" id="meErr"></span>
       </div>
       </div>
@@ -1099,17 +1104,17 @@ export default {
 
   <!-- 供应商列表 -->
   <div class="card">
-    <h2><span class="bar"></span>供应商 <span class="badge" id="provCount"></span></h2>
-    <div id="provList"><div class="empty">加载中…</div></div>
+    <h2><span class="bar"></span>${T('供应商', 'Providers')} <span class="badge" id="provCount"></span></h2>
+    <div id="provList"><div class="empty">${T('加载中…', 'Loading…')}</div></div>
   </div>
 
   <!-- 模型目录 -->
   <div class="card">
-    <h2><span class="bar"></span>模型目录 <span class="badge" id="modelCount"></span></h2>
+    <h2><span class="bar"></span>${T('模型目录', 'Model catalog')} <span class="badge" id="modelCount"></span></h2>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>模型</th><th>供应商 → 上游模型</th><th class="num">上下文 / 输出</th><th>思考</th><th class="num">单价 入/出/缓存</th><th>状态</th><th></th></tr></thead>
-        <tbody id="modelBody"><tr><td colspan="7" class="empty">加载中…</td></tr></tbody>
+        <thead><tr><th>${T('模型', 'Model')}</th><th>${T('供应商 → 上游模型', 'Provider → upstream model')}</th><th class="num">${T('上下文 / 输出', 'Context / output')}</th><th>${T('思考', 'Thinking')}</th><th class="num">${T('单价 入/出/缓存', 'Price in/out/cache')}</th><th>${T('状态', 'Status')}</th><th></th></tr></thead>
+        <tbody id="modelBody"><tr><td colspan="7" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -1118,19 +1123,19 @@ export default {
   <div class="probe-modal-mask" id="probeModal" hidden>
     <div class="probe-modal">
       <div class="modal-head">
-        <h3 id="probeTitle">模型设置</h3>
-        <button class="close" id="probeCloseBtn" title="关闭 (Esc)">×</button>
+        <h3 id="probeTitle">${T('模型设置', 'Model settings')}</h3>
+        <button class="close" id="probeCloseBtn" title="${T('关闭 (Esc)', 'Close (Esc)')}">×</button>
       </div>
       <div class="toolbar" id="probeFilterWrap">
-        <input class="input" id="probeSearch" placeholder="筛选模型…" style="width:170px;padding:4px 8px;font-size:12.5px" autocomplete="off">
+        <input class="input" id="probeSearch" placeholder="${T('筛选模型…', 'Filter models…')}" style="width:170px;padding:4px 8px;font-size:12.5px" autocomplete="off">
         <select id="probeFilter" class="input" style="padding:4px 8px;font-size:12.5px">
-          <option value="all">全部模型</option>
-          <option value="real">仅真思考</option>
-          <option value="issues">仅问题项（被拒/不可用）</option>
+          <option value="all">${T('全部模型', 'All models')}</option>
+          <option value="real">${T('仅真思考', 'Real thinking only')}</option>
+          <option value="issues">${T('仅问题项（被拒/不可用）', 'Issues only (rejected/unavailable)')}</option>
         </select>
         <span style="display:inline-flex;gap:8px;align-items:center;font-size:12.5px;flex-wrap:wrap">
           <span id="probeLvWrap" style="display:inline-flex;gap:10px;flex-wrap:wrap;align-items:center"></span>
-          <button class="btn sm" id="probeLvSaveBtn" title="保存为探测默认档位">设为默认</button>
+          <button class="btn sm" id="probeLvSaveBtn" title="${T('保存为探测默认档位', 'Save as probe defaults')}">${T('设为默认', 'Set default')}</button>
         </span>
       </div>
       <div class="sub" id="probeMeta"></div>
@@ -1144,8 +1149,8 @@ export default {
   <div class="edit-modal-mask" id="healthModal" hidden>
     <div class="edit-modal md">
       <div class="modal-head">
-        <h3 id="healthTitle">状态检测</h3>
-        <button class="close" id="healthCloseBtn" title="关闭 (Esc)">×</button>
+        <h3 id="healthTitle">${T('状态检测', 'Health check')}</h3>
+        <button class="close" id="healthCloseBtn" title="${T('关闭 (Esc)', 'Close (Esc)')}">×</button>
       </div>
       <div class="edit-modal-body" id="healthBody"></div>
     </div>

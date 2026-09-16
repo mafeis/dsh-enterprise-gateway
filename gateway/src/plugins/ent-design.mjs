@@ -7,6 +7,6 @@ export const provides = []
 
 /** 自带页面：样式规范（设计令牌 / 组件类可视化样册，对齐 docs/admin-plugin-pages.zh.md §5） */
 export const admin = {
-  nav: { id: 'design', title: '样式规范', icon: 'palette', order: 80 },
+  nav: { id: 'design', title: '样式规范', titleEn: 'Style Guide', icon: 'palette', order: 80 },
   entry: 'index.mjs',
 }

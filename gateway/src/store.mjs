@@ -111,6 +111,23 @@ try { db.exec('ALTER TABLE heartbeats ADD COLUMN device TEXT') } catch { /* 列�
 try { db.exec('ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 1') } catch { /* 列已存在 */ }
 // 计费：缓存命中输入 token 数（OpenAI 兼容 prompt_tokens_details.cached_tokens；旧记录为 NULL 视作 0）
 try { db.exec('ALTER TABLE request_logs ADD COLUMN tokens_cached INTEGER') } catch { /* 列已存在 */ }
+// 插件出现史：设备 × 插件 sighting。心跳 device 快照是覆盖式（只留最新清单），
+// 历史安装（尤其装过后被清理的清单外插件）必须落在这张表才能追溯
+db.exec(`
+CREATE TABLE IF NOT EXISTS plugin_sightings (
+  device_hash TEXT NOT NULL,
+  plugin      TEXT NOT NULL,
+  first_ts    TEXT NOT NULL,
+  last_ts     TEXT NOT NULL,
+  account     TEXT,
+  hostname    TEXT,
+  env         TEXT,
+  active      INTEGER NOT NULL DEFAULT 1,
+  violation   INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (device_hash, plugin)
+);
+CREATE INDEX IF NOT EXISTS idx_ps_violation ON plugin_sightings(violation, last_ts DESC);
+`)
 
 /** 吊销某用户当前所有令牌（登出/改密/封禁时调用）：版本号 +1，旧 JWT 立即失效 */
 export function revokeUserTokens(username) {
@@ -159,6 +176,49 @@ export function insertHeartbeat(h) {
   db.prepare(`INSERT INTO heartbeats (device_hash, profile, env, policy_version, node_version, account, device)
               VALUES (?, ?, ?, ?, ?, ?, ?)`)
     .run(h.device_hash ?? null, h.profile ?? null, h.env ?? null, h.policy_version ?? null, h.node_version ?? null, h.account ?? null, h.device_json ?? null)
+}
+
+/** 记录插件 sighting：本轮快照里的插件 upsert（active=1，violation 按当前允许清单打标），
+ *  该设备不在本轮快照里的既有行标 active=0（历史保留——"装过后被清除"由此追溯）。
+ *  violation 在写入时按当次清单判定；allowed 为空不判违规（与心跳协议口径一致）。 */
+export function recordPluginSightings(deviceHash, plugins, { account, hostname, env, allowed } = {}) {
+  const list = (Array.isArray(plugins) ? plugins : []).filter((x) => typeof x === 'string' && x)
+  const now = db.prepare("SELECT datetime('now') AS t").get().t
+  const allowedList = Array.isArray(allowed) ? allowed : []
+  const upsert = db.prepare(`
+    INSERT INTO plugin_sightings (device_hash, plugin, first_ts, last_ts, account, hostname, env, active, violation)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+    ON CONFLICT(device_hash, plugin) DO UPDATE SET
+      last_ts  = excluded.last_ts,
+      account  = COALESCE(excluded.account,  plugin_sightings.account),
+      hostname = COALESCE(excluded.hostname, plugin_sightings.hostname),
+      env      = COALESCE(excluded.env,      plugin_sightings.env),
+      active   = 1,
+      violation = excluded.violation
+  `)
+  for (const p of list) {
+    upsert.run(deviceHash, p, now, now, account ?? null, hostname ?? null, env ?? null, allowedList.length && !allowedList.includes(p) ? 1 : 0)
+  }
+  if (list.length) {
+    const marks = list.map(() => '?').join(',')
+    db.prepare(`UPDATE plugin_sightings SET active = 0 WHERE device_hash = ? AND plugin NOT IN (${marks})`).run(deviceHash, ...list)
+  } else {
+    db.prepare('UPDATE plugin_sightings SET active = 0 WHERE device_hash = ?').run(deviceHash)
+  }
+}
+
+/** 清单外插件历史（含已清除的）：每行 = 设备 × 违规插件，按最近出现排序 */
+export function pluginViolationHistory(limit = 200) {
+  return db.prepare(`
+    SELECT plugin, device_hash,
+           account, hostname, env,
+           datetime(first_ts, '+8 hours') AS first_local,
+           datetime(last_ts,  '+8 hours') AS last_local,
+           active
+    FROM plugin_sightings
+    WHERE violation = 1
+    ORDER BY last_ts DESC LIMIT ?
+  `).all(limit)
 }
 
 /** 该设备最新一条心跳的 device 快照（增量上报时沿用） */

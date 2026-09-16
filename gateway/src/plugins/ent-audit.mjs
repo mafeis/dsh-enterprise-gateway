@@ -12,7 +12,7 @@ export const inject = ['store', 'auth', 'router', 'config']
 
 /** 自带页面：审计留痕（页面资源在本插件 ent-audit.web/） */
 export const admin = {
-  nav: { id: 'logs', title: '审计留痕', icon: 'scroll-text', order: 65 },
+  nav: { id: 'logs', title: '审计留痕', titleEn: 'Audit Logs', icon: 'scroll-text', order: 65 },
   entry: 'index.mjs',
 }
 

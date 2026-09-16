@@ -22,12 +22,12 @@ export const inject = ['config', 'store', 'auth', 'router']
 /** 自带页面：客户端管控（一级菜单 + 4 个二级页，壳按 nav.children 渲染分组导航） */
 export const admin = {
   nav: {
-    id: 'client', title: '客户端管控', icon: 'monitor', order: 70,
+    id: 'client', title: '客户端管控', titleEn: 'Client Control', icon: 'monitor', order: 70,
     children: [
-      { id: 'client-switches', title: '策略与开关' },
-      { id: 'client-plugins', title: '插件管控' },
-      { id: 'client-rules', title: '本地规则' },
-      { id: 'client-acks', title: '下发回执' },
+      { id: 'client-switches', title: '策略与开关', titleEn: 'Policy & Switches' },
+      { id: 'client-plugins', title: '插件管控', titleEn: 'Plugin Control' },
+      { id: 'client-rules', title: '本地规则', titleEn: 'Local Rules' },
+      { id: 'client-acks', title: '下发回执', titleEn: 'Deploy Receipts' },
     ],
   },
   entry: 'index.mjs',
@@ -176,7 +176,9 @@ export function apply(ctx) {
       if (req.method === 'PATCH') {
         if (b.defaultVersion) repo.setDefaultVersion(name, b.defaultVersion)
         if (b.note !== undefined && b.version) repo.setVersionNote(name, b.version, b.note)
-        if (b.description !== undefined) repo.setMeta(name, { description: b.description })
+        if (b.description !== undefined || b.descriptionEn !== undefined) {
+          repo.setMeta(name, { description: b.description, descriptionEn: b.descriptionEn })
+        }
       } else {
         const ver = decodeURIComponent(urlPath.slice('/admin/plugin-repo/'.length).split('/')[1] ?? '')
         if (ver) repo.removeVersion(name, ver)

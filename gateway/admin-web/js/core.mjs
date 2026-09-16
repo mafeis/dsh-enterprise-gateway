@@ -6,6 +6,8 @@
  * 本地开发把 admin-web 用别的静态服务器打开时，可用 ?gw=http://host:port 显式指定，
  * 或 localStorage.setItem('ent_gw', 'http://host:port') 持久指定。
  */
+import { T, getLang } from './i18n.mjs';
+
 export const GW = localStorage.getItem('ent_gw')
     || new URLSearchParams(location.search).get('gw')
     || location.origin;
@@ -28,7 +30,7 @@ export function toast(msg, type = 'ok') {
 
 /** 业务断言：网关 4xx 也返回 JSON（不抛网络错），这里统一转异常，错误文案进 e.message */
 export function must(r) {
-  if (r && r.error) throw new Error(r.error.message || '请求失败');
+  if (r && r.error) throw new Error(r.error.message || T('请求失败', 'Request failed'));
   return r;
 }
 
@@ -37,7 +39,10 @@ export function must(r) {
  * 单例 DOM：首次调用时注入，取消按钮 / Esc = 取消；点击遮罩空白不关闭（全站规范 §5.5，防误触）
  */
 let _confirmEls = null;
-export function confirmDlg({ title = '确认操作', message = '', confirmText = '确定', cancelText = '取消', danger = false } = {}) {
+export function confirmDlg({ title, message, confirmText, cancelText, danger = false } = {}) {
+  title = title ?? T('确认操作', 'Confirm');
+  confirmText = confirmText ?? T('确定', 'OK');
+  cancelText = cancelText ?? T('取消', 'Cancel');
   return new Promise((resolve) => {
     if (!_confirmEls) {
       const mask = document.createElement('div');
@@ -48,8 +53,8 @@ export function confirmDlg({ title = '确认操作', message = '', confirmText =
           <h3 id="cfrmTitle"></h3>
           <div class="confirm-msg" id="cfrmMsg"></div>
           <div class="confirm-foot">
-            <button class="btn" id="cfrmCancel">取消</button>
-            <button class="btn primary" id="cfrmOk">确定</button>
+            <button class="btn" id="cfrmCancel"></button>
+            <button class="btn primary" id="cfrmOk"></button>
           </div>
         </div>`;
       document.body.appendChild(mask);
@@ -144,6 +149,11 @@ export async function api(path, opts = {}) {
   return res.json();
 }
 
-export const fmtTok = (n) => n >= 10000 ? (n / 10000).toFixed(1) + '万' : String(n ?? 0);
+/** token 计数格式化：zh 用「万」，en 用「k」 */
+export const fmtTok = (n) => {
+  const v = n ?? 0;
+  if (getLang() === 'en') return v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(v);
+  return v >= 10000 ? (v / 10000).toFixed(1) + '万' : String(v);
+};
 
 export const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
