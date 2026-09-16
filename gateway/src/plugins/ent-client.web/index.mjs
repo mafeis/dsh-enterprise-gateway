@@ -153,18 +153,18 @@ const pluginsHtml = `
         <div class="fgrid" style="grid-template-columns:96px minmax(0,1fr)">
           <label>企业插件源</label>
           <select id="regMode" class="input" style="width:100%">
-            <option value="off">默认社区源（off · 不干预）</option>
-            <option value="proxy">企业 npm 镜像（proxy）</option>
-            <option value="url">企业直连地址（url）</option>
+            <option value="off">默认社区源（不干预）</option>
+            <option value="proxy">企业 npm 镜像</option>
+            <option value="url">企业直连地址</option>
           </select>
           <label>回退公共源</label>
-          <span class="chk"><input type="checkbox" id="regFallback"> 自建源拉取失败时允许回退社区源</span>
-          <label>NPM 镜像地址<span class="dim2">proxy 模式</span></label>
+          <span class="chk"><input type="checkbox" id="regFallback"> 企业源失败时回退社区源</span>
+          <label>NPM 镜像地址<span class="dim2">proxy</span></label>
           <input class="input" id="regUrl" placeholder="http://npm.corp.local:4873">
-          <label>包地址前缀<span class="dim2">url 模式</span></label>
+          <label>包地址前缀<span class="dim2">url</span></label>
           <input class="input" id="regPrefix" placeholder="http://plugins.corp.local/packages/">
-          <label>内置仓库直连</label>
-          <span class="chk"><input type="checkbox" id="regBuiltin"> url 模式下员工端直接从本网关仓库下载（前缀自动 = 本站 /plugin-packages/）</span>
+          <label>内置仓库直连<span class="dim2">url</span></label>
+          <span class="chk"><input type="checkbox" id="regBuiltin"> 直接用上方插件仓库下载</span>
         </div>
         <div class="hint" id="regHint" style="margin-top:8px"></div>
         <div class="notebox" id="regAutoNote" style="margin-top:10px"></div>
@@ -930,12 +930,12 @@ function syncRegFields() {
   if (builtin && !$('regPrefix').value.trim()) $('regPrefix').value = location.origin + '/plugin-packages/'
   const hint = $('regHint')
   if (hint) hint.textContent = mode === 'off'
-    ? 'off = 不干预：员工端安装插件直接走社区 npm 源，不做任何改写'
+    ? 'off = 不干预，员工端直接走社区 npm 源'
     : mode === 'proxy'
-      ? 'proxy = 员工安装插件时自动追加 --registry=' + ($('regUrl').value.trim() || '<镜像地址>') + '；需要先在企业内网部署 npm 私服（Verdaccio / Nexus 等）'
+      ? 'proxy = 安装时自动追加 --registry=' + ($('regUrl').value.trim() || '<镜像地址>')
       : builtin
-        ? 'url + 内置仓库 = 员工端直接从本网关下载插件仓库里的包，无需额外部署文件服务'
-        : 'url = 员工安装时直接从 ' + ($('regPrefix').value.trim() || '<前缀>') + '<插件包名> 下载 .tgz；前缀必须以 http(s):// 或 file:// 开头'
+        ? 'url + 内置直连 = 员工端从本网关「插件仓库」下载'
+        : 'url = 从 ' + ($('regPrefix').value.trim() || '<前缀>') + '<插件包名> 下载 .tgz'
   syncRegBadge()
 }
 
