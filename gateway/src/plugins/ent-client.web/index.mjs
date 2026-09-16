@@ -1230,7 +1230,8 @@ function bindPlugins() {
       const tab = e.target.closest('[data-panetab]')
       if (!tab) return
       for (const t of $('plugTabs').querySelectorAll('[data-panetab]')) t.classList.toggle('on', t === tab)
-      for (const p of document.querySelectorAll('.pane[id^="pane-"]:not(.dlg *)')) p.classList.toggle('on', p.id === tab.dataset.panetab)
+      $('pane-repo').classList.toggle('on', tab.dataset.panetab === 'pane-repo')
+      $('pane-allow').classList.toggle('on', tab.dataset.panetab === 'pane-allow')
     })
   }
   if ($('regMode')) {
