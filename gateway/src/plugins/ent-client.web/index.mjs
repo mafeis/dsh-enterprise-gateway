@@ -491,6 +491,7 @@ async function loadAll(opts = {}) {
       syncLpExample(lp)
     }
     if ($('allowList')) { allowItems = (p.allowedPlugins ?? []).slice(); renderAllowList() }
+    if ($('repoBody') || $('allowList')) await loadRepo()   // 仓库数据 = 清单描述/版本的数据源；loadRepo 内部会同步重渲染清单
     if ($('regMode')) {
       const reg = p.pluginRegistry ?? {}
       $('regMode').value = reg.mode ?? 'off'
@@ -500,7 +501,6 @@ async function loadAll(opts = {}) {
       $('regBuiltin').checked = /\/plugin-packages\/?$/.test(reg.packagePrefix ?? '')
       syncRegFields()
     }
-    if ($('repoBody')) loadRepo()
     if ($('rulesList') && !skipRulesTable) renderClientRules(p.clientRules ?? [])
     if (!skipRulesTable) {
       if ($('bannerPos')) $('bannerPos').value = p.bannerPosition ?? 'top-right'
@@ -636,6 +636,7 @@ async function loadRepo() {
     const d = await api('/admin/plugin-repo')
     repoData = d.plugins ?? []
     renderRepo()
+    if ($('allowList')) renderAllowList()   // 允许清单显示仓库描述/版本，同步刷新
   } catch (e) { if (e.message !== '401') toast('✗ 插件仓库加载失败：' + e.message, 'bad') }
 }
 
@@ -829,13 +830,24 @@ function renderAllowList() {
   const box = $('allowList')
   if (!box) return
   $('allowCount').textContent = allowItems.length
-  box.innerHTML = allowItems.map((n, i) => `
-    <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
-      <span class="mono" style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n)}</span>
-      ${n === 'dsh-enterprise' ? '<span class="badge ok" title="企业必装组件，删除后员工端登录与策略失效">必装</span>' : ''}
-      <button class="btn sm" data-allow-repo="${esc(n)}" style="padding:1px 8px;font-size:11px" title="从 npm 拉进企业插件仓库">入库</button>
+  box.innerHTML = allowItems.map((n, i) => {
+    const repo = repoData.find((x) => x.name === n)
+    const desc = repo?.description ?? ''
+    const ver = repo?.defaultVersion ?? ''
+    return `
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="mono" style="font-size:12px;font-weight:600;color:#0f172a">${esc(n)}</span>
+          ${ver ? `<span class="badge dim" style="font-size:10px">v${esc(ver)}</span>` : ''}
+          ${n === 'dsh-enterprise' ? '<span class="badge ok" title="企业必装组件，删除后员工端登录与策略失效">必装</span>' : ''}
+        </div>
+        <div style="font-size:11.5px;color:#64748b;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${desc ? esc(desc) : '<span style="color:#cbd5e1">未入库 · 无描述</span>'}</div>
+      </div>
+      <button class="btn sm" data-allow-repo="${esc(n)}" style="padding:1px 8px;font-size:11px" title="${repo ? '已在仓库，可管理版本与描述' : '从 npm 拉进企业插件仓库'}">${repo ? '已入库' : '入库'}</button>
       <button class="btn sm danger" data-allow-del="${i}" style="padding:1px 8px;font-size:11px">移除</button>
-    </div>`).join('') || '<div style="font-size:12px;color:#94a3b8;padding:6px 2px">清单为空 = 不限制（员工可装任意插件）</div>'
+    </div>`
+  }).join('') || '<div style="font-size:12px;color:#94a3b8;padding:6px 2px">清单为空 = 不限制（员工可装任意插件）</div>'
 }
 
 function allowAdd(raw) {
