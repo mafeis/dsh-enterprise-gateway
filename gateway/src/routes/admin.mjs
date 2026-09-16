@@ -8,7 +8,7 @@ import { json } from '../core/http.mjs'
 
 export function createAdminHandler({ config, store, auth }) {
   const { authenticate } = auth
-  const { statsToday, statsByUser, recentHeartbeats } = store
+  const { statsToday, statsByUser, recentHeartbeats, pluginInstallOverview } = store
 
   async function requireAdmin(req, res) {
     const authResult = await authenticate(req)
@@ -30,6 +30,13 @@ export function createAdminHandler({ config, store, auth }) {
     }
     if (path === '/admin/terminals') {
       return json(res, 200, { terminals: recentHeartbeats() })
+    }
+    // 插件安装总览：设备 × 插件矩阵 + 违规标记（允许清单从策略快照取）
+    if (path === '/admin/plugin-installs') {
+      const rows = pluginInstallOverview()
+      const allowed = Array.isArray(config.getConfig().policy?.allowedPlugins) ? config.getConfig().policy.allowedPlugins : []
+      for (const r of rows) r.violation = allowed.length > 0 && !allowed.includes(r.plugin)
+      return json(res, 200, { installs: rows, allowedCount: allowed.length })
     }
 
     // 未识别的 /admin/* 路径：返回 false 交回路由表，让其他插件（users/billing/client/…）有机会处理

@@ -238,6 +238,8 @@ blockquote.detail { background: #f8fafc; border-left: 3px solid var(--accent); b
 .btn.danger:hover { border-color: var(--bad); background: rgba(220,38,38,.05); }
 .tablewrap { overflow-x: auto; }
 .tablewrap table { min-width: 720px; }
+/* 弹窗内表格按内容自适应：720px 下限是给整页宽表的，弹窗窄容器里只会制造假横向滚动条 */
+.dlg .tablewrap table { min-width: 0; }
 
 /* 复选标签 */
 .chk { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; cursor: pointer; white-space: nowrap; }

@@ -394,6 +394,49 @@ export function recentHeartbeats(seconds = 130) {
 
 /* ---------- 策略下发回执（灰度进度） ---------- */
 
+/** 插件安装总览：聚合所有心跳快照里的已安装插件清单。
+ *  每行 = 一个（设备 × 插件），附账号/主机名/环境/首次与最近一次被监测到的时间（北京时间）。
+ *  违规判定由调用方拿允许清单做（避免 store 依赖 config 循环引用）。 */
+export function pluginInstallOverview(limit = 300) {
+  const rows = db.prepare(`
+    SELECT h.device_hash,
+           (SELECT h2.account FROM heartbeats h2 WHERE h2.device_hash = h.device_hash AND h2.account IS NOT NULL AND h2.account != '' ORDER BY h2.ts DESC LIMIT 1) AS account,
+           (SELECT h2.env FROM heartbeats h2 WHERE h2.device_hash = h.device_hash ORDER BY h2.ts DESC LIMIT 1) AS env,
+           MIN(h.ts) AS first_ts,
+           MAX(h.ts) AS last_ts,
+           datetime(MIN(h.ts), '+8 hours') AS first_local,
+           datetime(MAX(h.ts), '+8 hours') AS last_local,
+           h.device
+    FROM heartbeats h
+    WHERE h.device IS NOT NULL
+      AND h.ts > datetime('now', '-30 days')
+      AND json_valid(h.device)
+      AND json_extract(h.device, '$.plugins') IS NOT NULL
+      AND json_array_length(h.device, '$.plugins') > 0
+    GROUP BY h.device_hash
+    ORDER BY last_ts DESC LIMIT ?
+  `).all(limit)
+  // 按（设备 × 插件）展开
+  const out = []
+  for (const r of rows) {
+    let dev = null
+    try { dev = JSON.parse(r.device) } catch { continue }
+    for (const name of Array.isArray(dev.plugins) ? dev.plugins : []) {
+      out.push({
+        plugin: name,
+        account: r.account || '未登录',
+        hostname: dev.hostname || '',
+        env: r.env || '',
+        deviceHash: String(r.device_hash).slice(0, 10),
+        firstSeen: r.first_local,
+        lastSeen: r.last_local,
+      })
+    }
+  }
+  out.sort((a, b) => a.plugin.localeCompare(b.plugin) || String(b.lastSeen).localeCompare(String(a.lastSeen)))
+  return out
+}
+
 /** 回执明细（下发回执页）。账号/环境/Node 版本取该设备最近一次心跳补齐（设备从未发过心跳则为空） */
 export function recentPolicyAcks(limit = 50) {
   return db.prepare(`

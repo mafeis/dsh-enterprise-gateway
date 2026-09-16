@@ -21,9 +21,9 @@ export const admin = {
 
 /** 运营总览展示配置（页面设置面）：plugins.ent-console.config.sections 持久化
  *  每个区块两个维度：show（显/隐）+ mode（展示方式：kpi 卡/table 表格/bar 对比条/auto 自动） */
-const SECTION_DEFAULTS = { req: true, tok: true, users: true, dlp: true, terminals: true, usage: true }
+const SECTION_DEFAULTS = { req: true, tok: true, users: true, dlp: true, terminals: true, usage: true, installs: true }
 const SECTION_LABELS = {
-  req: '今日请求数', tok: 'Token 消耗', users: '活跃用户', dlp: 'DLP 命中/拦截', terminals: '在线终端', usage: '用户用量 TOP',
+  req: '今日请求数', tok: 'Token 消耗', users: '活跃用户', dlp: 'DLP 命中/拦截', terminals: '在线终端', usage: '用户用量 TOP', installs: '插件安装总览',
 }
 /** 每个区块合法的展示方式（auto=系统按数据形态自动选） */
 const SECTION_MODES = {
@@ -33,6 +33,7 @@ const SECTION_MODES = {
   dlp: ['auto', 'kpi', 'table', 'bar'],
   terminals: ['auto', 'table', 'cards'],
   usage: ['auto', 'table', 'bar', 'cards'],
+  installs: ['auto', 'table'],
 }
 const MODE_LABELS = { auto: '自动', kpi: '数值卡', table: '表格', bar: '对比条', cards: '卡片墙' }
 

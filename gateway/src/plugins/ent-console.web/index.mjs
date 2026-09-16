@@ -6,6 +6,7 @@
  */
 import { api, $, fmtTok, esc, icon, toast, openDlg, closeDlg } from '/admin/static/contract.mjs';
 import { loadTerminals, bindTerminalsEvents, renderTerminals, renderTerminalsCards } from './terminals.mjs';
+import { renderInstalls, bindInstallsEvents } from './installs.mjs';
 
 let sections = {};
 let labels = {};
@@ -56,6 +57,10 @@ async function loadAll() {
   if (sections.terminals?.enabled !== false) {
     try { terminals = (await api('/admin/terminals')).terminals ?? []; } catch { /* 401 */ }
   }
+  let installsData = null;
+  if (sections.installs?.enabled !== false) {
+    try { installsData = await api('/admin/plugin-installs'); } catch { /* 401 */ }
+  }
 
   // 3. 动态渲染
   const host = $('ovDynamic');
@@ -96,6 +101,10 @@ async function loadAll() {
       ? sectionCard('terminals', '在线终端', `<span class="badge dim">${terminals.length} 台</span>`, renderTerminalsCards(terminals))
       : sectionCard('terminals', '在线终端', `<span class="badge dim" id="termCount">${terminals.length}</span>`, renderTerminals(terminals)));
   }
+  // —— 插件安装总览 ——
+  if (sections.installs?.enabled !== false && installsData) {
+    parts.push(sectionCard('installs', '插件安装总览', installsBadge(installsData), renderInstalls(installsData)));
+  }
   // —— 用户用量 TOP ——
   if (sections.usage?.enabled !== false) {
     const m = resolveMode('usage');
@@ -107,6 +116,14 @@ async function loadAll() {
   }
   host.innerHTML = parts.join('');
   bindTerminalsEvents();
+  // 插件安装总览：搜索输入 → 只重绘整页（数据已在本地，重绘开销可忽略；输入值经 renderInstalls 回填保焦点）
+  bindInstallsEvents(() => { if (installsData) { const el = document.querySelector('[data-sec="installs"]'); if (el) el.querySelector('.tablewrap')?.closest('.card') && (el.outerHTML = sectionCard('installs', '插件安装总览', installsBadge(installsData), renderInstalls(installsData))); } });
+}
+
+/** 插件安装总览徽章（标题旁统计） */
+function installsBadge(d) {
+  const bad = (d.installs ?? []).filter((r) => r.violation).length;
+  return `<span class="badge dim">${(d.installs ?? []).length} 项</span>${bad ? ` <span class="badge bad">${bad} 清单外</span>` : ''}`;
 }
 
 /* ---------- 区块渲染原语 ---------- */
