@@ -4,10 +4,19 @@
  */
 import { createHash } from 'node:crypto'
 import { json, readJson } from '../core/http.mjs'
+import { listRepo } from '../core/repo-store.mjs'
 
 export function createPluginProtocolHandler({ config, store, auth }) {
   const { getConfig } = config
   const { insertAck, insertHeartbeat, latestHeartbeatDevice } = store
+  /** 策略下发附带插件元数据（管理员在插件仓库维护的描述）——仓库为空时省略该字段 */
+  const pluginMeta = () => {
+    try {
+      const meta = {}
+      for (const p of listRepo()) if (p.description) meta[p.name] = { description: p.description }
+      return Object.keys(meta).length ? meta : undefined
+    } catch { return undefined }
+  }
 
   return async function handlePlugin(req, res, path) {
     const cfg = getConfig()
@@ -28,6 +37,7 @@ export function createPluginProtocolHandler({ config, store, auth }) {
         dlpRuleCount: cfg.dlp.rules.length,
         gatewayBaseUrl: `http://127.0.0.1:${cfg.server.port}`,
         models: cfg.models.map((m) => m.id),
+        pluginMeta: pluginMeta(),
       })
     }
     if (req.method === 'POST' && path === '/policy/ack') {
