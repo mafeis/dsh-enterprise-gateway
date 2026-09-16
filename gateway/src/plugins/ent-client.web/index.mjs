@@ -646,21 +646,32 @@ function renderRepo() {
   const q = ($('repoSearch')?.value ?? '').trim().toLowerCase()
   const rows = repoData.filter((p) => !q || p.name.toLowerCase().includes(q) || String(p.description ?? '').toLowerCase().includes(q))
   if ($('repoCount')) $('repoCount').textContent = `${repoData.length} 个`
-  tbody.innerHTML = rows.map((p) => `
+  tbody.innerHTML = rows.map((p) => {
+    const inAllow = allowItems.includes(p.name)
+    return `
     <tr>
-      <td class="mono" style="font-size:12px">${esc(p.name)}</td>
-      <td style="font-size:12px;color:#64748b;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.description)}">${esc(p.description) || '<i style="color:#cbd5e1">—</i>'}</td>
-      <td><span class="mono" style="font-size:12px">${esc(p.defaultVersion ?? '—')}</span></td>
-      <td class="mono" style="font-size:12px">${p.versionCount}</td>
-      <td class="mono" style="font-size:12px">${fmtSize(p.totalSize)}</td>
-      <td class="mono" style="font-size:11.5px;color:#94a3b8">${esc(p.updatedAt ?? '')}</td>
-      <td style="white-space:nowrap">
-        <button class="btn sm" data-repo-ver="${esc(p.name)}">版本</button>
-        <button class="btn sm" data-repo-allow="${esc(p.name)}" title="加入下方允许清单">＋清单</button>
-        <button class="btn sm" data-repo-desc="${esc(p.name)}">描述</button>
-        <button class="btn sm danger" data-repo-del="${esc(p.name)}">删</button>
+      <td colspan="7" style="padding:0;border-bottom:none">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f1f5f9">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span class="mono" style="font-size:12px;font-weight:600;color:#0f172a">${esc(p.name)}</span>
+              <span class="badge dim" style="font-size:10px">默认 v${esc(p.defaultVersion ?? '—')}</span>
+              <span class="badge dim" style="font-size:10px">${p.versionCount} 个版本 · ${fmtSize(p.totalSize)}</span>
+              ${inAllow ? '<span class="badge ok" style="font-size:10px">已入清单</span>' : ''}
+            </div>
+            <div style="font-size:11.5px;color:#64748b;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.description)}">${esc(p.description) || '<span style="color:#cbd5e1">无描述 · 点「描述」补充（员工端市场显示）</span>'}</div>
+          </div>
+          <span class="mono" style="font-size:11px;color:#94a3b8;flex-shrink:0">${esc(p.updatedAt ?? '')}</span>
+          <span style="white-space:nowrap;flex-shrink:0">
+            <button class="btn sm" data-repo-ver="${esc(p.name)}">版本</button>
+            <button class="btn sm" data-repo-allow="${esc(p.name)}" ${inAllow ? 'disabled title="已在允许清单"' : 'title="加入允许清单"'}>＋清单</button>
+            <button class="btn sm" data-repo-desc="${esc(p.name)}">描述</button>
+            <button class="btn sm danger" data-repo-del="${esc(p.name)}">删</button>
+          </span>
+        </div>
       </td>
-    </tr>`).join('') || '<tr><td colspan="7" class="empty">仓库为空 —— 点右上「＋ 添加插件」，输入 npm 地址或上传 .tgz</td></tr>'
+    </tr>`
+  }).join('') || '<tr><td colspan="7" class="empty">仓库为空 —— 点右上「＋ 添加插件」，输入 npm 地址或上传 .tgz</td></tr>'
 }
 
 /* ---- 添加插件弹窗 ---- */
