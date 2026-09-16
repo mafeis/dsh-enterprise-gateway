@@ -24,6 +24,26 @@ const NAME_RE = /^(@[a-zA-Z0-9_-]{1,64}\/)?[a-zA-Z0-9_-]{2,64}$/
 const VER_RE = /^\d+\.\d+\.\d+(-[0-9A-Za-z.+-]+)?$/
 export const MAX_TARBALL = 64 * 1024 * 1024
 
+/** 常见插件中文名录：入库时包自述是英文则优先替换（管理员手动改过的不覆盖） */
+const DESC_ZH = {
+  'dsh-enterprise': '企业账号登录、模型接入与安全管控',
+  'dshmarket': 'DSH 内置的可视化插件市场',
+  'dsh-better-sidebar': 'VSCode 风格的右侧边栏：对话大纲 / 终端 / 文件树',
+  'dsh-context': '会话上下文增强：注入工作区与项目背景信息',
+  'dsh-mnemon': '三级记忆管理平台（会话 / 项目 / 长期记忆）',
+  'dsh-startup-guard': '启动防护：宿主异常关闭后自动恢复会话',
+  'dsh-hot-reload': '插件热更新：升级已装插件无需重启 DSH',
+  'dsh-image-guard': '图片裁剪',
+  'dsh-net-proxy': '网络代理',
+  'dsh-review': '多智能体对抗式代码审查（打包版）',
+  '@deepseek-ai/dsh-headless': '无界面运行形态：服务器/CI 中跑 DSH 会话',
+  '@deepseek-ai/dsh-base': 'DSH 宿主基础组件（必装）',
+  '@deepseek-ai/dsh-web-app': 'DSH Web 图形界面（必装）',
+  '@anysearch/anysearch-dsh': 'AnySearch 联网搜索与网页抓取提供方',
+  '@vlln/dsh-navbar': '对话节点导航条：快速跳转到任意 user 消息',
+}
+const hasCJK = (s) => /[\u4e00-\u9fff\u3400-\u4dbf]/.test(String(s ?? ''))
+
 /* ---------- 索引读写 ---------- */
 let _index = null
 function loadIndex() {
@@ -109,7 +129,11 @@ function putTarball(buf, { by = '-', note = '', source = 'upload' } = {}) {
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
   const p = (idx.plugins[name] ??= { name, description: '', descriptionManual: false, createdAt: now, versions: {} })
   if (!p.defaultVersion) p.defaultVersion = version
-  if (manifest.description && !p.descriptionManual) p.description = String(manifest.description).slice(0, 300)
+  if (manifest.description && !p.descriptionManual) {
+    const raw = String(manifest.description).slice(0, 300)
+    // 英文自述 → 中文名录优先（名录没有且原文无中文才保留原文）
+    p.description = hasCJK(raw) ? raw : (DESC_ZH[name] ?? raw)
+  }
   p.versions[version] = {
     size: buf.length,
     sha256: crypto.createHash('sha256').update(buf).digest('hex'),
