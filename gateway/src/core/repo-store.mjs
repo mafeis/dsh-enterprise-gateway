@@ -217,7 +217,9 @@ export function setMeta(name, { description } = {}) {
   const p = idx.plugins[String(name)]
   if (!p) throw new Error(`仓库中没有插件 ${name}`)
   if (description !== undefined) {
-    p.description = String(description ?? '').slice(0, 300)
+    const raw = String(description ?? '').trim().slice(0, 300)
+    // 空描述 = 管理台误清空的常见来源：名录里有就回填中文，没有才真留空
+    p.description = raw || DESC_ZH[String(name)] || ''
     p.descriptionManual = true
   }
   p.updatedAt = new Date().toISOString().slice(0, 19).replace('T', ' ')
