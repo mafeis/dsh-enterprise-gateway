@@ -6,11 +6,14 @@
  *   POST /heartbeat          员工端心跳（在线终端数据源）
  *   PATCH /admin/policy      管理侧策略热更（安全防护页与客户端管控页共用；校验失败 400 绝不写坏）
  *   GET  /admin/policy-detail 管理侧策略详情（含 DLP 规则/留存/登录保护/清单/回执）
+ *   GET/POST/PATCH/DELETE /admin/plugin-repo*  企业插件仓库管理（npm 拉取 / 压缩包上传 / 版本与描述）
+ *   GET  /plugin-packages/*  员工端插件包下载（url 模式 packagePrefix 指向这里）
  * 页面：客户端管控 → 4 个二级页（策略与开关 / 插件管控 / 自助规则 / 下发回执）
- * 实现模块：src/routes/plugin.mjs（协议）
+ * 实现模块：src/routes/plugin.mjs（协议）、src/core/repo-store.mjs（插件仓库存储）
  */
 import { createPluginProtocolHandler } from '../routes/plugin.mjs'
 import { json, readJson } from '../core/http.mjs'
+import * as repo from '../core/repo-store.mjs'
 
 export const name = 'ent-client'
 export const provides = []
@@ -122,4 +125,97 @@ export function apply(ctx) {
       pendingAcks: ackPendingDevices(c.policy?.version ?? null, 1440),
     })
   }), 'ent-client: route GET /admin/policy-detail')
+
+  /* ---- 企业插件仓库：统一收口插件包（npm 拉取 / 压缩包上传），带版本管理 ---- */
+  const readRaw = (req) => new Promise((resolve, reject) => {
+    const chunks = []
+    req.on('data', (c) => { chunks.push(c); if (chunks.reduce((s, b) => s + b.length, 0) > repo.MAX_TARBALL) { reject(new Error('包超过 64MB 上限')); req.destroy() } })
+    req.on('end', () => resolve(Buffer.concat(chunks)))
+    req.on('error', reject)
+  })
+
+  ctx.effect(() => router.exact('GET', '/admin/plugin-repo', async (req, res) => {
+    const u = await requireAdmin(req, res)
+    if (!u) return true
+    return json(res, 200, { plugins: repo.listRepo() })
+  }), 'ent-client: route GET /admin/plugin-repo')
+
+  ctx.effect(() => router.exact('POST', '/admin/plugin-repo/npm', async (req, res) => {
+    const u = await requireAdmin(req, res)
+    if (!u) return true
+    const b = (await readJson(req)) ?? {}
+    try {
+      const r = await repo.addFromNpm({ spec: b.spec, registry: b.registry, by: u.user.username, note: b.note })
+      console.log(`[${ts()}] 📦 插件入库 by ${u.user.username}: ${r.spec} → ${r.name}@${r.version}`)
+      return json(res, 200, { ok: true, name: r.name, version: r.version })
+    } catch (e) {
+      return json(res, 400, { error: { message: String(e.message ?? e).slice(0, 300), type: 'bad_request' } })
+    }
+  }), 'ent-client: route POST /admin/plugin-repo/npm')
+
+  ctx.effect(() => router.exact('POST', '/admin/plugin-repo/upload', async (req, res) => {
+    const u = await requireAdmin(req, res)
+    if (!u) return true
+    try {
+      const buf = await readRaw(req)
+      const r = repo.addFromUpload(buf, { by: u.user.username, note: new URL(req.url, 'http://x').searchParams.get('note') ?? '' })
+      console.log(`[${ts()}] 📦 插件上传 by ${u.user.username}: ${r.name}@${r.version} (${(buf.length / 1024).toFixed(0)}KB)`)
+      return json(res, 200, { ok: true, name: r.name, version: r.version })
+    } catch (e) {
+      return json(res, 400, { error: { message: String(e.message ?? e).slice(0, 300), type: 'bad_request' } })
+    }
+  }), 'ent-client: route POST /admin/plugin-repo/upload')
+
+  ctx.effect(() => router.prefix('/admin/plugin-repo/', async (req, res, urlPath) => {
+    if (req.method !== 'PATCH' && req.method !== 'DELETE') return false
+    const u = await requireAdmin(req, res)
+    if (!u) return true
+    const name = decodeURIComponent(urlPath.slice('/admin/plugin-repo/'.length).split('/')[0] ?? '')
+    const b = req.method === 'PATCH' ? ((await readJson(req)) ?? {}) : {}
+    try {
+      if (req.method === 'PATCH') {
+        if (b.defaultVersion) repo.setDefaultVersion(name, b.defaultVersion)
+        if (b.note !== undefined && b.version) repo.setVersionNote(name, b.version, b.note)
+        if (b.description !== undefined) repo.setMeta(name, { description: b.description })
+      } else {
+        const ver = decodeURIComponent(urlPath.slice('/admin/plugin-repo/'.length).split('/')[1] ?? '')
+        if (ver) repo.removeVersion(name, ver)
+        else repo.removePlugin(name)
+      }
+      console.log(`[${ts()}] 📦 插件仓库${req.method === 'PATCH' ? '更新' : '删除'} by ${u.user.username}: ${name}${b.defaultVersion ? ' → 默认 ' + b.defaultVersion : ''}`)
+      return json(res, 200, { ok: true, plugins: repo.listRepo() })
+    } catch (e) {
+      return json(res, 400, { error: { message: String(e.message ?? e).slice(0, 200), type: 'bad_request' } })
+    }
+  }), 'ent-client: route PATCH/DELETE /admin/plugin-repo/:name(/:version)')
+
+  /* ---- 员工端下载（url 模式 packagePrefix 指向这里；与 /policy/current 同级，不做管理鉴权） ----
+   * GET /plugin-packages/<name>                → 默认版本 .tgz
+   * GET /plugin-packages/<name>/<version>      → 指定版本
+   * GET /plugin-packages/<name>/-/<file>.tgz   → npm tarball 风格路径
+   */
+  ctx.effect(() => router.prefix('/plugin-packages/', async (req, res, urlPath) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return false
+    const rest = urlPath.slice('/plugin-packages/'.length)
+    if (!rest || rest.includes('..')) return json(res, 404, { error: { message: 'not found', type: 'not_found' } })
+    const segs = rest.split('/').filter(Boolean).map((s) => decodeURIComponent(s))
+    let name = segs[0] ?? ''
+    let ver = null
+    if (segs.length >= 2 && segs[1] === '-') {
+      // npm 风格：<file> = <name(可带 scope)-version.tgz>
+      const m = (segs[2] ?? '').match(/^(.*)-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.+-]+)?)\.tgz$/)
+      if (m) { ver = m[2]; if (m[1] !== name) name = m[1] }
+    } else if (segs.length === 2) {
+      ver = segs[1]
+    }
+    const hit = repo.resolveTarball(name, ver)
+    if (!hit) return json(res, 404, { error: { message: `仓库中没有 ${name}${ver ? '@' + ver : ''}`, type: 'not_found' } })
+    res.writeHead(200, {
+      'content-type': 'application/octet-stream',
+      'content-disposition': `attachment; filename="${name.replace('/', '-')}-${hit.version}.tgz"`,
+    })
+    if (req.method === 'HEAD') return res.end()
+    const { createReadStream } = await import('node:fs')
+    createReadStream(hit.file).pipe(res)
+  }), 'ent-client: route GET /plugin-packages/*')
 }

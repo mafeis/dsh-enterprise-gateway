@@ -96,10 +96,25 @@ const switchesHtml = `
 
 /* ============ 子页 2 · 插件管控 ============ */
 const pluginsHtml = `
-  ${headrow('插件管控')}
+  ${headrow('插件管控', `<button class="btn sm primary" id="repoAddBtn">＋ 添加插件</button>`)}
 
+  <!-- ============ 企业插件仓库 ============ -->
   <div class="card">
-    <h2><span class="bar"></span>插件管控</h2>
+    <h2><span class="bar"></span>企业插件仓库 <span class="badge dim" id="repoCount">0 个</span>
+      <span style="margin-left:auto"><input id="repoSearch" class="input" placeholder="搜插件名 / 描述…" style="width:200px;font-size:12px;height:28px"></span>
+    </h2>
+    <div class="sub">通过 npm 地址或压缩包把插件收口到网关，统一维护版本与描述，员工端从网关下载</div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>插件名</th><th>描述</th><th>默认版本</th><th>版本</th><th>大小</th><th>更新时间</th><th style="width:236px">操作</th></tr></thead>
+        <tbody id="repoBody"><tr><td colspan="7" class="empty">加载中…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ 下发方式 ============ -->
+  <div class="card">
+    <h2><span class="bar"></span>允许清单与插件源</h2>
       <textarea class="input" id="taPlugins" rows="4" style="width:100%;font-family:monospace" placeholder="dsh-enterprise&#10;@anysearch/anysearch-dsh"></textarea>
 
     <div class="fgrid" style="margin-top:14px">
@@ -115,9 +130,11 @@ const pluginsHtml = `
       <input class="input" id="regUrl" placeholder="http://npm.corp.local:4873">
       <label>包地址前缀<span class="dim2">url 模式</span></label>
       <input class="input" id="regPrefix" placeholder="http://plugins.corp.local/packages/">
+      <label>内置仓库直连</label>
+      <span class="chk"><input type="checkbox" id="regBuiltin"> url 模式下员工端直接从本网关仓库下载（前缀自动 = 本站 /plugin-packages/）</span>
     </div>
     <div class="hint" id="regHint" style="margin-top:8px"></div>
-      <details class="help">
+    <details class="help">
       <summary>插件源两种模式怎么选 & 填写示例</summary>
       <div class="help-body">
         <div class="vsgrid">
@@ -125,14 +142,14 @@ const pluginsHtml = `
             自建 npm 私服（Verdaccio / Nexus 等），可缓存、可发私有插件
           </div>
           <div class="vs-b"><b>url 模式 —— 静态文件直连</b>
-            把 .tgz 包放到内网 HTTP 服务，员工端按前缀+包名下载
+            勾选「内置仓库直连」即用上方企业插件仓库；也可把 .tgz 放内网 HTTP 服务按前缀下载
           </div>
         </div>
         <div class="codeblock"><span class="cmt">// 员工端安装时插件内部实际执行的等价命令：</span>
 <span class="cmt">// proxy 模式（自动带 --registry，员工无感知）</span>
 dsh plugin add dsh-review <span class="hl">--registry http://npm.corp.local:4873</span>
-<span class="cmt">// url 模式（前缀 + 包名直接作为包地址）</span>
-dsh plugin add <span class="hl">http://plugins.corp.local/packages/</span>dsh-review</div>
+<span class="cmt">// url 模式（前缀 + 包名直接作为包地址，内置仓库即网关下载端点）</span>
+dsh plugin add <span class="hl">http://&lt;网关地址&gt;/plugin-packages/</span>dsh-review</div>
         <div class="kv">
           <span class="k">bundle 名去哪找</span><span class="v">员工端「设置 → 企业管理 → 插件管理 → 本机已安装」显示的就是 bundle 名；或看插件 profile 目录 package.json 的 dsh.profile.bundles</span>
           <span class="k">url 前缀拼接</span><span class="v mono">最终地址 = packagePrefix + 插件包名（前缀末尾带不带 / 均可）</span>
@@ -144,7 +161,91 @@ dsh plugin add <span class="hl">http://plugins.corp.local/packages/</span>dsh-re
     </details>
   </div>
 
-  ${savebar('plug')}`
+  ${savebar('plug')}
+
+  <!-- 添加插件弹窗（npm 地址 / 压缩包上传 二选一） -->
+  <div class="dlg-mask" id="repoAddDlg" hidden>
+    <div class="dlg md">
+      <div class="dlg-head">
+        <h2><span class="bar"></span>添加插件</h2>
+        <button class="dlg-x" data-dlg-close title="关闭">✕</button>
+      </div>
+      <div class="dlg-body">
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <button type="button" class="btn" id="repoSrcNpm" style="flex:1">从 npm 地址拉取</button>
+          <button type="button" class="btn" id="repoSrcUp" style="flex:1">上传压缩包</button>
+        </div>
+        <div id="repoNpmGroup">
+          <label style="font-size:12.5px;color:#475569;display:block">包名或 .tgz 地址
+            <input id="repoSpec" class="input" placeholder="dsh-review · @corp/dsh-review@1.2.0 · https://…/x.tgz" style="width:100%;margin-top:4px">
+          </label>
+          <label style="font-size:12.5px;color:#475569;display:block;margin-top:10px">npm 源（可选，默认用镜像地址 / 官方源）
+            <input id="repoRegistry" class="input" placeholder="http://npm.corp.local:4873" style="width:100%;margin-top:4px">
+          </label>
+        </div>
+        <div id="repoUpGroup" style="display:none">
+          <label style="font-size:12.5px;color:#475569;display:block">压缩包（.tgz，内含 package.json）
+            <input id="repoFile" type="file" accept=".tgz,.gz,.tar" class="input" style="width:100%;margin-top:4px;padding:6px">
+          </label>
+        </div>
+        <label style="font-size:12.5px;color:#475569;display:block;margin-top:10px">版本说明（可选）
+          <input id="repoNote" class="input" placeholder="例：首版上架 / 升级到 x.y 修复 xx" style="width:100%;margin-top:4px">
+        </label>
+        <div class="notebox" id="repoAddResult" style="display:none;margin-top:12px"></div>
+      </div>
+      <div class="dlg-foot">
+        <span class="err" id="repoAddErr"></span>
+        <button class="btn" data-dlg-close>取消</button>
+        <button class="btn primary" id="repoAddOk">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 版本管理弹窗 -->
+  <div class="dlg-mask" id="repoVerDlg" hidden>
+    <div class="dlg md">
+      <div class="dlg-head">
+        <h2><span class="bar"></span>版本管理 · <span class="mono" id="rvName">—</span></h2>
+        <button class="dlg-x" data-dlg-close title="关闭">✕</button>
+      </div>
+      <div class="dlg-body">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+          <span style="font-size:12.5px;color:#475569;flex-shrink:0">描述</span>
+          <span id="rvDesc" style="font-size:12.5px;color:#334155;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+          <button class="btn sm" id="rvDescEdit">编辑</button>
+        </div>
+        <div class="tablewrap" style="max-height:380px;overflow:auto">
+          <table>
+            <thead><tr><th>版本</th><th>大小</th><th>来源</th><th>上传人</th><th>时间</th><th>说明</th><th style="width:132px">操作</th></tr></thead>
+            <tbody id="rvBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <span class="err" id="rvErr"></span>
+        <button class="btn" data-dlg-close>关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 描述编辑弹窗 -->
+  <div class="dlg-mask" id="repoDescDlg" hidden>
+    <div class="dlg" style="width:520px">
+      <div class="dlg-head">
+        <h2><span class="bar"></span>插件描述 · <span class="mono" id="rdName">—</span></h2>
+        <button class="dlg-x" data-dlg-close title="关闭">✕</button>
+      </div>
+      <div class="dlg-body">
+        <textarea id="rdText" class="input" rows="4" style="width:100%;resize:vertical" placeholder="一句话说明该插件用途，员工端插件市场可见"></textarea>
+      </div>
+      <div class="dlg-foot">
+        <span class="err" id="rdErr"></span>
+        <button class="btn" data-dlg-close>取消</button>
+        <button class="btn primary" id="rdOk">保存</button>
+      </div>
+    </div>
+  </div>
+`
 
 /* ============ 子页 3 · 本地规则 ============ */
 const rulesHtml = `
@@ -377,8 +478,10 @@ async function loadAll(opts = {}) {
       $('regFallback').checked = reg.allowedFallback !== false
       $('regUrl').value = reg.npmRegistryUrl ?? ''
       $('regPrefix').value = reg.packagePrefix ?? ''
+      $('regBuiltin').checked = /\/plugin-packages\/?$/.test(reg.packagePrefix ?? '')
       syncRegFields()
     }
+    if ($('repoBody')) loadRepo()
     if ($('rulesList') && !skipRulesTable) renderClientRules(p.clientRules ?? [])
     if (!skipRulesTable) {
       if ($('bannerPos')) $('bannerPos').value = p.bannerPosition ?? 'top-right'
@@ -495,17 +598,191 @@ function wmEcho(style = {}) {
   if ($('wmOpacityVal')) $('wmOpacityVal').textContent = Number($('wmOpacity').value).toFixed(2)
 }
 
+/* ---------- 企业插件仓库（子页 2） ---------- */
+let repoData = []        // /admin/plugin-repo 返回的插件清单（含 versions）
+let repoVerCur = ''      // 版本管理弹窗当前插件名
+let repoDescCur = ''     // 描述弹窗当前插件名
+let repoSrc = 'npm'      // 添加弹窗当前来源：npm | upload
+
+const fmtSize = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? (n / 1024).toFixed(0) + ' KB' : (n ?? 0) + ' B'
+const verCmpJs = (a, b) => {
+  const pa = a.split('-')[0].split('.').map(Number); const pb = b.split('-')[0].split('.').map(Number)
+  for (let i = 0; i < 3; i++) { if ((pa[i] || 0) !== (pb[i] || 0)) return (pb[i] || 0) - (pa[i] || 0) }
+  return a < b ? 1 : a > b ? -1 : 0
+}
+
+async function loadRepo() {
+  if (!$('repoBody')) return
+  try {
+    const d = await api('/admin/plugin-repo')
+    repoData = d.plugins ?? []
+    renderRepo()
+  } catch (e) { if (e.message !== '401') toast('✗ 插件仓库加载失败：' + e.message, 'bad') }
+}
+
+function renderRepo() {
+  const tbody = $('repoBody')
+  if (!tbody) return
+  const q = ($('repoSearch')?.value ?? '').trim().toLowerCase()
+  const rows = repoData.filter((p) => !q || p.name.toLowerCase().includes(q) || String(p.description ?? '').toLowerCase().includes(q))
+  if ($('repoCount')) $('repoCount').textContent = `${repoData.length} 个`
+  tbody.innerHTML = rows.map((p) => `
+    <tr>
+      <td class="mono" style="font-size:12px">${esc(p.name)}</td>
+      <td style="font-size:12px;color:#64748b;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.description)}">${esc(p.description) || '<i style="color:#cbd5e1">—</i>'}</td>
+      <td><span class="mono" style="font-size:12px">${esc(p.defaultVersion ?? '—')}</span></td>
+      <td class="mono" style="font-size:12px">${p.versionCount}</td>
+      <td class="mono" style="font-size:12px">${fmtSize(p.totalSize)}</td>
+      <td class="mono" style="font-size:11.5px;color:#94a3b8">${esc(p.updatedAt ?? '')}</td>
+      <td style="white-space:nowrap">
+        <button class="btn sm" data-repo-ver="${esc(p.name)}">版本</button>
+        <button class="btn sm" data-repo-allow="${esc(p.name)}" title="加入下方允许清单">＋清单</button>
+        <button class="btn sm" data-repo-desc="${esc(p.name)}">描述</button>
+        <button class="btn sm danger" data-repo-del="${esc(p.name)}">删</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="7" class="empty">仓库为空 —— 点右上「＋ 添加插件」，输入 npm 地址或上传 .tgz</td></tr>'
+}
+
+/* ---- 添加插件弹窗 ---- */
+function setRepoSrc(src) {
+  repoSrc = src
+  $('repoSrcNpm')?.classList.toggle('primary', src === 'npm')
+  $('repoSrcUp')?.classList.toggle('primary', src === 'upload')
+  if ($('repoNpmGroup')) $('repoNpmGroup').style.display = src === 'npm' ? '' : 'none'
+  if ($('repoUpGroup')) $('repoUpGroup').style.display = src === 'upload' ? '' : 'none'
+  if ($('repoAddErr')) $('repoAddErr').textContent = ''
+}
+
+function openRepoAdd() {
+  $('repoSpec').value = ''; $('repoRegistry').value = ''; $('repoFile').value = ''; $('repoNote').value = ''
+  $('repoAddResult').style.display = 'none'
+  setRepoSrc('npm')
+  openDlg($('repoAddDlg'))
+  $('repoSpec').focus()
+}
+
+async function submitRepoAdd() {
+  const err = $('repoAddErr')
+  err.textContent = ''
+  const note = $('repoNote').value.trim()
+  const ok = $('repoAddOk')
+  try {
+    ok.disabled = true; ok.textContent = '添加中…'
+    let r
+    if (repoSrc === 'npm') {
+      if (!$('repoSpec').value.trim()) { err.textContent = '请填写包名或 .tgz 地址'; return }
+      r = await api('/admin/plugin-repo/npm', { method: 'POST', body: JSON.stringify({ spec: $('repoSpec').value.trim(), registry: $('repoRegistry').value.trim(), note }) })
+    } else {
+      const f = $('repoFile').files[0]
+      if (!f) { err.textContent = '请选择 .tgz 压缩包'; return }
+      r = await api('/admin/plugin-repo/upload?note=' + encodeURIComponent(note), {
+        method: 'POST', body: await f.arrayBuffer(),
+        headers: { 'content-type': 'application/octet-stream' },
+      })
+    }
+    $('repoAddResult').style.display = ''
+    $('repoAddResult').innerHTML = `✓ 已入库 <b class="mono">${esc(r.name)}@${esc(r.version)}</b>，可点行内「＋清单」加入允许清单`
+    toast(`插件已入库：${r.name}@${r.version}`)
+    loadRepo()
+  } catch (e) { if (e.message !== '401') err.textContent = e.message } finally { ok.disabled = false; ok.textContent = '添加' }
+}
+
+/* ---- 版本管理弹窗 ---- */
+function openRepoVer(name) {
+  repoVerCur = name
+  fillRepoVerDlg()
+  openDlg($('repoVerDlg'))
+}
+
+function fillRepoVerDlg() {
+  const p = repoData.find((x) => x.name === repoVerCur)
+  if (!p) { closeDlg($('repoVerDlg')); loadRepo(); return }   // 插件已被删空
+  $('rvName').textContent = p.name
+  $('rvDesc').textContent = p.description || '（未填）'
+  $('rvBody').innerHTML = Object.entries(p.versions ?? {}).sort((a, b) => verCmpJs(a[0], b[0])).map(([v, meta]) => `
+    <tr>
+      <td style="white-space:nowrap"><span class="mono" style="font-size:12px">${esc(v)}</span>${v === p.defaultVersion ? ' <span class="badge ok">默认</span>' : ''}</td>
+      <td class="mono" style="font-size:12px">${fmtSize(meta.size)}</td>
+      <td><span class="badge dim">${meta.source === 'npm' ? 'npm' : '上传'}</span></td>
+      <td style="font-size:12px">${esc(meta.by || '-')}</td>
+      <td class="mono" style="font-size:11.5px;color:#94a3b8;white-space:nowrap">${esc(meta.ts ?? '')}</td>
+      <td style="font-size:12px;color:#64748b;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(meta.note ?? '')}">${esc(meta.note) || '—'}</td>
+      <td style="white-space:nowrap">
+        ${v === p.defaultVersion ? '' : `<button class="btn sm" data-rv-default="${esc(v)}">设默认</button>`}
+        <button class="btn sm danger" data-rv-del="${esc(v)}">删</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="7" class="empty">无版本</td></tr>'
+}
+
+async function repoVerAction(act, arg) {
+  const name = act === 'delPlugin' ? arg : repoVerCur
+  const ver = act === 'delPlugin' ? '' : arg
+  try {
+    if (act === 'default') {
+      await api('/admin/plugin-repo/' + encodeURIComponent(name), { method: 'PATCH', body: JSON.stringify({ defaultVersion: ver }) })
+      toast(`默认版本 → ${ver}`)
+    } else if (act === 'del') {
+      if (!confirm(`删除版本 ${ver}？包文件一并删除，不可恢复。`)) return
+      await api(`/admin/plugin-repo/${encodeURIComponent(name)}/${encodeURIComponent(ver)}`, { method: 'DELETE' })
+      toast(`已删除版本 ${ver}`)
+    } else if (act === 'delPlugin') {
+      await api('/admin/plugin-repo/' + encodeURIComponent(name), { method: 'DELETE' })
+      toast(`已删除插件 ${name}`)
+    }
+    const d = await api('/admin/plugin-repo')
+    repoData = d.plugins ?? []
+    renderRepo()
+    if (act !== 'delPlugin') fillRepoVerDlg()
+  } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
+}
+
+/* ---- 描述编辑弹窗 ---- */
+function openRepoDesc(name) {
+  repoDescCur = name
+  const p = repoData.find((x) => x.name === name)
+  $('rdName').textContent = name
+  $('rdText').value = p?.description ?? ''
+  $('rdErr').textContent = ''
+  openDlg($('repoDescDlg'))
+  $('rdText').focus()
+}
+
+async function submitRepoDesc() {
+  try {
+    await api('/admin/plugin-repo/' + encodeURIComponent(repoDescCur), { method: 'PATCH', body: JSON.stringify({ description: $('rdText').value.trim() }) })
+    closeDlg($('repoDescDlg'))
+    toast('描述已保存')
+    loadRepo()
+    if (repoVerCur === repoDescCur) fillRepoVerDlg()
+  } catch (e) { if (e.message !== '401') $('rdErr').textContent = e.message }
+}
+
+/* ---- ＋清单：把仓库名追加进允许清单（仍需点「保存更改」下发） ---- */
+function allowFromRepo(name) {
+  const ta = $('taPlugins')
+  if (!ta) return
+  const cur = ta.value.split('\n').map((s) => s.trim()).filter(Boolean)
+  if (cur.includes(name)) { toast('允许清单里已有 ' + name); return }
+  cur.push(name)
+  ta.value = cur.join('\n')
+  toast(`已加入允许清单：${name}（点「保存更改」生效）`)
+}
+
 /* ---------- 企业插件源（子页 2） ---------- */
 function syncRegFields() {
   const mode = $('regMode').value
+  const builtin = mode === 'url' && $('regBuiltin').checked
   $('regUrl').disabled = mode !== 'proxy'
-  $('regPrefix').disabled = mode !== 'url'
+  $('regPrefix').disabled = mode !== 'url' || builtin
+  if (builtin && !$('regPrefix').value.trim()) $('regPrefix').value = location.origin + '/plugin-packages/'
   const hint = $('regHint')
   if (hint) hint.textContent = mode === 'off'
     ? 'off = 不干预：员工端安装插件直接走社区 npm 源，不做任何改写'
     : mode === 'proxy'
       ? 'proxy = 员工安装插件时自动追加 --registry=' + ($('regUrl').value.trim() || '<镜像地址>') + '；需要先在企业内网部署 npm 私服（Verdaccio / Nexus 等）'
-      : 'url = 员工安装时直接从 ' + ($('regPrefix').value.trim() || '<前缀>') + '<插件包名> 下载 .tgz；前缀必须以 http(s):// 或 file:// 开头'
+      : builtin
+        ? 'url + 内置仓库 = 员工端直接从本网关下载上方插件仓库里的包，无需额外部署文件服务'
+        : 'url = 员工安装时直接从 ' + ($('regPrefix').value.trim() || '<前缀>') + '<插件包名> 下载 .tgz；前缀必须以 http(s):// 或 file:// 开头'
 }
 
 /* ---------- 客户端自助规则（子页 3） ---------- */
@@ -820,10 +1097,11 @@ async function saveLp() {
 async function savePlug() {
   const msg = $('plugMsg'); if (msg) msg.textContent = ''
   const allowedPlugins = $('taPlugins').value.split('\n').map((s) => s.trim()).filter(Boolean)
+  const builtin = $('regMode').value === 'url' && $('regBuiltin').checked
   const pluginRegistry = {
     mode: $('regMode').value,
     npmRegistryUrl: $('regUrl').value.trim(),
-    packagePrefix: $('regPrefix').value.trim(),
+    packagePrefix: builtin ? location.origin + '/plugin-packages/' : $('regPrefix').value.trim(),
     allowedFallback: $('regFallback').checked,
   }
   if (pluginRegistry.mode === 'proxy' && !pluginRegistry.npmRegistryUrl) return showSaveErr(msg, 'proxy 模式需要填写 NPM 镜像地址')
@@ -864,8 +1142,32 @@ function bindPlugins() {
     $('regMode').addEventListener('change', syncRegFields)
     $('regUrl').addEventListener('input', syncRegFields)
     $('regPrefix').addEventListener('input', syncRegFields)
+    $('regBuiltin').addEventListener('change', syncRegFields)
   }
   if ($('plugSaveBtn')) $('plugSaveBtn').addEventListener('click', savePlug)
+  /* ---- 仓库卡片 + 三个弹窗 ---- */
+  if ($('repoAddBtn')) {
+    $('repoAddBtn').addEventListener('click', openRepoAdd)
+    $('repoAddOk').addEventListener('click', submitRepoAdd)
+    $('repoSrcNpm').addEventListener('click', () => setRepoSrc('npm'))
+    $('repoSrcUp').addEventListener('click', () => setRepoSrc('upload'))
+    $('repoSearch').addEventListener('input', renderRepo)
+    $('repoBody').addEventListener('click', (e) => {
+      let el
+      if ((el = e.target.closest('[data-repo-ver]'))) openRepoVer(el.dataset.repoVer)
+      else if ((el = e.target.closest('[data-repo-allow]'))) allowFromRepo(el.dataset.repoAllow)
+      else if ((el = e.target.closest('[data-repo-desc]'))) openRepoDesc(el.dataset.repoDesc)
+      else if ((el = e.target.closest('[data-repo-del]'))) repoVerAction('delPlugin', el.dataset.repoDel)
+    })
+    $('rvBody').addEventListener('click', (e) => {
+      const d = e.target.closest('[data-rv-default]')
+      if (d) return repoVerAction('default', d.dataset.rvDefault)
+      const del = e.target.closest('[data-rv-del]')
+      if (del) return repoVerAction('del', del.dataset.rvDel)
+    })
+    $('rvDescEdit').addEventListener('click', () => openRepoDesc(repoVerCur))
+    $('rdOk').addEventListener('click', submitRepoDesc)
+  }
 }
 
 function bindRules() {

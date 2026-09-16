@@ -75,7 +75,7 @@ export const PLUGIN_META = {
   'ent-client': {
     title: '客户端管控',
     category: 'domain',
-    summary: '员工端协议（/policy/current 下发、/policy/ack 回执、/heartbeat 心跳）+ 策略热更 API（/admin/policy）+ 客户端管控页（拆 4 个二级页：策略与开关/插件管控/自助规则/下发回执）',
+    summary: '员工端协议（/policy/current 下发、/policy/ack 回执、/heartbeat 心跳）+ 策略热更 API（/admin/policy）+ 企业插件仓库（/admin/plugin-repo 收口 npm/上传包，/plugin-packages 下载）+ 客户端管控页（拆 4 个二级页：策略与开关/插件管控/自助规则/下发回执）',
   },
   'ent-audit': {
     title: '审计留痕',
