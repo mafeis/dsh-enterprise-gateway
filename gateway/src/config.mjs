@@ -277,6 +277,12 @@ export function patchConfig(patch) {
           message: String(r.message ?? '').slice(0, 200),
         }
       })
+      // 公告只保留 1 条：新增/修改后若存在多条公告，保留列表最后一条（最新），其余自动淘汰
+      const notices = patch.policy.clientRules.filter((r) => r.type === 'notice')
+      if (notices.length > 1) {
+        const keep = notices[notices.length - 1]
+        patch.policy.clientRules = patch.policy.clientRules.filter((r) => r.type !== 'notice' || r === keep)
+      }
     }
     if (patch.policy.bannerPosition !== undefined) {
       if (!['top-right', 'top-center', 'top-left', 'bottom-right'].includes(patch.policy.bannerPosition)) throw new Error('bannerPosition 只能是 top-right/top-center/top-left/bottom-right')
@@ -291,9 +297,9 @@ export function patchConfig(patch) {
           bs[k] = n
         }
       }
-      for (const k of ['bg', 'border', 'color']) {
-        if (bs[k] !== undefined && bs[k] !== null && !/^#[0-9a-fA-F]{3,8}$/.test(String(bs[k]))) throw new Error(`bannerStyle.${k} 必须是 #hex 颜色`)
-      }
+      // 颜色字段（bg/border/color）已废弃：横幅配色按类型固定（拦截红/提醒橙/公告蓝），传入直接丢弃
+      delete bs.bg; delete bs.border; delete bs.color
+      if (Object.keys(bs).length === 0) patch.policy.bannerStyle = null
     }
     Object.assign(config.policy, patch.policy)
   }

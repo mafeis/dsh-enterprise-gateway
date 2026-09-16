@@ -23,7 +23,7 @@ export const admin = {
     children: [
       { id: 'client-switches', title: '策略与开关' },
       { id: 'client-plugins', title: '插件管控' },
-      { id: 'client-rules', title: '自助规则' },
+      { id: 'client-rules', title: '本地规则' },
       { id: 'client-acks', title: '下发回执' },
     ],
   },
@@ -59,7 +59,7 @@ export function apply(ctx) {
     const patch = (await readJson(req)) ?? {}
     try {
       const next = patchConfig(patch)
-      console.log(`[${ts()}] ⚙ 策略热更 by ${u.user.username}: ${JSON.stringify(patch).slice(0, 200)}`)
+      console.log(`[${ts()}] ⚙ 策略热更 by ${u.user.username}: keys=[${Object.keys(patch.policy ?? {})}] bannerPosition=${patch.policy?.bannerPosition} bannerStyle=${JSON.stringify(patch.policy?.bannerStyle ?? null)} rules=${(patch.policy?.clientRules ?? []).length}`)
       return json(res, 200, { ok: true, policy: next.policy, audit: next.audit, dlp: { enabled: next.dlp.enabled, rules: next.dlp.rules.length }, loginProtection: next.auth.loginProtection })
     } catch (e) {
       return json(res, 400, { error: { message: String(e.message ?? e).slice(0, 200), type: 'bad_request' } })

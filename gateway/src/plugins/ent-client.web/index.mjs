@@ -8,7 +8,7 @@
  * 兼容：老壳不识别 nav.children 时回退 html/load/bind（= 第一个子页）。
  * 数据源：/admin/policy* /admin/policy-detail（ent-console 聚合提供）
  */
-import { api, $, toast, esc } from '/admin/static/contract.mjs'
+import { api, $, toast, esc, openDlg, closeDlg } from '/admin/static/contract.mjs'
 
 /* ---------- 公共片段 ---------- */
 const headrow = (title, extra = '') => `
@@ -121,72 +121,136 @@ dsh plugin add <span class="hl">http://plugins.corp.local/packages/</span>dsh-re
 
   ${savebar('plug')}`
 
-/* ============ 子页 3 · 自助规则 ============ */
+/* ============ 子页 3 · 本地规则 ============ */
 const rulesHtml = `
-  ${headrow('自助规则')}
+  ${headrow('本地规则', `
+    <button class="btn sm" id="bannerStyleBtn" type="button" title="横幅弹出样式（位置/宽度/边距）">⚙ 横幅样式</button>
+    <span class="crumb" style="margin:0">当前：<span id="bannerPosLabel">—</span></span>`)}
 
   <div class="card">
-    <h2><span class="bar"></span>自助规则 <span class="badge dim">员工端本机执行</span></h2>
-      <div class="tablewrap">
+    <h2><span class="bar"></span>本地规则 <span class="badge dim" id="ruleCount">0 条</span>
+      <span style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <input id="ruleFilter" class="input" placeholder="搜关键词 / 域名 / 提示语…" style="width:190px;font-size:12px;height:28px">
+        <select id="ruleTypeFilter" class="input" style="width:auto;font-size:12px;height:28px">
+          <option value="">全部类型</option>
+          <option value="block-url">网址</option>
+          <option value="block-word">关键词</option>
+          <option value="notice">公告</option>
+        </select>
+        <button class="btn sm primary" id="ruleAddBtn">＋ 新增规则</button>
+      </span>
+    </h2>
+    <div class="tablewrap">
       <table>
-        <thead><tr><th style="width:120px">类型</th><th style="width:90px">动作</th><th>匹配值（value）</th><th>提示语（可选）</th><th style="width:60px"></th></tr></thead>
-        <tbody id="rulesBody"></tbody>
+        <thead><tr><th style="width:44px">#</th><th style="width:88px">类型</th><th style="width:68px">动作</th><th>匹配值</th><th>提示语</th><th style="width:104px">操作</th></tr></thead>
+        <tbody id="rulesList"></tbody>
       </table>
     </div>
-    <div style="margin-top:10px"><button class="btn sm" id="ruleAddBtn">＋ 添加规则</button></div>
-
-    <div style="margin-top:16px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-        <span style="font-size:13px;font-weight:600">横幅样式（员工端提醒/拦截/公告弹出的默认样式）</span>
-        <button class="btn sm" id="bannerPreview" type="button">预览效果</button>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-        <span style="font-size:12.5px;color:#475569;width:52px">位置</span>
-        <select id="bannerPos" class="input" style="width:140px;font-size:12px">
-          <option value="top-right">右上角</option>
-          <option value="top-center">顶部居中</option>
-          <option value="top-left">左上角</option>
-          <option value="bottom-right">右下角</option>
-        </select>
-        <span style="font-size:12.5px;color:#475569;width:52px;margin-left:10px">宽度</span>
-        <input id="bannerW" class="input" type="number" min="240" max="1200" step="10" style="width:90px;font-size:12px" placeholder="420">
-        <span style="font-size:11.5px;color:#94a3b8">px（240-1200）</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-        <span style="font-size:12.5px;color:#475569;width:52px">边距</span>
-        <span style="font-size:11.5px;color:#94a3b8">上</span>
-        <input id="bannerMt" class="input" type="number" min="0" max="400" step="2" style="width:70px;font-size:12px" placeholder="14">
-        <span style="font-size:11.5px;color:#94a3b8">右</span>
-        <input id="bannerMr" class="input" type="number" min="0" max="400" step="2" style="width:70px;font-size:12px" placeholder="18">
-        <span style="font-size:11.5px;color:#94a3b8">下</span>
-        <input id="bannerMb" class="input" type="number" min="0" max="400" step="2" style="width:70px;font-size:12px" placeholder="0">
-        <span style="font-size:11.5px;color:#94a3b8">左</span>
-        <input id="bannerMl" class="input" type="number" min="0" max="400" step="2" style="width:70px;font-size:12px" placeholder="0">
-        <span style="font-size:11.5px;color:#94a3b8">px（0-400，距屏幕边缘）</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:12.5px;color:#475569;width:52px">配色</span>
-        <span style="font-size:11.5px;color:#94a3b8">背景</span>
-        <input id="bannerBg" class="input" type="color" value="#fff7ed" style="width:38px;height:26px;padding:0;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
-        <span style="font-size:11.5px;color:#94a3b8;margin-left:6px">边框</span>
-        <input id="bannerBd" class="input" type="color" value="#fb923c" style="width:38px;height:26px;padding:0;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
-        <span style="font-size:11.5px;color:#94a3b8;margin-left:6px">文字</span>
-        <input id="bannerFg" class="input" type="color" value="#9a3412" style="width:38px;height:26px;padding:0;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer">
-      </div>
-      <div id="bannerMsg" style="font-size:12px;color:#059669;margin-top:8px"></div>
-    </div>
+    <div style="margin-top:8px"><span class="crumb" style="margin:0">规则自上而下逐条匹配；点行任意处打开编辑弹窗</span></div>
     <details class="help">
       <summary>三种类型的 value 填法</summary>
       <div class="help-body">
-        <div class="codeblock"><span class="hl">block-url</span>  填域名 → 拦该域名及全部子域。例：<span class="hl">github.com</span> 拦 github.com / gist.github.com / api.github.com …
-<span class="hl">block-word</span> 填正则（不区分大小写）→ 命中员工端送出的文本。例：<span class="hl">内部机密|未公开财报</span>；正则非法时自动退化为包含匹配
-<span class="hl">notice</span>     填公告文本 → 员工端展示企业公告，value 即公告内容，message 可留空</div>
-        <div class="notebox">block-url 只拦「员工端浏览器环境内」的访问判定；员工用自己浏览器直接上网不在此管控范围。员工端可在「设置 → 企业管理 → 规则管理」看到这些规则及命中次数统计（只读）。与「安全防护」页的网关级检查分工：自助规则在员工电脑本地执行、轻量低延迟，适合拦网址/拦关键词/弹公告这类确定性强的轻管控。</div>
+        <div class="codeblock"><span class="hl">网址</span>  填域名 → 拦该域名及全部子域。例：<span class="hl">github.com</span> 拦 github.com / gist.github.com / api.github.com …
+<span class="hl">关键词</span> 填正则（不区分大小写）→ 命中员工端送出的文本。例：<span class="hl">内部机密|未公开财报</span>；正则非法时自动退化为包含匹配
+<span class="hl">公告</span>     填公告文本 → 员工端展示企业公告，value 即公告内容，message 可留空</div>
+        <div class="notebox">block-url 只拦「员工端浏览器环境内」的访问判定；员工用自己浏览器直接上网不在此管控范围。员工端可在「设置 → 企业管理 → 规则管理」看到这些规则及命中次数统计（只读）。与「安全防护」页的网关级检查分工：本地规则在员工电脑本地执行、轻量低延迟，适合拦网址/拦关键词/弹公告这类确定性强的轻管控。</div>
       </div>
     </details>
   </div>
 
-  ${savebar('rules')}`
+  <!-- 横幅样式弹窗（从页面本体挪进对话框：主界面只留规则卡片，层级干净） -->
+  <div class="dlg-mask" id="bannerStyleDlg" hidden>
+    <div class="dlg md">
+      <div class="dlg-head">
+        <h2><span class="bar"></span>横幅样式 <span class="badge dim">员工端提醒/拦截/公告弹出的默认样式</span></h2>
+        <button class="dlg-x" data-dlg-close title="关闭">✕</button>
+      </div>
+      <div class="dlg-body">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          <span style="font-size:12.5px;color:#475569;width:52px">位置</span>
+          <select id="bannerPos" class="input" style="width:140px;font-size:12.5px">
+            <option value="top-right">右上角</option>
+            <option value="top-center">顶部居中</option>
+            <option value="top-left">左上角</option>
+            <option value="bottom-right">右下角</option>
+          </select>
+          <span style="font-size:12.5px;color:#475569;width:52px;margin-left:10px">宽度</span>
+          <input id="bannerW" class="input" type="number" min="240" max="1200" step="10" style="width:90px;font-size:12.5px" placeholder="420">
+          <span style="font-size:11.5px;color:#94a3b8">px（240-1200）</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          <span style="font-size:12.5px;color:#475569;width:52px">边距</span>
+          <span style="font-size:11.5px;color:#94a3b8">上</span>
+          <input id="bannerMt" class="input" type="number" min="0" max="400" step="2" style="width:70px;font-size:12.5px" placeholder="14">
+          <span style="font-size:11.5px;color:#94a3b8">右</span>
+          <input id="bannerMr" class="input" type="number" min="0" max="400" step="2" style="width:70px;font-size:12.5px" placeholder="18">
+          <span style="font-size:11.5px;color:#94a3b8">下</span>
+          <input id="bannerMb" class="input" type="number" min="0" max="400" step="2" style="width:70px;font-size:12.5px" placeholder="0">
+          <span style="font-size:11.5px;color:#94a3b8">左</span>
+          <input id="bannerMl" class="input" type="number" min="0" max="400" step="2" style="width:70px;font-size:12.5px" placeholder="0">
+          <span style="font-size:11.5px;color:#94a3b8">px（0-400，距屏幕边缘）</span>
+        </div>
+        <div style="font-size:11.5px;color:#94a3b8;margin-bottom:12px">配色固定：拦截红 / 提醒橙 / 公告蓝（语义区分，不随样式配置）</div>
+        <div style="background:#f8fafc;border:1px dashed #e2e8f0;border-radius:8px;padding:18px 14px;position:relative;min-height:110px;overflow:hidden">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">效果示意（实际以员工端屏幕为准）：</div>
+          <div id="bannerMock" style="max-width:420px;padding:11px 40px 11px 16px;border-radius:10px;background:#fff7ed;border:1.5px solid #fb923c;box-shadow:0 6px 18px rgba(0,0,0,.10);font-size:12.5px;color:#9a3412;display:flex;align-items:center;gap:8px">
+            <span style="font-size:14px;flex-shrink:0">⚠️</span>
+            <span>检测到涉密关键词 <b>示例</b>，请注意外发风险</span>
+          </div>
+        </div>
+        <div id="bannerMsg" style="font-size:12px;color:#059669;margin-top:10px"></div>
+      </div>
+      <div class="dlg-foot">
+        <span class="err" id="bannerDlgErr"></span>
+        <button class="btn sm" id="bannerPreview" type="button">预览效果</button>
+        <button class="btn primary" id="bannerSaveBtn" type="button">保存样式</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 规则编辑弹窗（新增/编辑共用） -->
+  <div class="dlg-mask" id="ruleEditDlg" hidden>
+    <div class="dlg md">
+      <div class="dlg-head">
+        <h2><span class="bar"></span><span id="ruleEditTitle">新增规则</span></h2>
+        <button class="dlg-x" data-dlg-close title="关闭">✕</button>
+      </div>
+      <div class="dlg-body">
+        <div style="display:flex;gap:10px;margin-bottom:12px">
+          <label style="font-size:12.5px;color:#475569">类型
+            <select id="reType" class="input" style="display:block;margin-top:4px;width:130px;font-size:12.5px">
+              <option value="block-url">网址</option>
+              <option value="block-word">关键词</option>
+              <option value="notice">公告</option>
+            </select>
+          </label>
+          <label style="font-size:12.5px;color:#475569">动作
+            <select id="reAction" class="input" style="display:block;margin-top:4px;width:110px;font-size:12.5px">
+              <option value="block">拦截</option>
+              <option value="warn">提醒</option>
+            </select>
+          </label>
+          <span class="crumb" style="margin:0;align-self:end;padding-bottom:6px" id="reHint"></span>
+        </div>
+        <label style="font-size:12.5px;color:#475569;display:block">匹配值（value）
+          <textarea id="reValue" class="input mono" rows="3" placeholder="域名 / 正则 / 公告全文"
+            style="width:100%;margin-top:4px;font-size:12.5px;line-height:1.55;font-family:ui-monospace,monospace;resize:vertical"></textarea>
+        </label>
+        <label id="reMsgWrap" style="font-size:12.5px;color:#475569;display:block;margin-top:12px">提示语（可选；含 [] 占位符时自动填入触发词）
+          <textarea id="reMsg" rows="2" class="input"
+            style="width:100%;margin-top:4px;font-size:12.5px;line-height:1.55;resize:vertical"></textarea>
+        </label>
+        <div class="notebox" id="rePreview" style="margin-top:14px;display:none"></div>
+      </div>
+      <div class="dlg-foot">
+        <span class="err" id="ruleEditErr"></span>
+        <button class="btn" data-dlg-close>取消</button>
+        <button class="btn primary" id="ruleEditOk">确定</button>
+      </div>
+    </div>
+  </div>
+
+`
 
 /* ============ 子页 4 · 下发回执 ============ */
 const acksHtml = `
@@ -249,6 +313,10 @@ const acksHtml = `
   </div>`
 
 /* ---------- 策略加载（一次拉取，四个子页共用；只填本页存在的元素） ---------- */
+function collectClientRules() {
+  return rulesData.map((r, i) => ({ id: 'cr-' + (i + 1), type: r.type, action: r.type === 'notice' ? 'block' : r.action, value: String(r.value ?? '').trim(), message: String(r.message ?? '').trim() }))
+}
+
 async function loadAll(opts = {}) {
   const { skipRulesTable = false } = opts
   try {
@@ -274,19 +342,19 @@ async function loadAll(opts = {}) {
       $('regPrefix').value = reg.packagePrefix ?? ''
       syncRegFields()
     }
-    if ($('rulesBody') && !skipRulesTable) renderClientRules(p.clientRules ?? [])
+    if ($('rulesList') && !skipRulesTable) renderClientRules(p.clientRules ?? [])
     if (!skipRulesTable) {
       if ($('bannerPos')) $('bannerPos').value = p.bannerPosition ?? 'top-right'
       const bs = p.bannerStyle ?? {}
-      const setV = (id, v) => { if ($(id)) $(id).value = v ?? '' }
-      setV('#bannerW', bs.maxWidth)
-      setV('#bannerMt', bs.top)
-      setV('#bannerMr', bs.right)
-      setV('#bannerMb', bs.bottom)
-      setV('#bannerMl', bs.left)
-      if ($('#bannerBg')) $('#bannerBg').value = bs.bg ?? '#fff7ed'
-      if ($('#bannerBd')) $('#bannerBd').value = bs.border ?? '#fb923c'
-      if ($('#bannerFg')) $('#bannerFg').value = bs.color ?? '#9a3412'
+      const setV = (id, v) => { if ($(id) && $(id).value === '') $(id).value = v ?? '' }   // 只填空值：不覆盖用户正在编辑/已填写未保存的值
+      setV('bannerW', bs.maxWidth)
+      setV('bannerMt', bs.top)
+      setV('bannerMr', bs.right)
+      setV('bannerMb', bs.bottom)
+      setV('bannerMl', bs.left)
+      const posLabel = { 'top-right': '右上角', 'top-center': '顶部居中', 'top-left': '左上角', 'bottom-right': '右下角' }[p.bannerPosition] ?? p.bannerPosition
+      if ($('bannerPosLabel')) $('bannerPosLabel').textContent = posLabel
+      updateBannerMock()
     }
     if ($('ackBody')) renderAcks(d)
   } catch { /* 401 已处理 */ }
@@ -349,38 +417,61 @@ const RULE_PRESETS = {
   'notice': { type: 'notice', action: 'block', value: '【企业公告】本周六 20:00-22:00 网关例行维护，期间服务可能中断', message: '' },
 }
 
+const TYPE_META = {
+  'block-url': { label: '网址', color: '#2563eb', bg: '#eff6ff', ph: '域名，多个用 | 分隔。例：github.com|pan.baidu.com', hint: '拦该域名及全部子域（员工端浏览器环境内）' },
+  'block-word': { label: '关键词', color: '#b45309', bg: '#fffbeb', ph: '正则或关键词，多个用 | 分隔。例：内部资料|未公开', hint: '正则不区分大小写；非法时自动退化为包含匹配' },
+  'notice': { label: '公告', color: '#1d4ed8', bg: '#eff6ff', ph: '公告全文，员工端原样展示', hint: '公告无需动作选择，员工端展示蓝底信息条' },
+}
+
+let rulesData = []        // 规则数组 = 唯一数据源（列表渲染 / 弹窗编辑 / 保存提交都走它）
+let ruleEditIdx = -1      // 当前弹窗编辑的规则下标；-1 = 新增
+
 function renderClientRules(rules) {
-  $('rulesBody').innerHTML = rules.map((r) => clientRuleRow(r)).join('')
-    || '<tr><td colspan="5" class="empty">暂无自助规则 —— 点「添加规则」</td></tr>'
+  rulesData = (rules ?? []).map((r) => ({ ...r }))
+  renderRulesTable()
 }
 
-function clientRuleRow(r = {}) {
-  const type = r.type ?? 'block-url'
-  const filled = r.value !== undefined ? r : { ...RULE_PRESETS[type] ?? {}, type }
-  return `<tr data-crule-row>
-    <td><select class="cr-type">${RULE_TYPES.map((t) => `<option value="${t.v}" ${type === t.v ? 'selected' : ''}>${t.label}</option>`).join('')}</select></td>
-    <td><select class="cr-action">
-      <option value="block" ${filled.action !== 'warn' ? 'selected' : ''}>拦截</option>
-      <option value="warn" ${filled.action === 'warn' ? 'selected' : ''}>提醒</option>
-    </select></td>
-    <td><input class="input cr-value mono" value="${esc(filled.value ?? '')}" style="width:100%;font-size:12px" placeholder="域名 / 正则 / 公告文本"></td>
-    <td><input class="input cr-msg" value="${esc(filled.message ?? '')}" style="width:100%" placeholder="命中时的提示语（可选）"></td>
-    <td><button class="btn sm danger" data-delcrule="1">删</button></td>
-  </tr>`
+function renderRulesTable() {
+  const tbody = $('rulesList')
+  if (!tbody) return
+  tbody.innerHTML = rulesData.map((r, i) => {
+    const meta = TYPE_META[r.type] ?? TYPE_META['block-url']
+    const v = esc(String(r.value ?? '').replace(/\n/g, ' ').slice(0, 46))
+    const m = esc(String(r.message ?? '').slice(0, 36))
+    return `<tr data-rule-idx="${i}" style="cursor:pointer">
+      <td class="mono" style="color:#94a3b8;font-size:11.5px">${String(i + 1).padStart(2, '0')}</td>
+      <td style="white-space:nowrap"><span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap;color:${meta.color};background:${meta.bg}">${meta.label}</span></td>
+      <td style="white-space:nowrap">${r.type === 'notice' ? '<span style="font-size:11.5px;color:#94a3b8">—</span>' : `<span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;${r.action !== 'warn' ? 'color:#b91c1c;background:#fef2f2' : 'color:#9a3412;background:#fff7ed'}">${r.action !== 'warn' ? '拦截' : '提醒'}</span>`}</td>
+      <td class="mono" style="font-size:12px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v || '<i style="color:#cbd5e1">（空）</i>'}</td>
+      <td style="font-size:12px;color:#64748b;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m || '<i style="color:#cbd5e1">—</i>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn sm" data-rule-edit="${i}" title="编辑">编辑</button>
+        <button class="btn sm danger" data-rule-del="${i}" title="删除">删</button>
+      </td>
+    </tr>`
+  }).join('') || '<tr><td colspan="6" class="empty">暂无本地规则 —— 点「新增规则」创建第一条</td></tr>'
+  updateRuleCount()
+  applyRuleFilter()
 }
 
-function collectClientRules() {
-  const rules = []
-  for (const tr of document.querySelectorAll('#rulesBody tr[data-crule-row]')) {
-    rules.push({
-      id: 'cr-' + (rules.length + 1),
-      type: tr.querySelector('.cr-type').value,
-      action: tr.querySelector('.cr-action').value,
-      value: tr.querySelector('.cr-value').value.trim(),
-      message: tr.querySelector('.cr-msg').value.trim(),
-    })
-  }
-  return rules
+/** 规则改动自动保存：debounce 800ms 后直接 PATCH，无需手动点「保存更改」 */
+let _rulesAutoSaveTimer = null
+function markRulesDirty() {
+  clearTimeout(_rulesAutoSaveTimer)
+  _rulesAutoSaveTimer = setTimeout(async () => {
+    try {
+      const rules = collectClientRules()
+      for (const r of rules) { if (!r.value) { toast('有规则缺匹配值，未自动保存', 'bad'); return } }
+      await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { clientRules: rules } }) })
+      toast(`已自动保存：本地规则 ${rules.length} 条`)
+    } catch (e) { if (e.message !== '401') toast('✗ 自动保存失败：' + e.message, 'bad') }
+  }, 800)
+}
+
+function updateRuleCount() {
+  const n = document.querySelectorAll('#rulesList tr[data-rule-idx]:not([hidden])').length
+  const total = rulesData.length
+  if ($('ruleCount')) $('ruleCount').textContent = n === total ? `${total} 条` : `${n} / ${total} 条`
 }
 
 /* ---------- 回执（子页 4）：灰度进度 + 待回执设备 + 可筛选明细 ---------- */
@@ -555,24 +646,20 @@ async function savePlug() {
     `已保存：插件清单 ${allowedPlugins.length} 项 · 插件源 ${pluginRegistry.mode}`)
 }
 
-async function saveRules() {
-  const msg = $('rulesMsg'); if (msg) msg.textContent = ''
-  const rules = collectClientRules()
-  for (const r of rules) {
-    if (!r.value) return showSaveErr(msg, '自助规则有缺匹配值（value）的行')
-    if (r.type === 'block-word') { try { new RegExp(r.value) } catch { return showSaveErr(msg, `关键词规则「${r.value}」正则不合法（会退化为包含匹配，建议修正）`) } }
-  }
+/** 横幅样式弹窗：单独保存（不动规则本体），保存成功后刷新页头摘要 */
+async function saveBannerStyle() {
+  const err = $('bannerDlgErr'); if (err) err.textContent = ''
   const numOrNull = (id) => { const el = $(id); if (!el || el.value === '') return null; const n = Number(el.value); return Number.isFinite(n) ? n : null }
   const bannerStyle = {}
-  for (const [k, id] of [['maxWidth', '#bannerW'], ['top', '#bannerMt'], ['right', '#bannerMr'], ['bottom', '#bannerMb'], ['left', '#bannerMl']]) {
+  for (const [k, id] of [['maxWidth', 'bannerW'], ['top', 'bannerMt'], ['right', 'bannerMr'], ['bottom', 'bannerMb'], ['left', 'bannerMl']]) {
     const v = numOrNull(id); if (v !== null) bannerStyle[k] = v
   }
-  for (const [k, id] of [['bg', '#bannerBg'], ['border', '#bannerBd'], ['color', '#bannerFg']]) {
-    const el = $(id); if (el && el.value) bannerStyle[k] = el.value
-  }
-  const bannerPosition = $('bannerPos') ? $('bannerPos').value : undefined
-  await doSave(msg, { policy: { clientRules: rules, bannerPosition, bannerStyle: Object.keys(bannerStyle).length ? bannerStyle : null } },
-    `已保存：自助规则 ${rules.length} 条 · 横幅 ${bannerPosition}`)
+  const bannerPosition = $('bannerPos')?.value ?? 'top-right'
+  try {
+    await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { bannerPosition, bannerStyle: Object.keys(bannerStyle).length ? bannerStyle : null } }) })
+    toast(`横幅样式已保存：${bannerPosition}`)
+    loadAll()
+  } catch (e) { if (err) err.textContent = e.message; if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
 }
 
 /* ---------- 各子页事件绑定（元素存在才绑，兼容老壳单页回退） ---------- */
@@ -596,35 +683,88 @@ function bindPlugins() {
 }
 
 function bindRules() {
-  if ($('ruleAddBtn')) {
-    $('ruleAddBtn').addEventListener('click', () => {
-      const empty = $('rulesBody').querySelector('td.empty')?.closest('tr')
-      if (empty) empty.remove()
-      // 取当前表格里已选类型的"下一个"类型轮转，避免连点全是同一种示例
-      const lastType = document.querySelector('#rulesBody tr[data-crule-row] .cr-type')?.value ?? 'block-url'
-      const order = ['block-url', 'block-word', 'notice']
-      const next = order[(order.indexOf(lastType) + 1) % order.length]
-      $('rulesBody').insertAdjacentHTML('beforeend', clientRuleRow(RULE_PRESETS[next]))
-    })
-    $('rulesBody').addEventListener('click', (e) => {
-      const del = e.target.closest('[data-delcrule]')
-      if (del) del.closest('tr').remove()
+  // —— 新增：空弹窗
+  if ($('ruleAddBtn')) $('ruleAddBtn').addEventListener('click', () => {
+    // 公告只保留一条：已有公告时「新增规则」直接进入当前公告编辑（公告不是可堆叠的条目）
+    const noticeIdx = rulesData.findIndex((r) => r.type === 'notice')
+    openRuleEdit(noticeIdx >= 0 ? noticeIdx : -1, noticeIdx >= 0 ? '公告已存在，直接编辑当前公告' : undefined)
+  })
+
+  // —— 列表事件委托：编辑 / 删除 / 点行打开编辑
+  if ($('rulesList')) {
+    $('rulesList').addEventListener('click', (e) => {
+      const del = e.target.closest('[data-rule-del]')
+      if (del) {
+        const i = Number(del.dataset.ruleDel)
+        const r = rulesData[i]
+        const brief = String(r?.value ?? '').trim().slice(0, 24) || '（空规则）'
+        if (confirm(`删除这条规则？\n${brief}`)) {
+          rulesData.splice(i, 1)
+          if ($('ruleFilter')) $('ruleFilter').value = ''
+          if ($('ruleTypeFilter')) $('ruleTypeFilter').value = ''
+          renderRulesTable()
+          markRulesDirty()
+          toast('已删除，自动保存中…')
+        }
+        e.stopPropagation()
+        return
+      }
+      const edit = e.target.closest('[data-rule-edit]')
+      if (edit) { openRuleEdit(Number(edit.dataset.ruleEdit)); return }
+      const tr = e.target.closest('tr[data-rule-idx]')
+      if (tr) openRuleEdit(Number(tr.dataset.ruleIdx))
     })
   }
-  if ($('rulesSaveBtn')) $('rulesSaveBtn').addEventListener('click', saveRules)
 
-  if ($('bannerPreview')) $('bannerPreview').addEventListener('click', () => {
-    const bs = {
-      position: $('bannerPos')?.value ?? 'top-right',
-      maxWidth: Number($('bannerW')?.value) || 420,
-      top: Number($('bannerMt')?.value) || 14,
-      right: Number($('bannerMr')?.value) || 18,
-      bottom: Number($('bannerMb')?.value) || 0,
-      left: Number($('bannerMl')?.value) || 0,
-      bg: $('#bannerBg')?.value || '#fff7ed',
-      border: $('#bannerBd')?.value || '#fb923c',
-      color: $('#bannerFg')?.value || '#9a3412',
+  // —— 编辑弹窗：类型切换联动（占位符/提示/动作禁用/预览）、预览、确定
+  if ($('reType')) {
+    $('reType').addEventListener('change', () => {
+      const meta = TYPE_META[$('reType').value] ?? TYPE_META['block-url']
+      $('reValue').placeholder = meta.ph
+      $('reHint').textContent = meta.hint
+      const notice = $('reType').value === 'notice'
+      $('reAction').disabled = notice
+      $('reMsgWrap').style.display = notice ? 'none' : ''
+      updateRePreview()
+    })
+    $('reValue').addEventListener('input', updateRePreview)
+    $('reAction').addEventListener('change', updateRePreview)
+    $('reMsg').addEventListener('input', updateRePreview)
+  }
+  if ($('ruleEditOk')) $('ruleEditOk').addEventListener('click', () => {
+    const err = $('ruleEditErr'); err.textContent = ''
+    const value = $('reValue').value.trim()
+    if (!value) { err.textContent = '匹配值（value）不能为空'; $('reValue').focus(); return }
+    const type = $('reType').value
+    if (type === 'block-word') { try { new RegExp(value) } catch { if (!confirm('正则不合法（会退化为包含匹配），仍要保存吗？')) return } }
+    const rule = { type, action: type === 'notice' ? 'block' : $('reAction').value, value, message: $('reMsg').value.trim() }
+    if (ruleEditIdx >= 0) rulesData[ruleEditIdx] = rule
+    else if (type === 'notice' && rulesData.some((r) => r.type === 'notice')) {
+      // 公告只保留一条：已有公告时新增 = 替换旧公告（位置也在旧公告处）
+      const idx = rulesData.findIndex((r) => r.type === 'notice')
+      rulesData[idx] = rule
+      toast('已有公告已替换为新的（公告仅保留一条）')
+    } else {
+      rulesData.push(rule)
     }
+    closeDlg($('ruleEditDlg'))
+    // 清空筛选，避免"新增/改类型的行被过滤隐藏"造成没生效的错觉
+    if ($('ruleFilter')) $('ruleFilter').value = ''
+    if ($('ruleTypeFilter')) $('ruleTypeFilter').value = ''
+    renderRulesTable()
+    markRulesDirty()
+    toast(ruleEditIdx >= 0 ? `已修改第 ${ruleEditIdx + 1} 条，自动保存中…` : '已添加，自动保存中…')
+  })
+
+  // —— 过滤
+  if ($('ruleFilter')) $('ruleFilter').addEventListener('input', applyRuleFilter)
+  if ($('ruleTypeFilter')) $('ruleTypeFilter').addEventListener('change', applyRuleFilter)
+
+  // —— 横幅样式弹窗：打开（loadAll 已回显面板值）/ 保存 / 预览 / 示意实时跟随
+  if ($('bannerStyleBtn')) $('bannerStyleBtn').addEventListener('click', () => openDlg($('bannerStyleDlg')))
+  if ($('bannerSaveBtn')) $('bannerSaveBtn').addEventListener('click', saveBannerStyle)
+  if ($('bannerPreview')) $('bannerPreview').addEventListener('click', () => {
+    const bs = readBannerForm()
     const posCss = bs.position === 'top-center' ? `top:${bs.top}px;left:50%;transform:translateX(-50%);`
       : bs.position === 'top-left' ? `top:${bs.top}px;left:${bs.left}px;`
         : bs.position === 'bottom-right' ? `bottom:${bs.bottom || 14}px;right:${bs.right}px;`
@@ -633,7 +773,7 @@ function bindRules() {
     if (!w) return
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>横幅样式预览</title></head>
       <body style="margin:0;background:#eef1f6;font-family:system-ui">
-        <div style="${posCss}position:fixed;max-width:${bs.maxWidth}px;padding:11px 40px 11px 16px;border-radius:10px;background:${bs.bg};border:1.5px solid ${bs.border};box-shadow:0 10px 34px rgba(0,0,0,.16);font-size:13.5px;line-height:1.55;color:${bs.color};display:flex;align-items:flex-start;gap:8px">
+        <div style="${posCss}position:fixed;max-width:${bs.maxWidth}px;padding:11px 40px 11px 16px;border-radius:10px;background:#fff7ed;border:1.5px solid #fb923c;box-shadow:0 10px 34px rgba(0,0,0,.16);font-size:13.5px;line-height:1.55;color:#9a3412;display:flex;align-items:flex-start;gap:8px">
           <span style="font-size:16px;flex-shrink:0">⚠️</span>
           <span style="word-break:break-word">样式预览：检测到关键词 <b>示例</b>，请注意外发风险（宽 ${bs.maxWidth}px）</span>
         </div>
@@ -641,6 +781,91 @@ function bindRules() {
       </body></html>`)
     w.document.close()
   })
+  for (const id of ['bannerPos', 'bannerW', 'bannerMt', 'bannerMr', 'bannerMb', 'bannerMl']) {
+    $(id)?.addEventListener('input', updateBannerMock)
+    $(id)?.addEventListener('change', updateBannerMock)
+  }
+}
+
+/* ---------- 规则编辑弹窗 ---------- */
+function openRuleEdit(idx, noticeTip) {
+  ruleEditIdx = idx
+  const r = idx >= 0 ? rulesData[idx] : null
+  const preset = r ?? RULE_PRESETS[idx < 0 ? (rulesData.length % 2 === 0 ? 'block-url' : 'block-word') : 'block-url']
+  $('ruleEditTitle').textContent = idx >= 0 ? `编辑规则 #${String(idx + 1).padStart(2, '0')}` : '新增规则'
+  $('reType').value = preset.type ?? 'block-url'
+  $('reAction').value = preset.action === 'warn' ? 'warn' : 'block'
+  $('reValue').value = preset.value ?? ''
+  $('reMsg').value = preset.message ?? ''
+  $('ruleEditErr').textContent = noticeTip ?? ''
+  if (noticeTip) $('ruleEditErr').style.color = '#2563eb'   // 提示用蓝色区别于错误红
+  else $('ruleEditErr').style.color = ''
+  $('reType').disabled = false
+  $('reType').dispatchEvent(new Event('change'))
+  openDlg($('ruleEditDlg'))
+  requestAnimationFrame(() => { $('reValue').focus() })
+}
+
+/** 弹窗内实时预览（notebox） */
+function updateRePreview() {
+  const pv = $('rePreview'); if (!pv) return
+  const type = $('reType').value
+  if (type === 'notice') { pv.style.display = 'none'; return }
+  const word = '示例'
+  const msg = $('reMsg').value.trim()
+  const text = msg.includes('[]') ? msg.replaceAll('[]', word) : (msg ? msg + '（' + word + '）' : '检测到敏感内容（' + word + '）')
+  const blocked = $('reAction').value !== 'warn'
+  pv.style.display = ''
+  pv.style.background = blocked ? '#fef2f2' : '#fff7ed'
+  pv.style.borderColor = blocked ? '#ef4444' : '#fb923c'
+  pv.style.color = blocked ? '#b91c1c' : '#9a3412'
+  pv.innerHTML = (blocked ? '⛔ ' : '⚠️ ') + esc(text) + '<span style="float:right;font-size:11px;opacity:.7">（' + (blocked ? '拦截' : '提醒') + '效果示意）</span>'
+}
+
+/** 读横幅样式表单当前值 */
+function readBannerForm() {
+  const num = (id, dflt) => { const v = Number($(id)?.value); return Number.isFinite(v) && $(id)?.value !== '' ? v : dflt }
+  return {
+    position: $('bannerPos')?.value ?? 'top-right',
+    maxWidth: num('bannerW', 420),
+    top: num('bannerMt', 14),
+    right: num('bannerMr', 18),
+    bottom: num('bannerMb', 0),
+    left: num('bannerMl', 0),
+  }
+}
+
+/** 弹窗内示意块跟随表单值 */
+function updateBannerMock() {
+  const mock = $('bannerMock'); if (!mock) return
+  const bs = readBannerForm()
+  mock.style.maxWidth = bs.maxWidth + 'px'
+  mock.style.marginTop = bs.position.startsWith('top') ? bs.top + 'px' : ''
+  mock.style.marginLeft = bs.position === 'top-left' || bs.position === 'bottom-right' ? bs.left + 'px' : bs.position === 'top-right' ? 'auto' : ''
+  mock.style.marginRight = bs.position === 'top-right' ? bs.right + 'px' : ''
+  mock.style.transform = bs.position === 'top-right' ? 'translateX(-14px)' : ''
+}
+
+/* ---------- 规则列表辅助：过滤（rulesData 为源，行级 hidden） ---------- */
+function applyRuleFilter() {
+  const kw = ($('ruleFilter')?.value ?? '').trim().toLowerCase()
+  const type = $('ruleTypeFilter')?.value ?? ''
+  let visible = 0
+  for (const tr of document.querySelectorAll('#rulesList tr[data-rule-idx]')) {
+    const r = rulesData[Number(tr.dataset.ruleIdx)]
+    if (!r) continue
+    const okType = !type || r.type === type
+    const text = (String(r.value ?? '') + ' ' + String(r.message ?? '')).toLowerCase()
+    const show = okType && (!kw || text.includes(kw))
+    tr.hidden = !show
+    if (show) visible++
+  }
+  const list = $('rulesList')
+  if (list) {
+    list.querySelector('.rule-filter-empty')?.remove()
+    if (!visible && rulesData.length) list.insertAdjacentHTML('beforeend', '<tr class="rule-filter-empty"><td colspan="6" class="empty">没有匹配的规则</td></tr>')
+  }
+  updateRuleCount()
 }
 
 /* ---------- 壳契约导出 ---------- */

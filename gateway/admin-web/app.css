@@ -200,9 +200,14 @@ blockquote.detail { background: #f8fafc; border-left: 3px solid var(--accent); b
 /* 二级菜单：分组头 + 缩进子项 */
 .nav-group { cursor: pointer; user-select: none; justify-content: flex-start; }
 .nav-group.open { color: #cbd5e1; }
-.nav-group.open .sub-arw { color: var(--accent); }
-.nav-group .sub-arw { margin-left: auto; font-size: 11px; transition: transform .15s; }
-.nav-group.open .sub-arw { transform: rotate(90deg); }
+.nav-group .sub-arw {
+  margin-left: auto; font-size: 12px; line-height: 1;
+  width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: rgba(255,255,255,.08); color: #94a3b8;
+  transition: transform .18s, background .12s, color .12s;
+}
+.nav-group:hover .sub-arw { background: rgba(255,255,255,.16); color: #e2e8f0; }
+.nav-group.open .sub-arw { transform: rotate(90deg); background: var(--accent); color: #fff; }
 .nav-group.active:not(.open) { background: rgba(255,255,255,.08); color: #e2e8f0; }
 .nav-sub { display: flex; flex-direction: column; gap: 2px; }
 .nav-sub[hidden] { display: none; }
