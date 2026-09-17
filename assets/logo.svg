@@ -10,12 +10,7 @@
     </linearGradient>
   </defs>
   <rect width="256" height="256" rx="56" fill="url(#bg)"/>
-  <path d="M64 196v-72a64 64 0 0 1 128 0v72" fill="none" stroke="url(#fg)" stroke-width="12" stroke-linecap="round"/>
-  <path d="M48 196h160" stroke="url(#fg)" stroke-width="12" stroke-linecap="round"/>
-  <circle cx="128" cy="132" r="14" fill="url(#fg)"/>
-  <path d="M128 118V96" stroke="url(#fg)" stroke-width="6" stroke-linecap="round"/>
-  <circle cx="128" cy="86" r="9" fill="url(#fg)"/>
-  <circle cx="82" cy="152" r="8" fill="url(#fg)" opacity="0.85"/>
-  <circle cx="174" cy="152" r="8" fill="url(#fg)" opacity="0.85"/>
-  <path d="M117 124l-28 22M139 124l28 22" stroke="url(#fg)" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+  <path d="M128 40l70 26v56c0 50-29 82-70 100-41-18-70-50-70-100V66l70-26z" fill="url(#fg)"/>
+  <circle cx="128" cy="112" r="19" fill="#0f172a"/>
+  <path d="M128 126v40" stroke="#0f172a" stroke-width="15" stroke-linecap="round"/>
 </svg>
