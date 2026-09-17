@@ -3,7 +3,7 @@
  * 壳契约：ent-client.mjs 的 nav.children 声明二级页 → 每个子页取本模块 pages[id] 的 { html, load, bind }
  *   #/client-switches 策略与开关（界面策略 + 登录保护）
  *   #/client-plugins  插件管控（允许清单 + 企业插件源）
- *   #/client-rules    自助规则（员工端本机执行的拦网址/拦关键词/公告）
+ *   #/client-rules    自助规则（用户端本机执行的拦网址/拦关键词/公告）
  *   #/client-acks     下发回执（策略版本灰度核对）
  * 兼容：老壳不识别 nav.children 时回退 html/load/bind（= 第一个子页）。
  * 数据源：/admin/policy* /admin/policy-detail（ent-console 聚合提供）
@@ -32,22 +32,22 @@ const switchesHtml = `
   <div class="card">
     <h2><span class="bar"></span>${T('界面策略', 'UI policy')} <span class="badge dim">${T('点击即生效', 'Click to apply')}</span></h2>
     <div class="switchrow">
-      <span class="lab2">${T('模型配置锁定', 'Lock model config')}<span class="desc">${T('员工端隐藏「模型」设置页，防绕过企业配置', 'Hide the model page on client to keep corporate config')}</span></span>
+      <span class="lab2">${T('模型配置锁定', 'Lock model config')}<span class="desc">${T('用户端隐藏「模型」设置页，防绕过企业配置', 'Hide the model page on client to keep corporate config')}</span></span>
       <span class="switch" id="swLock"></span>
     </div>
     <div class="switchrow" style="align-items:flex-start">
-      <span class="lab2" style="padding-top:2px">${T('隐藏设置页', 'Hide settings pages')}<span class="desc">${T('按标签关键词隐藏员工端设置导航项（中英文都填，宿主改名后在此加关键词）', 'Hide client settings nav items by label keyword (fill both zh/en; add new keywords here if the host renames them)')}</span></span>
+      <span class="lab2" style="padding-top:2px">${T('隐藏设置页', 'Hide settings pages')}<span class="desc">${T('按标签关键词隐藏用户端设置导航项（中英文都填，宿主改名后在此加关键词）', 'Hide client settings nav items by label keyword (fill both zh/en; add new keywords here if the host renames them)')}</span></span>
       <span style="flex:1;max-width:420px">
         <input class="input" id="hidePagesInput" placeholder="${T('桌面设置, Desktop settings（逗号分隔）', 'Desktop settings, 桌面设置 (comma-separated)')}" style="width:100%;font-size:12px;height:30px">
-        <div style="font-size:11px;color:#94a3b8;margin-top:3px">${T('改动自动下发，员工端 10s 内隐藏', 'Auto-deploys; clients hide within 10s')}</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:3px">${T('改动自动下发，用户端 10s 内隐藏', 'Auto-deploys; clients hide within 10s')}</div>
       </span>
     </div>
     <div class="switchrow">
-      <span class="lab2">${T('界面水印', 'UI watermark')}<span class="desc">${T('员工端 Web 界面叠加半透明水印，截屏外传可溯源；仅影响显示', 'Translucent watermark over the client web UI for traceability; display only')}</span></span>
+      <span class="lab2">${T('界面水印', 'UI watermark')}<span class="desc">${T('用户端 Web 界面叠加半透明水印，截屏外传可溯源；仅影响显示', 'Translucent watermark over the client web UI for traceability; display only')}</span></span>
       <span class="switch" id="swWm"></span>
     </div>
     <div id="wmStylePanel" style="display:none;margin:4px 0 12px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
-      <div style="font-size:12.5px;font-weight:600;margin-bottom:10px">${T('水印样式', 'Watermark style')} <span class="badge dim">${T('改完即自动保存，员工端 10s 内跟随', 'Auto-saved; client follows within 10s')}</span></div>
+      <div style="font-size:12.5px;font-weight:600;margin-bottom:10px">${T('水印样式', 'Watermark style')} <span class="badge dim">${T('改完即自动保存，用户端 10s 内跟随', 'Auto-saved; client follows within 10s')}</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
         <label style="font-size:12px;color:#475569">${T('内容模板', 'Template')}<br>
           <input id="wmTemplate" class="input" style="width:320px;font-size:12px;margin-top:3px" placeholder="${T('{user} · {time} · 企业机密', '{user} · {time} · Confidential')}">
@@ -136,7 +136,7 @@ const pluginsHtml = `
         <input id="allowSearch" class="input" placeholder="${T('搜插件名 / 描述…', 'Search plugins…')}" style="width:180px;font-size:12px;height:28px">
       </span>
     </h2>
-    <div class="sub">${T('清单外插件员工端安装被拦截 · 改动自动下发', 'Plugins outside the allowlist are blocked on client · changes deploy automatically')}</div>
+    <div class="sub">${T('清单外插件用户端安装被拦截 · 改动自动下发', 'Plugins outside the allowlist are blocked on client · changes deploy automatically')}</div>
     <div id="allowList"></div>
     <div id="allowPage" style="display:flex;align-items:center;gap:10px;justify-content:flex-end;margin-top:10px;font-size:12px;color:#64748b"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
@@ -177,7 +177,7 @@ const pluginsHtml = `
           <input class="input" id="regUrl" placeholder="http://npm.corp.local:4873">
           <label>${T('包地址前缀', 'Package URL prefix')}<span class="dim2">url</span></label>
           <input class="input" id="regPrefix" placeholder="http://plugins.corp.local/packages/">
-          <label>${T('员工端接入地址', 'Client access URL')}</label>
+          <label>${T('用户端接入地址', 'Client access URL')}</label>
           <input class="input" id="regAccess" placeholder="http://10.0.0.5:8900">
           <label>${T('内置仓库直连', 'Use built-in repo')}<span class="dim2">url</span></label>
           <span class="chk"><input type="checkbox" id="regBuiltin"> ${T('直接用上方插件仓库下载', 'Download directly from the plugin repo above')}</span>
@@ -266,7 +266,7 @@ const pluginsHtml = `
       </div>
       <div class="dlg-body">
         <div style="font-size:12px;color:#64748b;margin-bottom:4px">${T('中文描述', 'Chinese description')}</div>
-        <textarea id="rdText" class="input" rows="3" style="width:100%;resize:vertical" placeholder="${T('一句话说明该插件用途，员工端插件市场可见', 'One-line description shown in the client plugin market')}"></textarea>
+        <textarea id="rdText" class="input" rows="3" style="width:100%;resize:vertical" placeholder="${T('一句话说明该插件用途，用户端插件市场可见', 'One-line description shown in the client plugin market')}"></textarea>
         <div style="font-size:12px;color:#64748b;margin:8px 0 4px">${T('英文描述', 'English description')}</div>
         <textarea id="rdTextEn" class="input" rows="3" style="width:100%;resize:vertical" placeholder="${T('English description for the client plugin market', 'English description for the client plugin market')}"></textarea>
       </div>
@@ -309,9 +309,9 @@ const rulesHtml = `
       <summary>${T('三种类型的 value 填法', 'Value formats for the three types')}</summary>
       <div class="help-body">
         <div class="codeblock"><span class="hl">${T('网址', 'URL')}</span>  ${T('填域名 → 拦该域名及全部子域。例：', 'Domain → blocks it and all subdomains. e.g. ')}<span class="hl">github.com</span> github.com / gist.github.com / api.github.com …
-<span class="hl">${T('关键词', 'Keyword')}</span> ${T('填正则，命中员工端送出的文本；非法时退化为包含匹配', 'Regex matched against client-submitted text; falls back to contains match if invalid')}
-<span class="hl">${T('公告', 'Notice')}</span>     ${T('填公告文本 → 员工端展示企业公告，value 即公告内容，message 可留空', 'Notice text; value is the notice content shown on client, message optional')}</div>
-        <div class="notebox">${T('仅管控员工端浏览器环境内的访问；规则与命中次数在员工端「企业管理 → 规则管理」可见（只读）', 'Only applies inside the client browser; rules and hit counts are read-only in client "Enterprise → Rule management"')}</div>
+<span class="hl">${T('关键词', 'Keyword')}</span> ${T('填正则，命中用户端送出的文本；非法时退化为包含匹配', 'Regex matched against client-submitted text; falls back to contains match if invalid')}
+<span class="hl">${T('公告', 'Notice')}</span>     ${T('填公告文本 → 用户端展示企业公告，value 即公告内容，message 可留空', 'Notice text; value is the notice content shown on client, message optional')}</div>
+        <div class="notebox">${T('仅管控用户端浏览器环境内的访问；规则与命中次数在用户端「企业管理 → 规则管理」可见（只读）', 'Only applies inside the client browser; rules and hit counts are read-only in client "Enterprise → Rule management"')}</div>
       </div>
     </details>
   </div>
@@ -320,7 +320,7 @@ const rulesHtml = `
   <div class="dlg-mask" id="bannerStyleDlg" hidden>
     <div class="dlg md">
       <div class="dlg-head">
-        <h2><span class="bar"></span>${T('横幅样式', 'Banner style')} <span class="badge dim">${T('员工端提醒/拦截/公告弹出的默认样式', 'Default style for client warn/block/notice banners')}</span></h2>
+        <h2><span class="bar"></span>${T('横幅样式', 'Banner style')} <span class="badge dim">${T('用户端提醒/拦截/公告弹出的默认样式', 'Default style for client warn/block/notice banners')}</span></h2>
         <button class="dlg-x" data-dlg-close title="${T('关闭', 'Close')}">✕</button>
       </div>
       <div class="dlg-body">
@@ -350,7 +350,7 @@ const rulesHtml = `
         </div>
         <div style="font-size:11.5px;color:#94a3b8;margin-bottom:12px">${T('配色固定：拦截红 / 提醒橙 / 公告蓝（语义区分，不随样式配置）', 'Fixed colors: block red / warn orange / notice blue (semantic, not configurable)')}</div>
         <div style="background:#f8fafc;border:1px dashed #e2e8f0;border-radius:8px;padding:18px 14px;position:relative;min-height:110px;overflow:hidden">
-          <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">${T('效果示意（实际以员工端屏幕为准）：', 'Preview (actual look on client screens):')}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">${T('效果示意（实际以用户端屏幕为准）：', 'Preview (actual look on client screens):')}</div>
           <div id="bannerMock" style="max-width:420px;padding:11px 40px 11px 16px;border-radius:10px;background:#fff7ed;border:1.5px solid #fb923c;box-shadow:0 6px 18px rgba(0,0,0,.10);font-size:12.5px;color:#9a3412;display:flex;align-items:center;gap:8px">
             <span style="font-size:14px;flex-shrink:0">⚠️</span>
             <span>${T('检测到涉密关键词', 'Sensitive keyword detected')} <b>${T('示例', 'example')}</b>${T('，请注意外发风险', ' — mind the outbound risk')}</span>
@@ -568,7 +568,7 @@ async function toggleWatermark() {
   sw.classList.toggle('on', r.policy.watermark)
   const panel = $('wmStylePanel')
   if (panel) panel.style.display = r.policy.watermark ? '' : 'none'
-  toast(T('界面水印 → {s}（员工端 10s 内跟随）', 'UI watermark → {s} (client follows within 10s)', { s: r.policy.watermark ? T('启用', 'enabled') : T('停用', 'disabled') }))
+  toast(T('界面水印 → {s}（用户端 10s 内跟随）', 'UI watermark → {s} (client follows within 10s)', { s: r.policy.watermark ? T('启用', 'enabled') : T('停用', 'disabled') }))
 }
 
 /* ---- 隐藏设置页清单：输入即自动保存（debounce 600ms） ---- */
@@ -583,7 +583,7 @@ function bindHidePages() {
       const list = inp.value.split(/[,，、]/).map((x) => x.trim()).filter(Boolean)
       try {
         await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { hiddenSettingsPages: list } }) })
-        toast(T('隐藏设置页已下发，员工端 10s 内跟随', 'Hidden pages deployed; clients follow within 10s'))
+        toast(T('隐藏设置页已下发，用户端 10s 内跟随', 'Hidden pages deployed; clients follow within 10s'))
       } catch (e) { if (e.message !== '401') toast(T('✗ 保存失败：{m}', '✗ Save failed: {m}', { m: e.message }), 'bad') }
     }, 600)
   })
@@ -610,7 +610,7 @@ function scheduleWmSave() {
     try {
       const style = wmReadForm()
       await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { watermarkStyle: Object.keys(style).length ? style : null } }) })
-      toast(T('水印样式已保存，员工端 10s 内跟随', 'Watermark style saved; client follows within 10s'))
+      toast(T('水印样式已保存，用户端 10s 内跟随', 'Watermark style saved; client follows within 10s'))
     } catch (e) { if (e.message !== '401') toast(T('✗ 水印样式保存失败：{m}', '✗ Failed to save watermark style: {m}', { m: e.message }), 'bad') }
   }, 600)
 }
@@ -695,7 +695,7 @@ function renderRepo() {
               <span class="badge dim" style="font-size:10px">${T('{n} 个版本 · {s}', '{n} versions · {s}', { n: p.versionCount, s: fmtSize(p.totalSize) })}</span>
               ${inAllow ? `<span class="badge ok" style="font-size:10px">${T('已入清单', 'In allowlist')}</span>` : ''}
             </div>
-            <div style="font-size:11.5px;color:#64748b;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.description)}">${esc(p.description) || `<span style="color:#cbd5e1">${T('无描述 · 点「描述」补充（员工端市场显示）', 'No description · use "Description" to add (shown in client market)')}</span>`}</div>
+            <div style="font-size:11.5px;color:#64748b;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.description)}">${esc(p.description) || `<span style="color:#cbd5e1">${T('无描述 · 点「描述」补充（用户端市场显示）', 'No description · use "Description" to add (shown in client market)')}</span>`}</div>
           </div>
           <span class="mono" style="font-size:11px;color:#94a3b8;flex-shrink:0">${esc(p.updatedAt ?? '')}</span>
           <span style="white-space:nowrap;flex-shrink:0">
@@ -901,14 +901,14 @@ function renderAllowList() {
         <div style="display:flex;align-items:center;gap:8px">
           <span class="mono" style="font-size:12px;font-weight:600;color:#0f172a">${esc(n)}</span>
           ${ver ? `<span class="badge dim" style="font-size:10px">v${esc(ver)}</span>` : ''}
-          ${n === 'dsh-enterprise' ? `<span class="badge ok" title="${T('企业必装组件，删除后员工端登录与策略失效', 'Required component; removing it breaks client sign-in and policy')}">${T('必装', 'Required')}</span>` : ''}
+          ${n === 'dsh-enterprise' ? `<span class="badge ok" title="${T('企业必装组件，删除后用户端登录与策略失效', 'Required component; removing it breaks client sign-in and policy')}">${T('必装', 'Required')}</span>` : ''}
         </div>
         <div style="font-size:11.5px;color:#64748b;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${desc ? esc(desc) : `<span style="color:#cbd5e1">${T('未入库 · 无描述', 'Not imported · no description')}</span>`}</div>
       </div>
       <button class="btn sm" data-allow-repo="${esc(n)}" style="padding:1px 8px;font-size:11px" title="${repo ? T('已在仓库，可管理版本与描述', 'Already in repo; manage versions and description') : T('从 npm 拉进企业插件仓库', 'Import from npm into the enterprise plugin repo')}">${repo ? T('已入库', 'In repo') : T('入库', 'Import')}</button>
       <button class="btn sm danger" data-allow-del="${i}" style="padding:1px 8px;font-size:11px">${T('移除', 'Remove')}</button>
     </div>`
-  }).join('') || (allowItems.length ? `<div style="font-size:12px;color:#94a3b8;padding:6px 2px">${T('没有匹配的插件', 'No matching plugins')}</div>` : `<div style="font-size:12px;color:#94a3b8;padding:6px 2px">${T('清单为空 = 不限制（员工可装任意插件）', 'Empty allowlist = no restriction (any plugin allowed)')}</div>`)
+  }).join('') || (allowItems.length ? `<div style="font-size:12px;color:#94a3b8;padding:6px 2px">${T('没有匹配的插件', 'No matching plugins')}</div>` : `<div style="font-size:12px;color:#94a3b8;padding:6px 2px">${T('清单为空 = 不限制（用户可装任意插件）', 'Empty allowlist = no restriction (any plugin allowed)')}</div>`)
   // 分页条
   const pg = $('allowPage')
   if (pg) {
@@ -936,7 +936,7 @@ function allowAdd(raw) {
 
 function allowRemove(i) {
   const name = allowItems[i]
-  if (name === 'dsh-enterprise' && !confirm(T('移除 dsh-enterprise 后员工端登录与策略失效，确定？', 'Removing dsh-enterprise breaks client sign-in and policy. Confirm?'))) return
+  if (name === 'dsh-enterprise' && !confirm(T('移除 dsh-enterprise 后用户端登录与策略失效，确定？', 'Removing dsh-enterprise breaks client sign-in and policy. Confirm?'))) return
   allowItems.splice(i, 1)
   renderAllowList()
   renderRepo()   // 仓库行内"已入清单"徽章/按钮同步恢复
@@ -970,11 +970,11 @@ function syncRegFields() {
   if (builtin && !$('regPrefix').value.trim()) $('regPrefix').value = location.origin + '/plugin-packages/'
   const hint = $('regHint')
   if (hint) hint.textContent = mode === 'off'
-    ? T('off = 不干预，员工端直接走社区 npm 源', 'off = no intervention; client uses the community npm source')
+    ? T('off = 不干预，用户端直接走社区 npm 源', 'off = no intervention; client uses the community npm source')
     : mode === 'proxy'
       ? T('proxy = 安装时自动追加 --registry={u}', 'proxy = appends --registry={u} on install', { u: $('regUrl').value.trim() || '<mirror URL>' })
       : builtin
-        ? T('url + 内置直连 = 员工端从本网关「插件仓库」下载', 'url + built-in = client downloads from the gateway plugin repo')
+        ? T('url + 内置直连 = 用户端从本网关「插件仓库」下载', 'url + built-in = client downloads from the gateway plugin repo')
         : T('url = 从 {p}<插件包名> 下载 .tgz', 'url = downloads .tgz from {p}<package>', { p: $('regPrefix').value.trim() || '<prefix>' })
   syncRegBadge()
 }
@@ -993,9 +993,9 @@ const RULE_PRESETS = {
 }
 
 const TYPE_META = {
-  'block-url': { label: T('网址', 'URL'), color: '#2563eb', bg: '#eff6ff', ph: T('域名，多个用 | 分隔。例：github.com|pan.baidu.com', 'Domains separated by |, e.g. github.com|pan.baidu.com'), hint: T('拦该域名及全部子域（员工端浏览器环境内）', 'Blocks the domain and all subdomains (client browser)') },
+  'block-url': { label: T('网址', 'URL'), color: '#2563eb', bg: '#eff6ff', ph: T('域名，多个用 | 分隔。例：github.com|pan.baidu.com', 'Domains separated by |, e.g. github.com|pan.baidu.com'), hint: T('拦该域名及全部子域（用户端浏览器环境内）', 'Blocks the domain and all subdomains (client browser)') },
   'block-word': { label: T('关键词', 'Keyword'), color: '#b45309', bg: '#fffbeb', ph: T('正则或关键词，多个用 | 分隔。例：内部资料|未公开', 'Regex or keywords separated by |, e.g. secret|internal'), hint: T('正则不区分大小写；非法时自动退化为包含匹配', 'Case-insensitive; falls back to contains match if invalid') },
-  'notice': { label: T('公告', 'Notice'), color: '#1d4ed8', bg: '#eff6ff', ph: T('公告全文，员工端原样展示', 'Notice text, shown as-is on client'), hint: T('公告无需动作选择，员工端展示蓝底信息条', 'No action needed; client shows a blue info banner') },
+  'notice': { label: T('公告', 'Notice'), color: '#1d4ed8', bg: '#eff6ff', ph: T('公告全文，用户端原样展示', 'Notice text, shown as-is on client'), hint: T('公告无需动作选择，用户端展示蓝底信息条', 'No action needed; client shows a blue info banner') },
 }
 
 let rulesData = []        // 规则数组 = 唯一数据源（列表渲染 / 弹窗编辑 / 保存提交都走它）
@@ -1191,7 +1191,7 @@ function renderAcks(d) {
       <span class="mono" style="white-space:nowrap;flex-shrink:0">${T('{d} 台 / {a} 条 · {p}%', '{d} devices / {a} receipts · {p}%', { d: v.devices, a: v.acks, p: vp })}</span>
       <span class="crumb" style="margin:0;white-space:nowrap;flex-shrink:0" title="${T('最早 {t}', 'First {t}', { t: esc(v.first_local ?? '') })}">${T('最近 {t}', 'Last {t}', { t: ago(v.last_local) })}</span>
     </div>`
-  }).join('') || `<div class="empty">${T('暂无任何回执 —— 员工端拉取到新版策略并本地生效后会自动上报', 'No receipts yet — clients report automatically after pulling and applying a new policy')}</div>`
+  }).join('') || `<div class="empty">${T('暂无任何回执 —— 用户端拉取到新版策略并本地生效后会自动上报', 'No receipts yet — clients report automatically after pulling and applying a new policy')}</div>`
 
   /* 待回执设备 */
   const pending = d.pendingAcks ?? []
@@ -1240,7 +1240,7 @@ function renderAckRows() {
       <td class="mono" title="${esc(a.device_hash ?? '')}">${esc(shortDev(a.device_hash))}</td>
       <td class="mono" title="${esc(a.last_seen_local ?? '')}">${esc(a.last_seen_local ?? '-')}</td>
     </tr>`
-  }).join('') || `<tr><td colspan="8" class="empty">${ackRows.length ? T('没有匹配筛选条件的回执', 'No receipts match the filter') : T('暂无回执 —— 等员工端生效新版策略后自动上报', 'No receipts yet — clients report automatically after applying a new policy')}</td></tr>`
+  }).join('') || `<tr><td colspan="8" class="empty">${ackRows.length ? T('没有匹配筛选条件的回执', 'No receipts match the filter') : T('暂无回执 —— 等用户端生效新版策略后自动上报', 'No receipts yet — clients report automatically after applying a new policy')}</td></tr>`
 }
 
 function bindAcks() {
@@ -1486,7 +1486,7 @@ function bindRules() {
           <span style="font-size:16px;flex-shrink:0">⚠️</span>
           <span style="word-break:break-word">${T('样式预览：检测到关键词', 'Preview: keyword detected')} <b>${T('示例', 'example')}</b>${T('，请注意外发风险（宽 {w}px）', ' — mind the outbound risk (width {w}px)', { w: bs.maxWidth })}</span>
         </div>
-        <div style="padding:16px;color:#94a3b8;font-size:12px">${T('预览窗口 —— 保存后员工端下一次弹出即生效。', 'Preview window — takes effect on the next client banner after save.')}</div>
+        <div style="padding:16px;color:#94a3b8;font-size:12px">${T('预览窗口 —— 保存后用户端下一次弹出即生效。', 'Preview window — takes effect on the next client banner after save.')}</div>
       </body></html>`)
     w.document.close()
   })

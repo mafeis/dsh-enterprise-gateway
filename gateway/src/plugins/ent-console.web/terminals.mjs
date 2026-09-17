@@ -40,7 +40,7 @@ async function deviceDetailHtml(x) {
   const allowed = (await api('/admin/policy-detail').catch(() => null))?.policy?.allowedPlugins ?? [];
   const plugins = Array.isArray(d.plugins) ? d.plugins : null;
   const pluginRows = plugins === null
-    ? `<div class="kv-empty">${T('未采集（旧版本员工端插件）', 'Not reported (older client plugin)')}</div>`
+    ? `<div class="kv-empty">${T('未采集（旧版本用户端插件）', 'Not reported (older client plugin)')}</div>`
     : plugins.length
       ? plugins.map((n) => {
           const bad = allowed.length && !allowed.includes(n);

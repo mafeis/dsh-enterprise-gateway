@@ -21,7 +21,7 @@ export default {
 
   <div class="card">
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-      <input class="input" id="filterUser" placeholder="${T('用户（工号）','User (employee ID)')}" style="width:140px">
+      <input class="input" id="filterUser" placeholder="${T('用户（账号）','User (account)')}" style="width:140px">
       <input class="input" id="filterModel" placeholder="${T('模型关键字','Model keyword')}" style="width:140px">
       <select class="input" id="filterFlag" style="width:110px">
         <option value="">${T('全部标记','All flags')}</option>

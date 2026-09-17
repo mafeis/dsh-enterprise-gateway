@@ -39,7 +39,7 @@ export function createPluginProtocolHandler({ config, store, auth }) {
         auditLevel: cfg.audit.level,
         dlpEnabled: cfg.dlp.enabled,
         dlpRuleCount: cfg.dlp.rules.length,
-        // 员工端接入地址：管理员在客户端管控维护的局域网地址；未配置回退本机回环（仅同机可用）
+        // 用户端接入地址：管理员在客户端管控维护的局域网地址；未配置回退本机回环（仅同机可用）
         gatewayBaseUrl: cfg.policy.clientAccessUrl || `http://127.0.0.1:${cfg.server.port}`,
         models: cfg.models.map((m) => m.id),
         pluginMeta: pluginMeta(),

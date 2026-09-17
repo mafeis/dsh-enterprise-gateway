@@ -1,8 +1,8 @@
 /**
- * 插件 ent-billing · 用量与计费域（= 账单 API + 员工自助用量 + 管理页面）
+ * 插件 ent-billing · 用量与计费域（= 账单 API + 用户自助用量 + 管理页面）
  * 路由：
  *   GET /admin/usage   管理侧：按日聚合 + 按企业模型单价折算应付金额（admin 角色）
- *   GET /usage/me      员工侧：仅当前登录用户本人的消耗汇总（不含内容，不含他人数据）
+ *   GET /usage/me      用户侧：仅当前登录用户本人的消耗汇总（不含内容，不含他人数据）
  * 页面：计费账单（近 14 日按日账单 + 分模型明细）
  * 数据来自 store 服务（usageSummary/usageDaily/usageBill/db）；单价来自 config（models.pricePer1M*，元/百万token）
  */

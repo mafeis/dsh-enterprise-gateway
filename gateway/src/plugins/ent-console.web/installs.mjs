@@ -61,7 +61,7 @@ export function renderInstalls(data, violations = []) {
       <td class="mono" style="font-size:11.5px">${esc(e.last ?? '-')}</td>
       <td><button class="btn sm" data-inst-detail="${esc(e.plugin)}">${T('详情','Details')}</button></td>
     </tr>`).join('')
-    || `<tr><td colspan="5" class="empty">${q ? T('没有匹配项','No matches') : T('暂无插件上报（员工端插件 ≥0.9.5 且已登录后开始采集）','No plugin reports (client plugin ≥0.9.5, signed in)')}</td></tr>`;
+    || `<tr><td colspan="5" class="empty">${q ? T('没有匹配项','No matches') : T('暂无插件上报（用户端插件 ≥0.9.5 且已登录后开始采集）','No plugin reports (client plugin ≥0.9.5, signed in)')}</td></tr>`;
   const violSummaryRows = violSummary(lastViolations, q);
   const violRows = violSummaryRows.map((e) => `
     <tr style="background:#fef2f2">

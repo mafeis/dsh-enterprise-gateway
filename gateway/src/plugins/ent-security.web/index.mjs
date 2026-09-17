@@ -35,7 +35,7 @@ export default {
       <div class="help-body">
         <div class="kv">
           <span class="k">${T('mask 脱敏','mask (redact)')}</span><span class="v">${T('命中部分替换为「█」后<b>放行</b> —— 对话不中断，敏感内容不外泄；留痕里存的也是脱敏版','Matched text replaced with █ then <b>allowed</b> — chat continues, sensitive content stays in, logs keep the redacted version')}</span>
-          <span class="k">${T('block 拦截','block')}</span><span class="v">${T('整条请求<b>直接拒绝</b>（HTTP 422），员工端收到「内容被企业安全策略拦截」—— 适合绝不允许外发的内容','Whole request <b>rejected</b> (HTTP 422) with a policy-blocked message on the client — for content that must never leave')}</span>
+          <span class="k">${T('block 拦截','block')}</span><span class="v">${T('整条请求<b>直接拒绝</b>（HTTP 422），用户端收到「内容被企业安全策略拦截」—— 适合绝不允许外发的内容','Whole request <b>rejected</b> (HTTP 422) with a policy-blocked message on the client — for content that must never leave')}</span>
           <span class="k">${T('log 记录','log')}</span><span class="v">${T('放行但留痕里<b>记录命中详情</b> —— 观察期用：先看频率，再决定升 mask 还是 block','Allowed but <b>hit details logged</b> — for observation: check frequency first, then move to mask or block')}</span>
           <span class="k">${T('建议节奏','Suggested flow')}</span><span class="v">${T('新规则先用 <b>log</b> 跑几天看误报 → 确认后改 <b>mask</b> → 高危内容才用 <b>block</b>','Run new rules with <b>log</b> for a few days to check false positives → switch to <b>mask</b> → reserve <b>block</b> for high-risk content')}</span>
         </div>
@@ -44,7 +44,7 @@ sk-[A-Za-z0-9_-]{20,}        <span class="cmt">// ${T('API 密钥形态','API ke
 \\b1[3-9]\\d{9}\\b              <span class="cmt">// ${T('中国大陆手机号','Mainland China phone number')}</span>
 \\b\\d{16,19}\\b                <span class="cmt">// ${T('银行卡号（16-19 位数字）','Bank card number (16-19 digits)')}</span>
 内部资料|未公开财报            <span class="cmt">// ${T('中文关键词交替','Chinese keyword alternation')}</span></div>
-        <div class="notebox">${T('与「客户端管控 → 自助规则」分工：本页在网关执行、可脱敏；自助规则在员工电脑本地执行、适合拦网址/关键词。','Split with Client control → Self-service rules: this page runs on the gateway and can redact; self-service rules run on client devices, best for URLs and keywords')}</div>
+        <div class="notebox">${T('与「客户端管控 → 自助规则」分工：本页在网关执行、可脱敏；自助规则在用户电脑本地执行、适合拦网址/关键词。','Split with Client control → Self-service rules: this page runs on the gateway and can redact; self-service rules run on client devices, best for URLs and keywords')}</div>
       </div>
     </details>
   </div>

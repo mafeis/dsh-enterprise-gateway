@@ -62,7 +62,7 @@ export default {
         <div class="mrow two">
           <div class="mfield">
             <label>${T('用户名','Username')} <i>*</i></label>
-            <input class="input" id="nuName" placeholder="${T('工号，如 0356','Employee ID, e.g. 0356')}" autocomplete="off">
+            <input class="input" id="nuName" placeholder="${T('账号，如 0356','Account ID, e.g. 0356')}" autocomplete="off">
           </div>
           <div class="mfield">
             <label>${T('展示名','Display name')}</label>
@@ -85,7 +85,7 @@ export default {
           <div class="role-cards">
             <label class="role-card">
               <input type="radio" name="nuRole" value="user" checked>
-              <span class="rc-txt"><b>${T('普通员工','Employee')}</b><span>${T('只对话、看自助用量','Chat and view own usage')}</span></span>
+              <span class="rc-txt"><b>${T('普通用户','User')}</b><span>${T('只对话、看自助用量','Chat and view own usage')}</span></span>
             </label>
             <label class="role-card">
               <input type="radio" name="nuRole" value="admin">
@@ -180,7 +180,7 @@ function renderUsers() {
       <div class="user-main">
         <div class="user-title">
           <b>${esc(u.username)}</b>${display}
-          <span class="badge ${u.role === 'admin' ? 'warn' : 'dim'}">${u.role === 'admin' ? T('admin · 管理员','admin · Admin') : T('user · 员工','user · Employee')}</span>
+          <span class="badge ${u.role === 'admin' ? 'warn' : 'dim'}">${u.role === 'admin' ? T('admin · 管理员','admin · Admin') : T('user · 用户','user · User')}</span>
           ${u.enabled ? `<span class="badge ok">${T('启用','Enabled')}</span>` : `<span class="badge bad">${T('停用','Disabled')}</span>`}
         </div>
         <div class="user-meta">

@@ -102,7 +102,7 @@ const DEFAULT_CONFIG = {
     lockModelConfig: true,
     watermark: true,
     disabledFeatures: [],
-    // 员工端设置页隐藏清单（按页面标签匹配，中英文都填；宿主改标签名时管理员在此加关键词即可）
+    // 用户端设置页隐藏清单（按页面标签匹配，中英文都填；宿主改标签名时管理员在此加关键词即可）
     // lockModelConfig=true 时「模型/Models」固定隐藏，无需写进这里
     hiddenSettingsPages: ['桌面设置', 'Desktop settings'],
     // DSH 插件安装允许清单（bundle 名，如 dsh-enterprise）；空数组 = 不限制。
@@ -114,7 +114,7 @@ const DEFAULT_CONFIG = {
     //   warn    = 中级：仅警告不处理
     //   off     = 宽松：不限制，仅心跳记录（管理台「清单外历史」仍可见）
     pluginEnforce: 'enforce',
-    // 企业自建插件源：员工安装插件时用此 registry 而非社区公共源。
+    // 企业自建插件源：用户安装插件时用此 registry 而非社区公共源。
     // mode: off=用默认源 | proxy=npm --registry=<url> | url=直接 file:/http: 包地址前缀
     pluginRegistry: {
       mode: 'off',
@@ -125,8 +125,8 @@ const DEFAULT_CONFIG = {
     // 客户端自助规则：高频简单管控下发到插件本地执行（不占网关往返）。
     // 每条: { id, type, action, value, message }；type 见 dsh-enterprise/lib/index.js applyClientRules
     clientRules: [],
-    // 员工端接入地址（管理员维护）：局域网可达的本机地址，如 http://10.0.0.5:8900。
-    // 空 = /policy/current 回退下发 http://127.0.0.1:<port>（仅本机可达，员工端需手动填）
+    // 用户端接入地址（管理员维护）：局域网可达的本机地址，如 http://10.0.0.5:8900。
+    // 空 = /policy/current 回退下发 http://127.0.0.1:<port>（仅本机可达，用户端需手动填）
     clientAccessUrl: '',
   },
 }
@@ -309,7 +309,7 @@ export function patchConfig(patch) {
     }
     if (patch.policy.clientAccessUrl !== undefined) {
       const v = String(patch.policy.clientAccessUrl ?? '').trim().replace(/\/+$/, '')
-      if (v && !/^https?:\/\/[\w.-]+(:\d+)?(\/[\w./-]*)?$/.test(v)) throw new Error('clientAccessUrl 必须是 http(s)://host[:port] 形式的员工端可达地址')
+      if (v && !/^https?:\/\/[\w.-]+(:\d+)?(\/[\w./-]*)?$/.test(v)) throw new Error('clientAccessUrl 必须是 http(s)://host[:port] 形式的用户端可达地址')
       patch.policy.clientAccessUrl = v
     }
     if (patch.policy.watermarkStyle !== undefined && patch.policy.watermarkStyle !== null) {
@@ -437,7 +437,7 @@ export function rollbackPolicy(version, note = '') {
   return config.policy.version
 }
 
-/** 员工端设备哈希 → 是否命中灰度（同哈希永远同侧，稳定不横跳） */
+/** 用户端设备哈希 → 是否命中灰度（同哈希永远同侧，稳定不横跳） */
 export function grayHit(deviceHash) {
   const gray = config.policy.gray
   if (!gray?.version || !deviceHash) return false
@@ -537,7 +537,7 @@ export const breakerOpen = (pid) => (breaker.get(pid)?.openUntil ?? 0) > Date.no
 /** 查模型定义（含上下架与承载校验） */
 export const findModel = (entModel) => config.models.find((m) => m.id === entModel && m.enabled !== false)
 
-/** 主路由：模型 → 其 Provider（主家禁用或熔断中 → 直接试 fallback，员工请求不吃失败延迟） */
+/** 主路由：模型 → 其 Provider（主家禁用或熔断中 → 直接试 fallback，用户请求不吃失败延迟） */
 export function pickRoute(entModel) {
   const model = findModel(entModel)
   if (!model) return null
@@ -794,7 +794,7 @@ export function updateModel(id, patch) {
   if (!m) return { ok: false, error: '模型不存在' }
   const v = validateModel(patch, { partial: true, selfId: id })
   if (!v.ok) return v
-  // 改名（员工端使用的模型 ID）：旧名立即失效，正在使用旧名的终端需换新名
+  // 改名（用户端使用的模型 ID）：旧名立即失效，正在使用旧名的终端需换新名
   if (patch.newId !== undefined && patch.newId !== id) m.id = patch.newId
   for (const k of ['displayName', 'providerId', 'upstreamModel', 'mode', 'thinking', 'defaultThinking']) {
     if (patch[k] !== undefined) m[k] = patch[k]

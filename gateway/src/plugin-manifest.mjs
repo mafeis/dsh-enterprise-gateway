@@ -65,17 +65,17 @@ export const PLUGIN_META = {
   'ent-users': {
     title: '用户管理',
     category: 'domain',
-    summary: '员工账号 CRUD API（/admin/users*）+ 用户管理页（创建/改密/启停/账号活动详情）',
+    summary: '用户账号 CRUD API（/admin/users*）+ 用户管理页（创建/改密/启停/账号活动详情）',
   },
   'ent-billing': {
     title: '用量与计费',
     category: 'domain',
-    summary: '管理侧账单 API（/admin/usage 按日聚合+单价折算）+ 员工自助用量（/usage/me）+ 计费账单页',
+    summary: '管理侧账单 API（/admin/usage 按日聚合+单价折算）+ 用户自助用量（/usage/me）+ 计费账单页',
   },
   'ent-client': {
     title: '客户端管控',
     category: 'domain',
-    summary: '员工端协议（/policy/current 下发、/policy/ack 回执、/heartbeat 心跳）+ 策略热更 API（/admin/policy）+ 企业插件仓库（/admin/plugin-repo 收口 npm/上传包，/plugin-packages 下载）+ 客户端管控页（拆 4 个二级页：策略与开关/插件管控/自助规则/下发回执）',
+    summary: '用户端协议（/policy/current 下发、/policy/ack 回执、/heartbeat 心跳）+ 策略热更 API（/admin/policy）+ 企业插件仓库（/admin/plugin-repo 收口 npm/上传包，/plugin-packages 下载）+ 客户端管控页（拆 4 个二级页：策略与开关/插件管控/自助规则/下发回执）',
   },
   'ent-audit': {
     title: '审计留痕',

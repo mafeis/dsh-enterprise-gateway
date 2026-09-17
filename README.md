@@ -22,14 +22,14 @@
 
 ### 它解决了什么问题
 
-企业里员工各自直连大模型，麻烦一大串：
+企业里用户各自直连大模型，麻烦一大串：
 
 - **密钥散落** — OpenAI / Anthropic / Gemini 的 API Key 复制到每台电脑，谁拷走了都不知道
 - **无法管控** — 谁在用、用多少、花了多少钱，管理员一概不知
 - **不安全** — 内部敏感内容原样发给外部模型，没有检测和留痕
-- **不可靠** — 某家供应商挂了，员工工作直接中断
+- **不可靠** — 某家供应商挂了，用户工作直接中断
 
-DSH 企业网关把所有大模型访问收敛到一个入口：员工终端只连网关，真实密钥只存在服务器；管理员在一个管理台完成模型上架、用户与计费、安全防护、审计留痕、客户端管控。供应商故障自动切换备用家，恢复后自动回切，员工无感。
+DSH 企业网关把所有大模型访问收敛到一个入口：用户终端只连网关，真实密钥只存在服务器；管理员在一个管理台完成模型上架、用户与计费、安全防护、审计留痕、客户端管控。供应商故障自动切换备用家，恢复后自动回切，用户无感。
 
 ### 功能一览
 
@@ -103,14 +103,14 @@ node scripts/reset-admin-pw.mjs <新密码>   # 重置管理员密码
 
 ### What problem does it solve
 
-When employees connect to LLM providers directly, trouble follows:
+When users connect to LLM providers directly, trouble follows:
 
 - **Keys scattered everywhere** — OpenAI / Anthropic / Gemini API keys copied onto every machine, with no idea who took one
 - **Zero visibility** — who is using what, how much, and at what cost: admins have no clue
 - **No safety net** — internal sensitive content sent verbatim to external models, unchecked and unlogged
 - **Fragile** — one provider outage and everyone's work stops
 
-DSH Enterprise Gateway funnels all LLM traffic through a single entrypoint: employee terminals only talk to the gateway, and real API keys live on the server only. Admins handle model catalogs, users & billing, content security, audit trails and client governance from one admin console. Provider outages fail over to backup providers automatically and switch back on recovery — employees never notice.
+DSH Enterprise Gateway funnels all LLM traffic through a single entrypoint: user terminals only talk to the gateway, and real API keys live on the server only. Admins handle model catalogs, users & billing, content security, audit trails and client governance from one admin console. Provider outages fail over to backup providers automatically and switch back on recovery — users never notice.
 
 ### Features
 
@@ -185,7 +185,7 @@ node scripts/reset-admin-pw.mjs <new-password>   # Reset the admin password
 
 ## 🔗 Related / 相关项目
 
-- [dsh-enterprise](https://github.com/mafeis/dsh-enterprise) — DSH 客户端插件，员工终端装它即可登录即用 · DSH client plugin for employee terminals (pairs with this gateway · 与网关配对使用)
+- [dsh-enterprise](https://github.com/mafeis/dsh-enterprise) — DSH 客户端插件，用户终端装它即可登录即用 · DSH client plugin for user terminals (pairs with this gateway · 与网关配对使用)
 
 ## 📄 License
 

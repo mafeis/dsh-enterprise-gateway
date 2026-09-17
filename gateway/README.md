@@ -19,7 +19,7 @@ src/
 │   ├── ent-catalog.mjs  — /admin/config + 供应商/模型 CRUD + 探测应用 API + 自带「供应商与模型」页面
 │   ├── ent-console.mjs  — /admin/* 管理台 SPA + 管理 API（含插件管理）
 │   ├── ent-protocol.mjs — /policy/* + /heartbeat（Desktop 插件协议：策略/回执/心跳）
-│   └── ent-usage.mjs    — GET /usage/me（员工自助用量，不含内容）
+│   └── ent-usage.mjs    — GET /usage/me（用户自助用量，不含内容）
 ├── routes/       # 路由处理器工厂 createXxx({服务注入})——逻辑与 v2 一致
 └── *.mjs         # 各插件的实现模块（auth/dlp/store/upstream/probe）
 scripts/
@@ -90,7 +90,7 @@ $env:UPSTREAM_API_KEY = "<key>"; node gateway.mjs
 
 ## 安全模型
 
-- **模型名抽象**：员工只见 `ent-default / ent-reasoning`，真实映射在渠道配置里，换上游无感
+- **模型名抽象**：用户只见 `ent-default / ent-reasoning`，真实映射在渠道配置里，换上游无感
 - **DLP**：`sk-…` 密钥 = 硬拦截（请求不到上游）；卡号/手机号/身份证 = 脱敏后放行（留痕存脱敏版）
 - **留痕**：SQLite 只追加；应用无 UPDATE/DELETE 代码路径；每日 Merkle 锚 + `verify-anchor` 校验
 - **JWT**：HS256，密钥由 `ENT_JWT_SECRET` 注入（start 脚本自动生成临时值；生产持久化）
