@@ -212,7 +212,15 @@ node gateway.mjs
 ## 🔗 Related / 相关项目
 
 - [dsh-enterprise](https://github.com/mafeis/dsh-enterprise) — DSH 客户端插件，用户终端装它即可登录即用 · DSH client plugin for user terminals (pairs with this gateway · 与网关配对使用)
-- [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) — 本方案面向的桌面客户端，插件与终端在其上运行 · The desktop client this solution targets, where the plugin and terminals run
+
+## 🤝 友情链接 / Friend Links
+
+收录 DSH 生态相关项目。
+
+| 项目 | 简介 | 链接 |
+| --- | --- | --- |
+| DSH Desktop | 基于 DeepSeek Harness 构建的开源桌面客户端，配套插件在其上运行。 | [GitHub](https://github.com/anywhere-labs/dsh-desktop) · [官网](https://dshdesktop.cn) |
+| DeepSeek Harness | 上游核心智能体与插件系统。 | [GitHub](https://github.com/deepseek-ai/deepseek-harness) |
 
 ## 🙏 致谢 / Acknowledgements
 
