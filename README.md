@@ -219,16 +219,16 @@ node gateway.mjs
 
 | 项目 | 简介 | 链接 |
 | --- | --- | --- |
-| DSH Desktop | 基于 DeepSeek Harness 构建的开源桌面客户端，配套插件在其上运行。 | [GitHub](https://github.com/anywhere-labs/dsh-desktop) · [官网](https://dshdesktop.cn) |
+| DSH Desktop | 基于 DeepSeek Harness 构建的开源桌面客户端，推荐作为配套插件的运行环境。 | [GitHub](https://github.com/anywhere-labs/dsh-desktop) · [官网](https://dshdesktop.cn) |
 | DeepSeek Harness | DSH 官方上游：核心智能体、插件系统与 Web UI。 | [GitHub](https://github.com/deepseek-ai/deepseek-harness) · [DeepSeek 官网](https://www.deepseek.com) |
 
 ## 🙏 致谢 / Acknowledgements
 
 - 网关的插件化内核基于 [@deepseek-ai/cordis](https://www.npmjs.com/package/@deepseek-ai/cordis)（[Cordis](https://github.com/cordiverse/cordis) 插件框架思想）构建
 - 借助 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的插件体系与生态落地
-- 配套插件运行于 [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) 之上
+- 推荐用户使用 [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) 运行配套插件
 
-The plugin kernel is built on `@deepseek-ai/cordis` (Cordis), and the project ships within the DeepSeek Harness plugin ecosystem. The companion plugin runs on [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop). Thanks to these open-source projects.
+The plugin kernel is built on `@deepseek-ai/cordis` (Cordis), and the project ships within the DeepSeek Harness plugin ecosystem. [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) is the recommended way to run the companion plugin. Thanks to these open-source projects.
 
 ## 📄 License
 
