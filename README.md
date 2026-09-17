@@ -46,24 +46,65 @@
 
 DSH 企业网关把所有大模型访问收敛到一个入口：用户终端只连网关，真实密钥只存在服务器；管理员在一个管理台完成模型上架、用户与计费、安全防护、审计留痕、客户端管控。供应商故障自动切换备用家，恢复后自动回切，用户无感。
 
-### 快速上手
+### 安装
+
+#### 前置要求
+
+| 项目 | 要求 | 说明 |
+| --- | --- | --- |
+| Node.js | `>=22.5` | 用内置 SQLite，不需要装任何数据库 |
+| 操作系统 | Linux / Windows / macOS | 2C4G 服务器起步 |
+| 磁盘 | 按审计留痕保留期算 | 默认留 90 天 |
+| 网络 | 员工能访问网关端口 | 默认 `8899` |
+
+没有 Node？Linux/macOS 用 [nvm](https://github.com/nvm-sh/nvm)：`curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash && nvm install 22`；Windows 直接装 [nodejs.org](https://nodejs.org) LTS 安装包。
+
+#### 安装与启动
 
 ```powershell
-# 1. 全局安装（一条命令）
+# 1. 全局安装（一条命令；国内网络慢可加 --registry=https://registry.npmmirror.com）
 npm i -g dsh-enterprise-gateway
 
-# 2. 任意目录启动（首次自动生成 ./data 与引导管理员）
+# 2. 任意目录启动
 dsh-enterprise-gateway
-
-# 3. 打开管理台 http://127.0.0.1:8899/admin
-#    初始密码只在首次启动日志打印一次（找「初始密码: xxxx」），登录后请立即改密
-
-# 4. 管理台配置上游供应商与密钥 → 用户端装 dsh-enterprise 插件，登录即用
 ```
 
-不想全局装？`npx dsh-enterprise-gateway` 直接跑；数据目录可用 `ENT_DATA_DIR` / `ENT_DB_PATH` 指定。
+首次启动自动完成两件事：
 
-> **安全提示**：网关默认只监听 `127.0.0.1`。部署给用户使用时，请放到反向代理（HTTPS）之后，不要把管理台直接暴露在公网。
+- 在当前目录创建 `./data`（配置、SQLite 数据库、审计留痕都在这里，**备份这个目录 = 备份一切**）
+- 创建引导管理员 `admin`，**初始密码只在启动日志打印一次**（找「初始密码: xxxx」），立即保存
+
+启动成功标志：
+
+```
+╔══════════════════════════════════════╗
+║  企业版-网关 v3.0.0 · 一切皆插件
+║  http://127.0.0.1:8899
+╚══════════════════════════════════════╝
+```
+
+不想全局装？`npx dsh-enterprise-gateway` 直接跑。数据目录想换位置：`ENT_DATA_DIR=/path/to/data dsh-enterprise-gateway`（Windows: `set ENT_DATA_DIR=D:\gw\data`）。
+
+#### 初始化配置（管理台）
+
+浏览器打开 `http://127.0.0.1:8899/admin`，用 `admin` + 初始密码登录，然后按顺序做四件事：
+
+1. **「供应商与模型」上架 AI 供应商** — 填上游 `baseUrl`（OpenAI 兼容）与 API Key，再给模型目录加模型并映射 `upstreamModel`（供应商在管理台填的 Key 存服务器，永不下发到终端）。保存后点「测试」应显示连通毫秒数
+2. **「用户管理」创建企业账号** — 为每位员工建账号（用户名/密码/显示名），这就是员工在终端登录用的账密
+3. **「插件管控 → 插件仓库」入库企业插件** — 输入 `dsh-enterprise` 从 npm 拉取入库（支持版本管理与中英文描述）；这份描述就是员工端「企业市场」里看到的介绍
+4. **「策略与开关」下发策略** — 建议初始配置：`pluginRegistry.mode: "proxy"` 并填 `npmRegistryUrl`（员工端装插件统一走网关）；`allowedPlugins` 填允许清单（清单外插件自动清理）
+
+> **对外服务**：网关默认只监听 `127.0.0.1`（仅本机）。给局域网/公网员工用，把 `data/gateway-config.json` 里 `server.host` 改成 `"0.0.0.0"` 重启；生产环境务必放到反向代理（HTTPS）之后，不要把管理台直接暴露公网。
+
+#### 员工端接入
+
+员工电脑装好 DSH Desktop 后，Mac 一条命令完成插件安装与预置（自动装企业插件、预填网关地址，员工输入第 2 步发的账号密码即可用）：
+
+```bash
+curl -fsSL https://www.fffly.com/mac-setup.sh | bash -s -- <网关地址>
+```
+
+Windows / 手动安装方式见 [dsh-enterprise 插件 README](https://github.com/mafeis/dsh-enterprise#安装)。
 
 ### 功能一览
 
@@ -132,26 +173,65 @@ When users connect to LLM providers directly, trouble follows:
 
 DSH Enterprise Gateway funnels all LLM traffic through a single entrypoint: user terminals only talk to the gateway, and real API keys live on the server only. Admins handle model catalogs, users & billing, content security, audit trails and client governance from one admin console. Provider outages fail over to backup providers automatically and switch back on recovery — users never notice.
 
-### Quick start
+### Installation
+
+#### Prerequisites
+
+| Item | Requirement | Notes |
+| --- | --- | --- |
+| Node.js | `>=22.5` | Built-in SQLite — no database server needed |
+| OS | Linux / Windows / macOS | 2 vCPU / 4 GB RAM to start |
+| Disk | Based on audit retention | 90 days by default |
+| Network | Terminals must reach the gateway | Default port `8899` |
+
+No Node yet? Linux/macOS: [nvm](https://github.com/nvm-sh/nvm) — `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash && nvm install 22`; Windows: install the LTS package from [nodejs.org](https://nodejs.org).
+
+#### Install & start
 
 ```powershell
-# 1. Install globally (one command)
+# 1. Install globally (one command; append --registry=https://registry.npmmirror.com if npm is slow in your region)
 npm i -g dsh-enterprise-gateway
 
-# 2. Start from any directory (./data and the bootstrap admin are created on first run)
+# 2. Start from any directory
 dsh-enterprise-gateway
-
-# 3. Open http://127.0.0.1:8899/admin
-#    The initial password is printed once in the startup log
-#    (look for「初始密码: xxxx」) — change it right after signing in
-
-# 4. Configure upstream providers and keys in the admin console
-#    → install the dsh-enterprise plugin on user terminals, sign in and go
 ```
 
-Prefer not to install globally? Run `npx dsh-enterprise-gateway`; the data directory can be relocated via `ENT_DATA_DIR` / `ENT_DB_PATH`.
+The first start does two things automatically:
 
-> **Security note**: the gateway listens on `127.0.0.1` only by default. When deploying for users, put it behind a reverse proxy (HTTPS) — never expose the admin console directly to the public internet.
+- Creates `./data` in the current directory (config, SQLite database, audit trail all live here — **backing up this directory backs up everything**)
+- Creates the bootstrap admin `admin`; **the initial password is printed once in the startup log** (look for「初始密码: xxxx」) — save it immediately
+
+Success looks like:
+
+```
+╔══════════════════════════════════════╗
+║  企业版-网关 v3.0.0 · 一切皆插件
+║  http://127.0.0.1:8899
+╚══════════════════════════════════════╝
+```
+
+Prefer not to install globally? Run `npx dsh-enterprise-gateway`. To relocate the data directory: `ENT_DATA_DIR=/path/to/data dsh-enterprise-gateway` (Windows: `set ENT_DATA_DIR=D:\gw\data`).
+
+#### Initial setup (admin console)
+
+Open `http://127.0.0.1:8899/admin`, sign in as `admin` with the initial password, then do four things in order:
+
+1. **Providers & Models** — add your upstream (OpenAI-compatible `baseUrl` + API key), then add models to the catalog and map `upstreamModel` (keys entered here stay on the server, never delivered to terminals). Hit "Test" — it should report the round-trip milliseconds
+2. **Users** — create an account per employee; these are the credentials they use to sign in on terminals
+3. **Client governance → Plugin repo** — pull `dsh-enterprise` from npm (versioned, with bilingual descriptions); the description is what employees see in the enterprise marketplace
+4. **Policy** — recommended starting point: `pluginRegistry.mode: "proxy"` with `npmRegistryUrl` (terminal plugin installs go through the gateway); `allowedPlugins` as the allowlist (non-listed plugins are auto-removed)
+
+> **Serving terminals**：the gateway listens on `127.0.0.1` only by default. For LAN/public use, set `server.host` to `"0.0.0.0"` in `data/gateway-config.json` and restart; in production always put it behind a reverse proxy (HTTPS) — never expose the admin console directly.
+
+#### Employee terminals
+
+On a Mac with DSH Desktop installed, one command installs the plugin and presets (plugin + prefilled gateway URL; employees just sign in with the account from step 2):
+
+```bash
+curl -fsSL https://www.fffly.com/mac-setup.sh | bash -s -- <gateway-url>
+```
+
+Windows / manual installation: see the [dsh-enterprise plugin README](https://github.com/mafeis/dsh-enterprise#installation).
 
 ### Features
 
