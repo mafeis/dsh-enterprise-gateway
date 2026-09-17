@@ -226,9 +226,9 @@ node gateway.mjs
 
 - 网关的插件化内核基于 [@deepseek-ai/cordis](https://www.npmjs.com/package/@deepseek-ai/cordis)（[Cordis](https://github.com/cordiverse/cordis) 插件框架思想）构建
 - 借助 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的插件体系与生态落地
-- 配套插件基于 [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) 开发
+- 配套插件运行于 [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) 之上
 
-The plugin kernel is built on `@deepseek-ai/cordis` (Cordis), and the project ships within the DeepSeek Harness plugin ecosystem. The companion plugin is developed for [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop). Thanks to these open-source projects.
+The plugin kernel is built on `@deepseek-ai/cordis` (Cordis), and the project ships within the DeepSeek Harness plugin ecosystem. The companion plugin runs on [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop). Thanks to these open-source projects.
 
 ## 📄 License
 
