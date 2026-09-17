@@ -8,13 +8,28 @@
   统一大模型入口 · 密钥托管 · 治理与容灾
   One LLM entrypoint · Key custody · Governance & failover
 
-  ![License](https://img.shields.io/badge/license-MIT-blue)
-  ![Node](https://img.shields.io/badge/node-%E2%89%A522.5-339933?logo=node.js&logoColor=white)
-  ![Dependencies](https://img.shields.io/badge/runtime%20deps-1-9ca3af)
-  ![Database](https://img.shields.io/badge/database-SQLite%20(built--in)-818cf8)
+  <sub>独立开源项目，非 DeepSeek 官方产品 · Independent open-source project, not an official DeepSeek product</sub>
 
-  [简体中文](#-简体中文) · [English](#-english)
+  <p>
+    <a href="https://github.com/mafeis/dsh-enterprise-gateway/releases/latest"><img src="https://img.shields.io/github/v/release/mafeis/dsh-enterprise-gateway?style=flat&label=release&color=4D6BFE" alt="Release"></a>
+    <a href="https://www.npmjs.com/package/dsh-enterprise-gateway"><img src="https://img.shields.io/npm/v/dsh-enterprise-gateway?style=flat&color=CB3837" alt="npm"></a>
+    <a href="https://www.npmjs.com/package/dsh-enterprise-gateway"><img src="https://img.shields.io/npm/dm/dsh-enterprise-gateway?style=flat&label=downloads&color=9ca3af" alt="npm downloads"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2EA44F?style=flat" alt="MIT License"></a>
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/node-%E2%89%A522.5-339933?logo=node.js&logoColor=white" alt="Node >=22.5">
+    <img src="https://img.shields.io/badge/runtime%20deps-1-9ca3af" alt="Runtime dependencies: 1">
+    <img src="https://img.shields.io/badge/database-SQLite%20(built--in)-818cf8" alt="SQLite built-in">
+  </p>
+
+  [简体中文](#-简体中文) · [English](#-english) · [最新下载](https://github.com/mafeis/dsh-enterprise-gateway/releases/latest)
 </div>
+
+<!-- 截图位：把管理台截图放到 assets/screenshot-admin.png 后取消下面注释
+<p align="center">
+  <img src="assets/screenshot-admin.png" alt="DSH 企业网关管理台" width="100%">
+</p>
+-->
 
 ---
 
@@ -30,6 +45,25 @@
 - **不可靠** — 某家供应商挂了，用户工作直接中断
 
 DSH 企业网关把所有大模型访问收敛到一个入口：用户终端只连网关，真实密钥只存在服务器；管理员在一个管理台完成模型上架、用户与计费、安全防护、审计留痕、客户端管控。供应商故障自动切换备用家，恢复后自动回切，用户无感。
+
+### 快速上手
+
+```powershell
+# 1. 全局安装（一条命令）
+npm i -g dsh-enterprise-gateway
+
+# 2. 任意目录启动（首次自动生成 ./data 与引导管理员）
+dsh-enterprise-gateway
+
+# 3. 打开管理台 http://127.0.0.1:8899/admin
+#    初始密码只在首次启动日志打印一次（找「初始密码: xxxx」），登录后请立即改密
+
+# 4. 管理台配置上游供应商与密钥 → 用户端装 dsh-enterprise 插件，登录即用
+```
+
+不想全局装？`npx dsh-enterprise-gateway` 直接跑；数据目录可用 `ENT_DATA_DIR` / `ENT_DB_PATH` 指定。
+
+> **安全提示**：网关默认只监听 `127.0.0.1`。部署给用户使用时，请放到反向代理（HTTPS）之后，不要把管理台直接暴露在公网。
 
 ### 功能一览
 
@@ -51,26 +85,18 @@ DSH 企业网关把所有大模型访问收敛到一个入口：用户终端只�
 | 数据库 | 内置 SQLite，无需单独安装数据库服务 |
 | 操作系统 | Windows / Linux / macOS 均可 |
 
-### 安装
-
-一条命令，从 npm 全局安装（推荐）：
+### 常用命令
 
 ```powershell
-npm i -g dsh-enterprise-gateway
-
-# 任意目录启动（首次自动生成 ./data 与引导管理员）
-dsh-enterprise-gateway
-
-# 打开管理台
-# http://127.0.0.1:8899/admin
-#    首次启动自动创建引导管理员 admin，随机初始密码只在启动日志打印一次：
-#    在启动输出里找「初始密码: xxxx」；登录后请立即改密
+node scripts/check-business.mjs    # 业务体检：心跳 / 最近请求 / 今日统计
+node scripts/smoke.mjs             # 冒烟测试
+node scripts/reset-admin-pw.mjs <新密码>   # 重置管理员密码
 ```
 
-不想全局装？`npx dsh-enterprise-gateway` 直接跑；数据目录可用 `ENT_DATA_DIR` / `ENT_DB_PATH` 指定。
+### 从源码运行（开发者）
 
 <details>
-<summary>从源码运行（开发者）</summary>
+<summary>展开</summary>
 
 ```powershell
 git clone https://github.com/mafeis/dsh-enterprise-gateway.git
@@ -85,19 +111,13 @@ node gateway.mjs
 
 </details>
 
-忘记管理员密码：
+### 文档
 
-```powershell
-node scripts/reset-admin-pw.mjs <新密码>
-```
-
-### 常用命令
-
-```powershell
-node scripts/check-business.mjs    # 业务体检：心跳 / 最近请求 / 今日统计
-node scripts/smoke.mjs             # 冒烟测试
-node scripts/reset-admin-pw.mjs <新密码>   # 重置管理员密码
-```
+| 文档 | 内容 |
+| --- | --- |
+| [网关核心文档](gateway/docs/网关核心文档.md) | 架构、插件契约、配置路径链、API 清单、运维排错 |
+| [管理台页面文档](gateway/docs/admin-plugin-pages.zh.md) | 各插件管理页说明 |
+| [插件映射](gateway/docs/plugin-map.zh.md) | 网关服务与插件的对应关系 |
 
 ## 🇬🇧 English
 
@@ -111,6 +131,27 @@ When users connect to LLM providers directly, trouble follows:
 - **Fragile** — one provider outage and everyone's work stops
 
 DSH Enterprise Gateway funnels all LLM traffic through a single entrypoint: user terminals only talk to the gateway, and real API keys live on the server only. Admins handle model catalogs, users & billing, content security, audit trails and client governance from one admin console. Provider outages fail over to backup providers automatically and switch back on recovery — users never notice.
+
+### Quick start
+
+```powershell
+# 1. Install globally (one command)
+npm i -g dsh-enterprise-gateway
+
+# 2. Start from any directory (./data and the bootstrap admin are created on first run)
+dsh-enterprise-gateway
+
+# 3. Open http://127.0.0.1:8899/admin
+#    The initial password is printed once in the startup log
+#    (look for「初始密码: xxxx」) — change it right after signing in
+
+# 4. Configure upstream providers and keys in the admin console
+#    → install the dsh-enterprise plugin on user terminals, sign in and go
+```
+
+Prefer not to install globally? Run `npx dsh-enterprise-gateway`; the data directory can be relocated via `ENT_DATA_DIR` / `ENT_DB_PATH`.
+
+> **Security note**: the gateway listens on `127.0.0.1` only by default. When deploying for users, put it behind a reverse proxy (HTTPS) — never expose the admin console directly to the public internet.
 
 ### Features
 
@@ -132,27 +173,18 @@ DSH Enterprise Gateway funnels all LLM traffic through a single entrypoint: user
 | Database | Built-in SQLite — no separate database server needed |
 | OS | Windows / Linux / macOS |
 
-### Installation
-
-One command, install globally from npm (recommended):
+### Common commands
 
 ```powershell
-npm i -g dsh-enterprise-gateway
-
-# Start from any directory (./data and the bootstrap admin are created on first run)
-dsh-enterprise-gateway
-
-# Open the admin console
-# http://127.0.0.1:8899/admin
-#    A bootstrap admin account is created on first start; the random initial
-#    password is printed once in the startup log — look for「初始密码: xxxx」
-#    and change it right after signing in.
+node scripts/check-business.mjs    # Health check: heartbeat / recent requests / daily stats
+node scripts/smoke.mjs             # Smoke test
+node scripts/reset-admin-pw.mjs <new-password>   # Reset the admin password
 ```
 
-Prefer not to install globally? Run `npx dsh-enterprise-gateway`; the data directory can be relocated via `ENT_DATA_DIR` / `ENT_DB_PATH`.
+### Run from source (developers)
 
 <details>
-<summary>Run from source (developers)</summary>
+<summary>Expand</summary>
 
 ```powershell
 git clone https://github.com/mafeis/dsh-enterprise-gateway.git
@@ -167,25 +199,26 @@ node gateway.mjs
 
 </details>
 
-Forgot the admin password:
+### Documentation
 
-```powershell
-node scripts/reset-admin-pw.mjs <new-password>
-```
-
-### Common commands
-
-```powershell
-node scripts/check-business.mjs    # Health check: heartbeat / recent requests / daily stats
-node scripts/smoke.mjs             # Smoke test
-node scripts/reset-admin-pw.mjs <new-password>   # Reset the admin password
-```
+| Document | Contents |
+| --- | --- |
+| [Gateway core docs](gateway/docs/网关核心文档.md) | Architecture, plugin contract, config path chain, API list, ops & troubleshooting |
+| [Admin pages docs](gateway/docs/admin-plugin-pages.zh.md) | Per-plugin admin page reference (Chinese) |
+| [Plugin map](gateway/docs/plugin-map.zh.md) | Gateway services ↔ plugins mapping |
 
 ---
 
 ## 🔗 Related / 相关项目
 
 - [dsh-enterprise](https://github.com/mafeis/dsh-enterprise) — DSH 客户端插件，用户终端装它即可登录即用 · DSH client plugin for user terminals (pairs with this gateway · 与网关配对使用)
+
+## 🙏 致谢 / Acknowledgements
+
+- 网关的插件化内核基于 [@deepseek-ai/cordis](https://www.npmjs.com/package/@deepseek-ai/cordis)（[Cordis](https://github.com/cordiverse/cordis) 插件框架思想）构建
+- 借助 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的插件体系与生态落地
+
+The plugin kernel is built on `@deepseek-ai/cordis` (Cordis), and the project ships within the DeepSeek Harness plugin ecosystem. Thanks to these open-source projects.
 
 ## 📄 License
 
