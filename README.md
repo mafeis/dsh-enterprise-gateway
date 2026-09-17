@@ -212,13 +212,15 @@ node gateway.mjs
 ## 🔗 Related / 相关项目
 
 - [dsh-enterprise](https://github.com/mafeis/dsh-enterprise) — DSH 客户端插件，用户终端装它即可登录即用 · DSH client plugin for user terminals (pairs with this gateway · 与网关配对使用)
+- [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) — 本方案面向的桌面客户端，插件与终端在其上运行 · The desktop client this solution targets, where the plugin and terminals run
 
 ## 🙏 致谢 / Acknowledgements
 
 - 网关的插件化内核基于 [@deepseek-ai/cordis](https://www.npmjs.com/package/@deepseek-ai/cordis)（[Cordis](https://github.com/cordiverse/cordis) 插件框架思想）构建
 - 借助 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的插件体系与生态落地
+- 配套插件基于 [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop) 开发
 
-The plugin kernel is built on `@deepseek-ai/cordis` (Cordis), and the project ships within the DeepSeek Harness plugin ecosystem. Thanks to these open-source projects.
+The plugin kernel is built on `@deepseek-ai/cordis` (Cordis), and the project ships within the DeepSeek Harness plugin ecosystem. The companion plugin is developed for [DSH Desktop](https://github.com/anywhere-labs/dsh-desktop). Thanks to these open-source projects.
 
 ## 📄 License
 
