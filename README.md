@@ -91,8 +91,6 @@ dsh-enterprise-gateway
 
 1. **「供应商与模型」上架 AI 供应商** — 填上游 `baseUrl`（OpenAI 兼容）与 API Key，再给模型目录加模型并映射 `upstreamModel`（供应商在管理台填的 Key 存服务器，永不下发到终端）。保存后点「测试」应显示连通毫秒数
 2. **「用户管理」创建企业账号** — 为每位员工建账号（用户名/密码/显示名），这就是员工在终端登录用的账密
-3. **「插件管控 → 插件仓库」入库企业插件** — 输入 `dsh-enterprise` 从 npm 拉取入库（支持版本管理与中英文描述）；这份描述就是员工端「企业市场」里看到的介绍
-4. **「策略与开关」下发策略** — 建议初始配置：`pluginRegistry.mode: "proxy"` 并填 `npmRegistryUrl`（员工端装插件统一走网关）；`allowedPlugins` 填允许清单（清单外插件自动清理）
 
 > **对外服务**：网关默认只监听 `127.0.0.1`（仅本机）。给局域网/公网员工用，把 `data/gateway-config.json` 里 `server.host` 改成 `"0.0.0.0"` 重启；生产环境务必放到反向代理（HTTPS）之后，不要把管理台直接暴露公网。
 
@@ -214,12 +212,10 @@ Prefer not to install globally? Run `npx dsh-enterprise-gateway`. To relocate th
 
 #### Initial setup (admin console)
 
-Open `http://127.0.0.1:8899/admin`, sign in as `admin` with the initial password, then do four things in order:
+Open `http://127.0.0.1:8899/admin`, sign in as `admin` with the initial password, then do two things in order:
 
 1. **Providers & Models** — add your upstream (OpenAI-compatible `baseUrl` + API key), then add models to the catalog and map `upstreamModel` (keys entered here stay on the server, never delivered to terminals). Hit "Test" — it should report the round-trip milliseconds
 2. **Users** — create an account per employee; these are the credentials they use to sign in on terminals
-3. **Client governance → Plugin repo** — pull `dsh-enterprise` from npm (versioned, with bilingual descriptions); the description is what employees see in the enterprise marketplace
-4. **Policy** — recommended starting point: `pluginRegistry.mode: "proxy"` with `npmRegistryUrl` (terminal plugin installs go through the gateway); `allowedPlugins` as the allowlist (non-listed plugins are auto-removed)
 
 > **Serving terminals**：the gateway listens on `127.0.0.1` only by default. For LAN/public use, set `server.host` to `"0.0.0.0"` in `data/gateway-config.json` and restart; in production always put it behind a reverse proxy (HTTPS) — never expose the admin console directly.
 
