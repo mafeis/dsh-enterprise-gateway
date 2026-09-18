@@ -241,6 +241,7 @@ export function loadConfig() {
     config = structuredClone(DEFAULT_CONFIG)
   }
   if (process.env.PORT) config.server.port = Number(process.env.PORT)
+  if (process.env.HOST) config.server.host = process.env.HOST
   if (process.env.UPSTREAM_BASE_URL && config.providers[0]) {
     config.providers[0].baseUrl = process.env.UPSTREAM_BASE_URL
   }

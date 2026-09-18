@@ -50,6 +50,7 @@ const BUILTIN_PLUGINS = [
   { name: 'ent-users', path: './plugins/ent-users.mjs' },
   { name: 'ent-billing', path: './plugins/ent-billing.mjs' },
   { name: 'ent-client', path: './plugins/ent-client.mjs' },
+  { name: 'ent-setup', path: './plugins/ent-setup.mjs' },
   { name: 'ent-audit', path: './plugins/ent-audit.mjs' },
   { name: 'ent-console', path: './plugins/ent-console.mjs' },
   // 协作：跨插件扫描/事件分发

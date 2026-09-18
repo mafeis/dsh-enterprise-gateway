@@ -77,6 +77,11 @@ export const PLUGIN_META = {
     category: 'domain',
     summary: '用户端协议（/policy/current 下发、/policy/ack 回执、/heartbeat 心跳）+ 策略热更 API（/admin/policy）+ 企业插件仓库（/admin/plugin-repo 收口 npm/上传包，/plugin-packages 下载）+ 客户端管控页（拆 4 个二级页：策略与开关/插件管控/自助规则/下发回执）',
   },
+  'ent-setup': {
+    title: '接入分发',
+    category: 'domain',
+    summary: '员工接入页 /setup：按系统给一条复制即用的安装命令，一键脚本由网关自托管下发（内网可用），网关地址按请求来源自动注入',
+  },
   'ent-audit': {
     title: '审计留痕',
     category: 'domain',
