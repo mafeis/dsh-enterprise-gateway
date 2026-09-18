@@ -1,7 +1,7 @@
 /**
- * 插件 ent-setup · 员工接入分发（公开页，无需登录）
+ * 插件 ent-setup · 用户接入分发（公开页，无需登录）
  * 路由：
- *   GET /setup                    员工接入页：按系统给分步指引（打开什么 → 复制什么 → 回车 → 排障）
+ *   GET /setup                    用户接入页：按系统给分步指引（打开什么 → 复制什么 → 回车 → 排障）
  *   GET /setup/windows-setup.ps1  Windows 安装脚本（__GATEWAY_URL__ 按请求来源替换）
  *   GET /setup/mac-setup.sh       Mac 安装脚本（同上）
  * 脚本本体：gateway/setup/ 目录（可直接编辑，无需重启）
@@ -223,7 +223,7 @@ export function apply(ctx) {
   const router = ctx.get('router')
 
   ctx.effect(() => router.exact('GET', '/', async (req, res, path, url) => {
-    // 根路径：浏览器访问 → 302 到员工接入页；显式要 JSON/脚本的程序化请求不动
+    // 根路径：浏览器访问 → 302 到用户接入页；显式要 JSON/脚本的程序化请求不动
     const accept = String(req.headers.accept ?? '')
     if (accept.includes('application/json') || accept.includes('text/event-stream')) return false
     res.writeHead(302, { location: '/setup' })

@@ -80,7 +80,7 @@ export const PLUGIN_META = {
   'ent-setup': {
     title: '接入分发',
     category: 'domain',
-    summary: '员工接入页 /setup：按系统给一条复制即用的安装命令，一键脚本由网关自托管下发（内网可用），网关地址按请求来源自动注入',
+    summary: '用户接入页 /setup：按系统给一条复制即用的安装命令，一键脚本由网关自托管下发（内网可用），网关地址按请求来源自动注入',
   },
   'ent-audit': {
     title: '审计留痕',

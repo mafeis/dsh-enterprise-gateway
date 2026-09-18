@@ -55,7 +55,7 @@ DSH 企业网关把所有大模型访问收敛到一个入口：用户终端只�
 | Node.js | `>=22.5` | 用内置 SQLite，不需要装任何数据库 |
 | 操作系统 | Linux / Windows / macOS | 2C4G 服务器起步 |
 | 磁盘 | 按审计留痕保留期算 | 默认留 90 天 |
-| 网络 | 员工能访问网关端口 | 默认 `8899` |
+| 网络 | 用户能访问网关端口 | 默认 `8899` |
 
 没有 Node？Linux/macOS 用 [nvm](https://github.com/nvm-sh/nvm)：`curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash && nvm install 22`；Windows 直接装 [nodejs.org](https://nodejs.org) LTS 安装包。
 
@@ -90,19 +90,13 @@ dsh-enterprise-gateway
 浏览器打开 `http://127.0.0.1:8899/admin`，用 `admin` + 初始密码登录，然后按顺序做四件事：
 
 1. **「供应商与模型」上架 AI 供应商** — 填上游 `baseUrl`（OpenAI 兼容）与 API Key，再给模型目录加模型并映射 `upstreamModel`（供应商在管理台填的 Key 存服务器，永不下发到终端）。保存后点「测试」应显示连通毫秒数
-2. **「用户管理」创建企业账号** — 为每位员工建账号（用户名/密码/显示名），这就是员工在终端登录用的账密
+2. **「用户管理」创建企业账号** — 为每位用户建账号（用户名/密码/显示名），这就是用户在终端登录用的账密
 
-> **对外服务**：网关默认只监听 `127.0.0.1`（仅本机）。给局域网/公网员工用，把 `data/gateway-config.json` 里 `server.host` 改成 `"0.0.0.0"` 重启；生产环境务必放到反向代理（HTTPS）之后，不要把管理台直接暴露公网。
+> **对外服务**：网关默认只监听 `127.0.0.1`（仅本机）。给局域网/公网用户用，把 `data/gateway-config.json` 里 `server.host` 改成 `"0.0.0.0"` 重启（或环境变量 `HOST=0.0.0.0`）；生产环境务必放到反向代理（HTTPS）之后，不要把管理台直接暴露公网。
 
-#### 员工端接入
+#### 用户端接入
 
-员工电脑装好 DSH Desktop 后，Mac 一条命令完成插件安装与预置（自动装企业插件、预填网关地址，员工输入第 2 步发的账号密码即可用）：
-
-```bash
-curl -fsSL https://www.fffly.com/mac-setup.sh | bash -s -- <网关地址>
-```
-
-Windows / 手动安装方式见 [dsh-enterprise 插件 README](https://github.com/mafeis/dsh-enterprise#安装)。
+网关自带用户接入页：管理员把网关地址发给用户，用户浏览器打开 `http://<网关IP>:8899/`（自动跳到 `/setup`），按页面指引复制一条命令回车即可——命令自动携带网关地址，装完落在登录页。
 
 ### 功能一览
 
@@ -215,19 +209,13 @@ Prefer not to install globally? Run `npx dsh-enterprise-gateway`. To relocate th
 Open `http://127.0.0.1:8899/admin`, sign in as `admin` with the initial password, then do two things in order:
 
 1. **Providers & Models** — add your upstream (OpenAI-compatible `baseUrl` + API key), then add models to the catalog and map `upstreamModel` (keys entered here stay on the server, never delivered to terminals). Hit "Test" — it should report the round-trip milliseconds
-2. **Users** — create an account per employee; these are the credentials they use to sign in on terminals
+2. **Users** — create an account per user; these are the credentials they use to sign in on terminals
 
-> **Serving terminals**：the gateway listens on `127.0.0.1` only by default. For LAN/public use, set `server.host` to `"0.0.0.0"` in `data/gateway-config.json` and restart; in production always put it behind a reverse proxy (HTTPS) — never expose the admin console directly.
+> **Serving terminals**：the gateway listens on `127.0.0.1` only by default. For LAN/public use, set `server.host` to `"0.0.0.0"` in `data/gateway-config.json` (or the `HOST` env var) and restart; in production always put it behind a reverse proxy (HTTPS) — never expose the admin console directly.
 
-#### Employee terminals
+#### Client terminals
 
-On a Mac with DSH Desktop installed, one command installs the plugin and presets (plugin + prefilled gateway URL; employees just sign in with the account from step 2):
-
-```bash
-curl -fsSL https://www.fffly.com/mac-setup.sh | bash -s -- <gateway-url>
-```
-
-Windows / manual installation: see the [dsh-enterprise plugin README](https://github.com/mafeis/dsh-enterprise#installation).
+The gateway ships a built-in user setup page: send users the gateway URL. Opening `http://<gateway-ip>:8899/` in a browser (redirects to `/setup`), the user follows the on-screen steps and copies one command — it carries the gateway address automatically and lands on the sign-in page.
 
 ### Features
 

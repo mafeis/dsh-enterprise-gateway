@@ -77,8 +77,8 @@ $env:UPSTREAM_API_KEY = "<key>"; node gateway.mjs
 | POST | `/v1/chat/completions` | OpenAI 兼容（流式/非流式） | JWT |
 | GET | `/v1/models` | 企业模型目录 | 公开 |
 | GET | `/policy/current` | 策略快照 | 公开 |
-| GET | `/` | 浏览器访问 302 到员工接入页（程序化请求不受影响） | 公开 |
-| GET | `/setup` | 员工接入页（按系统给分步指引：打开什么 → 复制什么 → 回车 → 排障） | 公开 |
+| GET | `/` | 浏览器访问 302 到用户接入页（程序化请求不受影响） | 公开 |
+| GET | `/setup` | 用户接入页（按系统给分步指引：打开什么 → 复制什么 → 回车 → 排障） | 公开 |
 | GET | `/setup/windows-setup.ps1` `/setup/mac-setup.sh` | 一键安装脚本（自动注入网关地址） | 公开 |
 | POST | `/policy/ack` `/heartbeat` | 插件回执/心跳 | 可选 |
 | GET | `/admin/stats` | 今日统计 + 7 日按用户 | admin |
