@@ -22,6 +22,17 @@ export function createPluginProtocolHandler({ config, store, auth }) {
     } catch { return undefined }
   }
 
+  /** 插件仓库各插件默认版本（客户端自动更新检测用：dsh-enterprise 比对自身 VERSION）——仓库为空时省略 */
+  const pluginLatest = () => {
+    try {
+      const out = {}
+      for (const p of listRepo()) {
+        if (p.name && p.defaultVersion) out[p.name] = p.defaultVersion
+      }
+      return Object.keys(out).length ? out : undefined
+    } catch { return undefined }
+  }
+
   return async function handlePlugin(req, res, path) {
     const cfg = getConfig()
 
@@ -100,7 +111,7 @@ export function createPluginProtocolHandler({ config, store, auth }) {
           return a.ok ? { ok: true, user: a.user?.username ?? '' } : { ok: false, reason: a.error?.type ?? 'auth_invalid' }
         } catch { return null }
       })()
-      return json(res, 200, { ok: true, deviceAccepted: deviceJson !== null, modelFingerprint: modelFp, pluginViolations, pluginEnforce: cfg.policy.pluginEnforce ?? 'enforce', ...(authState ? { auth: authState } : {}) })
+      return json(res, 200, { ok: true, deviceAccepted: deviceJson !== null, modelFingerprint: modelFp, pluginViolations, pluginEnforce: cfg.policy.pluginEnforce ?? 'enforce', pluginLatest: pluginLatest(), ...(authState ? { auth: authState } : {}) })
     }
 
     return false
