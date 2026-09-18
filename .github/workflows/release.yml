@@ -30,8 +30,14 @@ jobs:
       - name: Syntax check
         run: node scripts/check.mjs
 
-      - name: Publish to npm
-        run: npm publish
+      - name: Publish to npm (skip if version already published)
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "dsh-enterprise-gateway@$VERSION" version >/dev/null 2>&1; then
+            echo "v$VERSION already on npm, skipping publish"
+          else
+            npm publish
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
