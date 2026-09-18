@@ -25,10 +25,14 @@ function originOf(req) {
   return `${proto}://${host}`
 }
 
-/** 读脚本并注入网关地址 */
+/** 读脚本并注入网关地址；文件缺失（异常安装）时返回 null 而非抛错 */
 function script(name, origin) {
-  const body = readFileSync(join(SETUP_DIR, name), 'utf8')
-  return body.split('__GATEWAY_URL__').join(origin)
+  try {
+    const body = readFileSync(join(SETUP_DIR, name), 'utf8')
+    return body.split('__GATEWAY_URL__').join(origin)
+  } catch {
+    return null
+  }
 }
 
 const PAGE = `<!doctype html>
@@ -245,6 +249,7 @@ export function apply(ctx) {
     const s = SCRIPTS[name]
     if (!s) return false
     const body = script(s.file, origin)
+    if (body === null) return json(res, 500, { error: { message: `安装脚本缺失（${s.file}），安装不完整，请重新 npm i -g dsh-enterprise-gateway`, type: 'internal_error' } })
     res.writeHead(200, { 'content-type': s.type, 'cache-control': 'no-store' })
     res.end(req.method === 'HEAD' ? undefined : body)
     return true
