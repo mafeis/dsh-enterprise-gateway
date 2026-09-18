@@ -265,6 +265,8 @@ export function patchConfig(patch) {
       if (!Array.isArray(patch.policy.allowedPlugins)) throw new Error('allowedPlugins 必须是字符串数组')
       // 允许组织名前缀（@scope/name，如 @deepseek-ai/dsh-base）
       if (patch.policy.allowedPlugins.some((x) => !/^(@[a-zA-Z0-9_-]{1,64}\/)?[a-zA-Z0-9_-]{2,64}$/.test(String(x)))) throw new Error('插件名限 2-64 位字母数字_-，可带 @组织/ 前缀（每项）')
+      // dsh-enterprise 是企业必装组件：任何白名单更新都必须包含它，移除直接拒绝
+      if (!patch.policy.allowedPlugins.includes('dsh-enterprise')) throw new Error('dsh-enterprise 是企业必装组件，不能从白名单移除')
     }
     if (patch.policy.hiddenSettingsPages !== undefined) {
       if (!Array.isArray(patch.policy.hiddenSettingsPages)) throw new Error('hiddenSettingsPages 必须是字符串数组')

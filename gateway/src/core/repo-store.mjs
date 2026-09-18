@@ -21,6 +21,8 @@ const INDEX_FILE = path.join(REPO_DIR, 'index.json')
 
 const NAME_RE = /^(@[a-zA-Z0-9_-]{1,64}\/)?[a-zA-Z0-9_-]{2,64}$/
 const VER_RE = /^\d+\.\d+\.\d+(-[0-9A-Za-z.+-]+)?$/
+/** 企业必装组件：不允许从仓库删除（删了用户端无法安装/更新，登录与策略立即失效） */
+const REQUIRED_PLUGINS = ['dsh-enterprise']
 export const MAX_TARBALL = 64 * 1024 * 1024
 
 /** 常见插件中文名录：入库时包自述是英文则优先替换（管理员手动改过的不覆盖） */
@@ -145,7 +147,7 @@ function putTarball(buf, { by = '-', note = '', source = 'upload' } = {}) {
   const idx = loadIndex()
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
   const p = (idx.plugins[name] ??= { name, description: '', descriptionEn: '', descriptionManual: false, createdAt: now, versions: {} })
-  if (!p.defaultVersion) p.defaultVersion = version
+  if (!p.defaultVersion || verCmp(version, p.defaultVersion) > 0) p.defaultVersion = version
   if (manifest.description && !p.descriptionManual) {
     const raw = String(manifest.description).slice(0, 300)
     if (hasCJK(raw)) {
@@ -287,6 +289,8 @@ export function removeVersion(name, version) {
   const idx = loadIndex()
   const p = idx.plugins[String(name)]
   if (!p?.versions[version]) throw new Error(`没有版本 ${version}`)
+  if (REQUIRED_PLUGINS.includes(String(name)) && Object.keys(p.versions).length <= 1)
+    throw new Error(`${name} 是企业必装组件，最后一个版本不允许删除`)
   delete p.versions[version]
   try { fs.rmSync(fileOf(name, version), { force: true }) } catch { /* 文件缺失容忍 */ }
   if (p.defaultVersion === version) p.defaultVersion = highestVersion(p.versions)
@@ -296,6 +300,7 @@ export function removeVersion(name, version) {
 }
 
 export function removePlugin(name) {
+  if (REQUIRED_PLUGINS.includes(String(name))) throw new Error(`${name} 是企业必装组件，不允许从仓库删除`)
   const idx = loadIndex()
   if (!idx.plugins[String(name)]) throw new Error(`仓库中没有插件 ${name}`)
   delete idx.plugins[String(name)]
