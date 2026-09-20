@@ -3,7 +3,7 @@
   "version": "3.1.0",
   "type": "module",
   "description": "企业版-网关：OpenAI 兼容转发 + JWT 鉴权 + DLP + 留痕防篡改",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "main": "gateway.mjs",
   "bin": {
     "dsh-enterprise-gateway": "gateway.mjs"

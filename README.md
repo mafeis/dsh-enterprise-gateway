@@ -8,13 +8,13 @@
   统一大模型入口 · 密钥托管 · 治理与容灾
   One LLM entrypoint · Key custody · Governance & failover
 
-  <sub>独立开源项目，非 DeepSeek 官方产品 · Independent open-source project, not an official DeepSeek product</sub>
+  <sub>独立源码开放项目，非 DeepSeek 官方产品 · Independent source-available project, not an official DeepSeek product</sub>
 
   <p>
     <a href="https://github.com/mafeis/dsh-enterprise-gateway/releases/latest"><img src="https://img.shields.io/github/v/release/mafeis/dsh-enterprise-gateway?style=flat&label=release&color=4D6BFE" alt="Release"></a>
     <a href="https://www.npmjs.com/package/dsh-enterprise-gateway"><img src="https://img.shields.io/npm/v/dsh-enterprise-gateway?style=flat&color=CB3837" alt="npm"></a>
     <a href="https://www.npmjs.com/package/dsh-enterprise-gateway"><img src="https://img.shields.io/npm/dm/dsh-enterprise-gateway?style=flat&label=downloads&color=9ca3af" alt="npm downloads"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2EA44F?style=flat" alt="MIT License"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-DSH%20Community%20License%20v1.0-2EA44F?style=flat" alt="DSH Enterprise Community License"></a>
   </p>
   <p>
     <img src="https://img.shields.io/badge/node-%E2%89%A522.5-339933?logo=node.js&logoColor=white" alt="Node >=22.5">
@@ -216,4 +216,7 @@ The plugin kernel is built on `@deepseek-ai/cordis` (Cordis), shipped within the
 
 ## 📄 License
 
-[MIT](LICENSE)
+[DSH 企业版社区许可 · DSH Enterprise Community License v1.0](LICENSE)（源码开放）
+
+- **个人及 ≤30 人的机构** — 免费使用、修改、内部部署 · Free for individuals and organizations of ≤30 people
+- **>30 人的机构** — 需商业授权 · Commercial license required: <mafeis@gmail.com>
