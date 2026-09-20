@@ -7,7 +7,7 @@
 # 可选环境变量 DSH_SETUP_MIRROR: 安装包镜像前缀（如内网/镜像站），形如 https://mirror.example.com/dsh
 param(
   [string]$GatewayUrl = '__GATEWAY_URL__',
-  [string]$PluginVersion = '0.9.10',
+  [string]$PluginVersion = 'latest',
   [string]$Registry = 'https://registry.npmjs.org/'
 )
 $ErrorActionPreference = 'Stop'
