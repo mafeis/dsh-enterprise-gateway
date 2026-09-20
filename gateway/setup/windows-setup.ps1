@@ -73,13 +73,13 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   Log "  node $(& node -v) 已装（$nodeDir）"
 }
 $env:Path = "$env:APPDATA\npm;$env:Path"
-if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
+if (-not (Get-Command pnpm.cmd -ErrorAction SilentlyContinue)) {
   Log '  安装 pnpm（走官方 npm 源）'
   & npm.cmd install -g pnpm --registry=$Registry
   if ($LASTEXITCODE -ne 0) { Die 'pnpm 安装失败，请检查网络后重跑' }
 }
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Die 'node 仍不可用，请检查环境' }
-Log ("  node $(& node -v) / pnpm $(& pnpm -v)")
+Log ("  node $(& node -v) / pnpm $(& pnpm.cmd -v)")
 
 # ===== [2/6] DSH Desktop（动态最新版，已装一致跳过） =====
 Log '[2/6] DSH Desktop 版本检查'
