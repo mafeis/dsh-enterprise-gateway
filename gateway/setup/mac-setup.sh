@@ -77,7 +77,7 @@ if [ -d "$APP" ]; then
   [ "$CUR_VER" = "$TARGET_VER" ] && NEED_INSTALL=0
 fi
 if [ "$NEED_INSTALL" = "1" ]; then
-  log "  下载并安装 $TARGET_VER（约 270MB，请耐心等待）..."
+  log "  下载并安装 ${TARGET_VER}（约 270MB，请耐心等待）..."
   osascript -e 'quit app "DSH Desktop"' >/dev/null 2>&1 || true
   sleep 3; pkill -f 'MacOS/DSH Desktop' >/dev/null 2>&1 || true; sleep 2
   curl -L --fail --silent --show-error -o /tmp/dsh-desktop.dmg "$DMG_URL" || die 'dmg 下载失败'
