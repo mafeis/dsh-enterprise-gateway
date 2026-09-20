@@ -5,6 +5,7 @@
  * 数据来自 store 服务（listUsers/createUser/...）；账号活动详情用 store.userActivity
  */
 import { json, readJson } from '../core/http.mjs'
+import { licenseSummary, parseLicenseKey } from '../license.mjs'
 
 export const name = 'ent-users'
 export const provides = []
@@ -21,11 +22,40 @@ const ts = () => new Date().toLocaleTimeString('zh-CN', { hour12: false })
 export function apply(ctx) {
   const router = ctx.get('router')
   const auth = ctx.get('auth')
-  const { getConfig } = ctx.get('config')
+  const { getConfig, patchConfig } = ctx.get('config')
   const {
     listUsers, createUser, updateUser, deleteUser, userActivity, db,
   } = ctx.get('store')
   const { hashPassword } = auth
+
+  /* ---------- 商业授权：启用账号数 >30 时提醒（仅提醒不拦截，验签见 src/license.mjs） ---------- */
+  const enabledCount = () => db.prepare('SELECT COUNT(*) c FROM users WHERE enabled = 1').get().c
+  const licensePatch = (key) => patchConfig({ license: { key } })   // 落盘 gateway-config.json，重启不丢
+  // 启动即查一次：超限写日志，管理员在控制台可见
+  try {
+    const st = licenseSummary(enabledCount(), getConfig().license?.key)
+    if (st.state === 'over-limit' || st.state === 'invalid') console.warn(`[license] ⚠ ${st.message}`)
+  } catch { /* 计数失败不阻塞启动 */ }
+  ctx.effect(() => router.prefix('/admin/license', async (req, res, path) => {
+    const u = await requireAdmin(req, res)
+    if (!u) return true
+    if (req.method === 'GET') {
+      return json(res, 200, licenseSummary(enabledCount(), getConfig().license?.key))
+    }
+    if (req.method === 'PATCH') {
+      const b = (await readJson(req)) ?? {}
+      if (b.key === undefined) return json(res, 400, { error: { message: '需要 key（空字符串=清除授权码）', type: 'bad_request' } })
+      const key = String(b.key ?? '').trim()
+      if (key) {
+        const p = parseLicenseKey(key)
+        if (!p.ok) return json(res, 400, { error: { message: p.reason, type: 'bad_request' } })
+      }
+      try { licensePatch(key) } catch (e) { return json(res, 400, { error: { message: e.message, type: 'bad_request' } }) }
+      console.log(`[${ts()}] 🔑 商业授权码已${key ? '更新' : '清除'} by ${user.username}`)
+      return json(res, 200, licenseSummary(enabledCount(), getConfig().license?.key))
+    }
+    return false
+  }), 'ent-users: /admin/license')
 
   /** 管理员鉴权（与 ent-console 管理面同一策略） */
   async function requireAdmin(req, res) {

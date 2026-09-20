@@ -220,3 +220,4 @@ The plugin kernel is built on `@deepseek-ai/cordis` (Cordis), shipped within the
 
 - **个人及 ≤30 人的机构** — 免费使用、修改、内部部署 · Free for individuals and organizations of ≤30 people
 - **>30 人的机构** — 需商业授权 · Commercial license required: <mafeis@gmail.com>
+- 超限时管理台会持续提醒（不拦截功能）；取得的授权码在管理台「用户管理 → 商业授权」录入

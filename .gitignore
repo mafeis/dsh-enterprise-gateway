@@ -6,6 +6,7 @@ dist/
 # 运行数据与密钥（绝不入库）
 gateway/data/gateway.db*
 gateway/data/gateway-config.json
+license-private-key.pem
 *.db
 *.db-shm
 *.db-wal

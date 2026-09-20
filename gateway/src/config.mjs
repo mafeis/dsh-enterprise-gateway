@@ -97,6 +97,11 @@ const DEFAULT_CONFIG = {
   //   enabled=false 禁用（依赖它的插件会明确报错跳过）；带 path 的条目 = 外部插件（客户定制），
   //   相对路径基于网关进程 cwd，模块需导出 name/inject/apply（与 DSH 插件契约同形）。
   plugins: {},
+  // 商业授权码（Ed25519 签名，DSHE1.负载.签名）：个人及 ≤30 人机构免费，
+  // 启用账号 >30 时须录入有效授权码（仅提醒不拦截）。验签逻辑见 src/license.mjs
+  license: {
+    key: '',
+  },
   policy: {
     version: '1.0.0',
     lockModelConfig: true,
@@ -344,6 +349,15 @@ export function patchConfig(patch) {
     }
     Object.assign(config.policy, patch.policy)
   }
+  if (patch.license !== undefined) {
+    if (patch.license === null || typeof patch.license !== 'object' || Array.isArray(patch.license)) throw new Error('license 必须是对象')
+    if (patch.license.key !== undefined) {
+      const k = String(patch.license.key ?? '').trim()
+      if (k && !/^DSHE1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(k)) throw new Error('授权码格式不正确（应为 DSHE1.负载.签名）')
+      patch.license.key = k
+      config.license = { ...(config.license ?? {}), key: k }
+    }
+  }
   if (patch.audit) {
     for (const k of ['retentionDays', 'maxContentChars', 'activityDays', 'activityLogins', 'activityDevices', 'activityUsage']) {
       if (patch.audit[k] !== undefined) {
@@ -471,6 +485,7 @@ export function saveConfig() {
       policy: config.policy,
       audit: config.audit,
       dlp: config.dlp,
+      license: config.license,
       // 密钥明文绝不落配置文件：只写 apiKeyEnv 引用（明文在 data/.env）
       providers: config.providers.map((p) => ({ ...p, apiKey: null, apiKeyEnv: p.apiKeyEnv ?? null })),
       models: config.models,

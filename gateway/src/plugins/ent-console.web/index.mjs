@@ -60,6 +60,9 @@ async function loadAll() {
   if (needStats) {
     try { lastStats = await api('/admin/stats'); } catch { /* 401 已在 contract 处理 */ }
   }
+  // 商业授权状态（超限才显示横幅，正常态不打扰）
+  let license = null;
+  try { license = await api('/admin/license'); } catch { /* 401 */ }
   let terminals = [];
   if (sections.terminals?.enabled !== false) {
     try { terminals = (await api('/admin/terminals')).terminals ?? []; } catch { /* 401 */ }
@@ -83,6 +86,10 @@ async function loadAll() {
   const kpiAsCards = kpiKeys.length && kpiModes.every((m) => m === 'cards');
 
   const parts = [];
+  // —— 商业授权提醒（仅超限/无效时出现） ——
+  if (license && (license.state === 'over-limit' || license.state === 'invalid')) {
+    parts.push(`<div class="notebox warn" style="margin-bottom:16px"><b>${T('商业授权提醒','Commercial license')}</b> — ${esc(license.message)} · <a href="#/users">${T('到用户管理页录入授权码','Enter the key on the Users page')}</a></div>`);
+  }
   // —— KPI 区块（统一容器：全部同形态才组合渲染；混合形态各自渲染） ——
   if (kpiKeys.length) {
     if (kpiAsKpi) {
