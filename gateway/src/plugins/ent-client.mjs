@@ -6,7 +6,7 @@
  *   POST /heartbeat          用户端心跳（在线终端数据源）
  *   PATCH /admin/policy      管理侧策略热更（安全防护页与客户端管控页共用；校验失败 400 绝不写坏）
  *   GET  /admin/policy-detail 管理侧策略详情（含 DLP 规则/留存/登录保护/清单/回执）
- *   GET/POST/PATCH/DELETE /admin/plugin-repo*  企业插件仓库管理（npm 拉取 / 压缩包上传 / 版本与描述）
+ *   GET/POST/PATCH/DELETE /admin/plugin-repo*  企业插件仓库管理（npm 拉取 / 压缩包上传 / 版本与描述 / npm 更新检查）
  *   GET  /plugin-packages/*  用户端插件包下载（url 模式 packagePrefix 指向这里）
  * 页面：客户端管控 → 4 个二级页（策略与开关 / 插件管控 / 自助规则 / 下发回执）
  * 实现模块：src/routes/plugin.mjs（协议）、src/core/repo-store.mjs（插件仓库存储）
@@ -140,6 +140,14 @@ export function apply(ctx) {
     return json(res, 200, { plugins: repo.listRepo() })
   }), 'ent-client: route GET /admin/plugin-repo')
 
+  ctx.effect(() => router.exact('POST', '/admin/plugin-repo/check-updates', async (req, res) => {
+    const u = await requireAdmin(req, res)
+    if (!u) return true
+    const r = await repo.checkNpmUpdates()
+    console.log(`[${ts()}] 🔍 npm 更新检查 by ${u.user.username}: 可更新 ${r.updates.length}，源异常 ${r.errors.length}`)
+    return json(res, 200, { ok: true, ...r, plugins: repo.listRepo() })
+  }), 'ent-client: route POST /admin/plugin-repo/check-updates')
+
   ctx.effect(() => router.exact('POST', '/admin/plugin-repo/npm', async (req, res) => {
     const u = await requireAdmin(req, res)
     if (!u) return true
@@ -220,4 +228,11 @@ export function apply(ctx) {
     const { createReadStream } = await import('node:fs')
     createReadStream(hit.file).pipe(res)
   }), 'ent-client: route GET /plugin-packages/*')
+
+  /* ---- npm 新版本定期检测（启动 15s 后首查，每 6h 一轮；结果写索引，仓库页角标提示） ---- */
+  ctx.effect(() => {
+    const first = setTimeout(() => { void repo.checkNpmUpdates().catch(() => {}) }, 15_000)
+    const timer = setInterval(() => { void repo.checkNpmUpdates().catch(() => {}) }, 6 * 3600 * 1000)
+    return () => { clearTimeout(first); clearInterval(timer) }
+  }, 'ent-client: npm update check')
 }

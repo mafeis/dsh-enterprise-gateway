@@ -3,7 +3,7 @@
  * 路由：
  *   GET /admin/usage   管理侧：按日聚合 + 按企业模型单价折算应付金额（admin 角色）
  *   GET /usage/me      用户侧：仅当前登录用户本人的消耗汇总（不含内容，不含他人数据）
- * 页面：计费账单（近 14 日按日账单 + 分模型明细）
+ * 页面：计费账单（默认当前，可选近 7 / 30 / 90 天按日账单 + 分模型明细）
  * 数据来自 store 服务（usageSummary/usageDaily/usageBill/db）；单价来自 config（models.pricePer1M*，元/百万token）
  */
 import { createUsageHandler } from '../routes/usage.mjs'
@@ -39,7 +39,7 @@ export function apply(ctx) {
   ctx.effect(() => router.exact('GET', '/admin/usage', async (req, res, _path, url) => {
     const u = await requireAdmin(req, res)
     if (!u) return true
-    const rawDays = Math.round(Number(url.searchParams.get('days')) || 14)
+    const rawDays = Math.round(Number(url.searchParams.get('days')) || 1)
     const days = Math.min(90, Math.max(1, rawDays))
     const pm = priceMap()
     const c = getConfig()

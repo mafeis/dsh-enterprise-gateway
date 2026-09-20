@@ -1,6 +1,7 @@
 /**
  * 插件页面 · 用户管理
  * 数据源：/admin/users*（ent-users 域插件）+ /admin/stats（ent-console，取 7 日活跃）
+ * 商业授权已独立成 ent-license 页（独立菜单项）
  * 页面归本插件所有
  */
 import { api, $, toast, esc, confirmDlg, icon, openDlg, closeDlg } from '/admin/static/contract.mjs'
@@ -36,16 +37,6 @@ export default {
     <div class="kpi"><div class="lab">${T('启用中','Enabled')}</div><div class="val" id="kpiEnabled">–</div></div>
     <div class="kpi"><div class="lab">${T('管理员','Admins')}</div><div class="val" id="kpiAdmin">–</div></div>
     <div class="kpi"><div class="lab">${T('近 7 日活跃','Active in 7 days')}</div><div class="val" id="kpiActive">–</div><div class="sub2" id="kpiActiveSub"></div></div>
-  </div>
-
-  <div class="card" id="licCard">
-    <h2><span class="bar"></span>${T('商业授权','Commercial license')} <span class="badge dim" id="licBadge">–</span></h2>
-    <div style="display:flex;gap:8px;align-items:center;margin:10px 0 6px">
-      <input class="input" id="licKey" placeholder="DSHE1.xxxx.xxxx" style="flex:1;font-family:ui-monospace,Consolas,monospace" autocomplete="off">
-      <button class="btn primary sm" id="licSaveBtn">${T('保存授权码','Save key')}</button>
-      <button class="btn sm" id="licClearBtn" hidden>${T('清除','Clear')}</button>
-    </div>
-    <div class="sub2" id="licMsg"></div>
   </div>
 
   <div class="card">
@@ -150,46 +141,6 @@ async function loadUsers() {
     renderKpis()
     renderUsers()
   } catch { /* 401 已处理 */ }
-  await loadLicense()
-}
-
-/* ---------- 商业授权卡片 ---------- */
-
-const LIC_BADGE = {
-  free:       { cls: 'dim',  text: () => T('社区许可','Community') },
-  licensed:   { cls: 'ok',   text: () => T('商业授权','Licensed') },
-  'over-limit': { cls: 'warn', text: () => T('需商业授权','License required') },
-  invalid:    { cls: 'bad',  text: () => T('授权码无效','Invalid key') },
-}
-
-async function loadLicense() {
-  let lic
-  try { lic = await api('/admin/license') } catch { return }
-  const badge = LIC_BADGE[lic.state] ?? LIC_BADGE.invalid
-  $('licBadge').className = 'badge ' + badge.cls
-  $('licBadge').textContent = badge.text()
-  $('licMsg').textContent = `${lic.message} · ${T('席位口径 = 启用账号数','Seat basis = enabled accounts')}`
-  $('licClearBtn').hidden = !lic.hasKey
-}
-
-async function saveLicenseKey() {
-  const key = $('licKey').value.trim()
-  try {
-    const r = await api('/admin/license', { method: 'PATCH', body: JSON.stringify({ key }) })
-    if (r?.error) { toast('✗ ' + (r.error.message ?? T('保存失败','Save failed')), 'bad'); return }
-    $('licKey').value = ''
-    toast(key ? T('授权码已保存','License key saved') : T('授权码已清除','License key cleared'))
-    loadLicense()
-  } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad')
-  }
-}
-
-async function clearLicenseKey() {
-  try {
-    await api('/admin/license', { method: 'PATCH', body: JSON.stringify({ key: '' }) })
-    toast(T('授权码已清除','License key cleared'))
-    loadLicense()
-  } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
 }
 
 function renderKpis() {
@@ -429,10 +380,6 @@ function bindUsersPage() {
   $('pwdConfirmBtn').addEventListener('click', doResetPwd)
   $('pwdGenBtn').addEventListener('click', () => { $('pwdNew').value = genPassword() })
   $('pwdNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') doResetPwd() })
-  // 商业授权
-  $('licSaveBtn').addEventListener('click', saveLicenseKey)
-  $('licKey').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveLicenseKey() })
-  $('licClearBtn').addEventListener('click', clearLicenseKey)
 }
 
 function openResetPwd(id, username) {

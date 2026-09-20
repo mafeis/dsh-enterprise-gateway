@@ -5,10 +5,12 @@
 import { createHash } from 'node:crypto'
 import { json, readJson } from '../core/http.mjs'
 import { listRepo } from '../core/repo-store.mjs'
+import { licenseStatus } from '../license.mjs'
+import * as storeImpl from '../store.mjs'
 
 export function createPluginProtocolHandler({ config, store, auth }) {
   const { getConfig } = config
-  const { insertAck, insertHeartbeat, latestHeartbeatDevice, recordPluginSightings } = store
+  const { insertAck, insertHeartbeat, latestHeartbeatDevice, recordPluginSightings, listGroups, groupOfUser } = store
   /** 策略下发附带插件元数据（管理员在插件仓库维护的中英描述）——仓库为空时省略该字段 */
   const pluginMeta = () => {
     try {
@@ -33,6 +35,32 @@ export function createPluginProtocolHandler({ config, store, auth }) {
     } catch { return undefined }
   }
 
+  /** 带票请求按所在分组的模型白名单过滤目录 id（未分组/解析失败 = 全量） */
+  const modelsForUser = async (req, cfg) => {
+    let ids = cfg.models.map((m) => m.id)
+    try {
+      if (req.headers.authorization && auth) {
+        const a = await auth.authenticate(req)
+        if (a.ok) {
+          const g = groupOfUser(a.user.username)
+          if (g?.models?.length) ids = ids.filter((id) => g.models.includes(id))
+        }
+      }
+    } catch { /* 分组解析失败回退全量 */ }
+    return ids
+  }
+
+  /** 超限公告：授权超限/到期/席位不足时随策略下发（licenseNotice），客户端每次登录必弹；
+   *  正常态不注入该字段——它不进管理台公告编辑（clientRules），对管理员不可见即「隐藏公告」。 */
+  const licenseNotice = (cfg) => {
+    try {
+      const n = storeImpl.db.prepare('SELECT COUNT(*) c FROM users WHERE enabled = 1').get().c
+      const st = licenseStatus(n, cfg.license?.key)
+      if (st.state === 'over-limit' || st.state === 'invalid') return st.message
+      return null
+    } catch { return null }
+  }
+
   return async function handlePlugin(req, res, path) {
     const cfg = getConfig()
 
@@ -52,8 +80,9 @@ export function createPluginProtocolHandler({ config, store, auth }) {
         dlpRuleCount: cfg.dlp.rules.length,
         // 用户端接入地址：管理员在客户端管控维护的局域网地址；未配置回退本机回环（仅同机可用）
         gatewayBaseUrl: cfg.policy.clientAccessUrl || `http://127.0.0.1:${cfg.server.port}`,
-        models: cfg.models.map((m) => m.id),
+        models: await modelsForUser(req, cfg),
         pluginMeta: pluginMeta(),
+        licenseNotice: licenseNotice(cfg) ?? undefined,
       })
     }
     if (req.method === 'POST' && path === '/policy/ack') {
@@ -90,6 +119,9 @@ export function createPluginProtocolHandler({ config, store, auth }) {
         .update(JSON.stringify({
           models: cfg.models.map((m) => [m.id, m.displayName ?? m.id, m.enabled !== false, m.fallbackProviders ?? [], m.upstreamModelByProvider ?? null]),
           providers: cfg.providers.map((p) => [p.id, p.enabled !== false]),
+          // 分组模型可见性：管理员改任一分组的模型清单/额度后，所有终端指纹变化 → 自动重拉
+          // /v1/models（带票，按各自分组过滤），模型目录随之刷新
+          groups: listGroups().map((g) => [g.id, g.models, g.quota]),
         }))
         .digest('hex').slice(0, 16)
       // 插件管控：设备快照带已安装插件清单时，比对策略允许清单，返回违规项（客户端自动清理）

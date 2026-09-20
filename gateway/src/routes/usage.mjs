@@ -60,6 +60,16 @@ export function createUsageHandler({ auth, store }) {
       ORDER BY id DESC LIMIT 30
     `).all(user)
 
-    return json(res, 200, { ok: true, user, days, summary, byModel, byDay, recent })
+    // 分组额度余量（未分组 / 组未设额度时省略该字段）
+    let quota
+    try {
+      const g = store.groupOfUser(user)
+      if (g) {
+        const st = store.groupQuotaState(user, g)
+        if (st.hasQuota) quota = { group: st.group, limits: st.limits, used: st.used }
+      }
+    } catch { /* 额度统计失败不影响用量查询 */ }
+
+    return json(res, 200, { ok: true, user, days, summary, byModel, byDay, recent, ...(quota ? { quota } : {}) })
   }
 }

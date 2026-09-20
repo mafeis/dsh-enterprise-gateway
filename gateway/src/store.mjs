@@ -6,7 +6,7 @@
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { getConfig } from './config.mjs'
+import { getConfig, priceMap } from './config.mjs'
 
 /** SQLite 路径:ENT_DB_PATH 优先;默认「启动目录/data/gateway.db」(与 config.mjs 的 DATA_DIR 同规则) */
 const DB_PATH = process.env.ENT_DB_PATH ?? join(process.cwd(), 'data', 'gateway.db')
@@ -127,6 +127,20 @@ CREATE TABLE IF NOT EXISTS plugin_sightings (
 );
 CREATE INDEX IF NOT EXISTS idx_ps_violation ON plugin_sightings(violation, last_ts DESC);
 `)
+
+// 用户分组：models = JSON 数组（企业模型 id 白名单，[] = 不限）；quota = JSON（每人独立额度，0/缺省 = 不限）
+db.exec(`
+CREATE TABLE IF NOT EXISTS user_groups (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT UNIQUE NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  models      TEXT NOT NULL DEFAULT '[]',
+  quota       TEXT NOT NULL DEFAULT '{}',
+  created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+`)
+// users 补 group_id：NULL = 未分组（全模型、不限额，向后兼容）
+try { db.exec('ALTER TABLE users ADD COLUMN group_id INTEGER') } catch { /* 列已存在 */ }
 
 /** 吊销某用户当前所有令牌（登出/改密/封禁时调用）：版本号 +1，旧 JWT 立即失效 */
 export function revokeUserTokens(username) {
@@ -340,7 +354,12 @@ export function statsByUser(days = 7) {
 /* ---------- 用户管理 ---------- */
 
 export function listUsers() {
-  return db.prepare('SELECT id, username, display_name, org_path, role, enabled, created_at FROM users ORDER BY id').all()
+  return db.prepare(`
+    SELECT u.id, u.username, u.display_name, u.org_path, u.role, u.enabled, u.created_at, u.group_id,
+           g.name AS group_name
+    FROM users u LEFT JOIN user_groups g ON g.id = u.group_id
+    ORDER BY u.id
+  `).all()
 }
 
 export function createUser({ username, passwordHash, displayName, role = 'user', orgPath = '/' }) {
@@ -369,6 +388,153 @@ export function deleteUser(id) {
   if (cur.username === 'admin') return { ok: false, reason: 'cannot-delete-bootstrap-admin' }
   db.prepare('DELETE FROM users WHERE id = ?').run(id)
   return { ok: true }
+}
+
+/* ---------- 用户分组（组内模型可见性 + 每人独立额度） ---------- */
+
+/** 解析组行的 JSON 列（models/quota），防御脏数据回退默认 */
+function parseGroupRow(r) {
+  if (!r) return null
+  let models = []
+  let quota = {}
+  try { models = JSON.parse(r.models ?? '[]'); if (!Array.isArray(models)) models = [] } catch { models = [] }
+  try { quota = JSON.parse(r.quota ?? '{}'); if (!quota || typeof quota !== 'object' || Array.isArray(quota)) quota = {} } catch { quota = {} }
+  return { ...r, models, quota }
+}
+
+const num0 = (v) => (Number.isInteger(v) && v > 0 ? v : 0)
+
+export function listGroups() {
+  return db.prepare(`
+    SELECT g.id, g.name, g.description, g.models, g.quota, g.created_at,
+           (SELECT COUNT(*) FROM users u WHERE u.group_id = g.id) AS member_count
+    FROM user_groups g ORDER BY g.id
+  `).all().map(parseGroupRow)
+}
+
+export function createGroup({ name, description = '', models = [], quota = {}, members = [] }) {
+  const r = db.prepare('INSERT INTO user_groups (name, description, models, quota) VALUES (?, ?, ?, ?)')
+    .run(String(name).trim(), String(description ?? ''), JSON.stringify((models ?? []).map(String)), JSON.stringify(quota ?? {}))
+  if (Array.isArray(members) && members.length && r.lastInsertRowid) {
+    const set = db.prepare('UPDATE users SET group_id = ? WHERE username = ?')
+    for (const u of members) set.run(Number(r.lastInsertRowid), String(u))
+  }
+}
+export function updateGroup(id, { name, description, models, quota, members }) {
+  const cur = db.prepare('SELECT * FROM user_groups WHERE id = ?').get(id)
+  if (!cur) return { ok: false, reason: 'not-found' }
+  if (name !== undefined) db.prepare('UPDATE user_groups SET name = ? WHERE id = ?').run(String(name).trim(), id)
+  if (description !== undefined) db.prepare('UPDATE user_groups SET description = ? WHERE id = ?').run(String(description ?? ''), id)
+  if (models !== undefined) db.prepare('UPDATE user_groups SET models = ? WHERE id = ?').run(JSON.stringify((models ?? []).map(String)), id)
+  if (quota !== undefined) db.prepare('UPDATE user_groups SET quota = ? WHERE id = ?').run(JSON.stringify(quota ?? {}), id)
+  if (Array.isArray(members)) {
+    // 成员列表全量重写：勾选的进组，原在组内未勾选的清出
+    db.prepare('UPDATE users SET group_id = NULL WHERE group_id = ?').run(id)
+    const set = db.prepare('UPDATE users SET group_id = ? WHERE username = ?')
+    for (const u of members) set.run(id, String(u))
+  }
+  return { ok: true }
+}
+
+export function deleteGroup(id) {
+  const r = db.prepare('DELETE FROM user_groups WHERE id = ?').run(id)
+  if (!r.changes) return { ok: false, reason: 'not-found' }
+  db.prepare('UPDATE users SET group_id = NULL WHERE group_id IS NULL OR group_id = ?').run(id)
+  return { ok: true }
+}
+
+/** 用户所在分组（含解析后的 models/quota）；未分组返回 null */
+export function groupOfUser(username) {
+  const r = db.prepare(`
+    SELECT g.*, u.username FROM users u LEFT JOIN user_groups g ON g.id = u.group_id
+    WHERE u.username = ?
+  `).get(username)
+  return r?.id ? parseGroupRow(r) : null
+}
+
+/** 组内模型白名单判定：未分组 / 白名单为空 = 不限 */
+export function groupAllowsModel(group, modelId) {
+  if (!group || !Array.isArray(group.models) || !group.models.length) return true
+  return group.models.includes(modelId)
+}
+
+const QUOTA_KEYS = ['dailyTokens', 'dailyAmount', 'weeklyTokens', 'weeklyAmount', 'monthlyTokens', 'monthlyAmount']
+const normQuota = (q) => Object.fromEntries(QUOTA_KEYS.map((k) => [k, Number.isFinite(Number(q?.[k])) && Number(q?.[k]) > 0 ? Number(q?.[k]) : 0]))
+
+/** 某用户在组内的额度消耗（request_logs 存本地时间，边界用 localtime 对齐；blocked 请求不计量）。
+ *  tokens = in+out 实测用量；amount = 按企业模型单价（pricePer1M*，元/百万token）折算应付金额 */
+export function groupQuotaState(username, group) {
+  const window = (since) => db.prepare(`
+    SELECT COUNT(*) AS requests, COALESCE(SUM(COALESCE(tokens_in,0)+COALESCE(tokens_out,0)),0) AS tokens
+    FROM request_logs
+    WHERE user_name = ? AND blocked = 0 AND ts >= datetime('now','localtime',${since})
+  `).get(username)
+  const day = window("'start of day'")
+  const week = window("'weekday 0', '-6 days'")
+  const month = window("'start of month'")
+  // 金额：按模型单价逐行折算（单价取配置现值，历史调用按当前价口径）。
+  // since 是 modifier 字符串（'start of month' 等），SQLite 参数绑定不认 modifier，必须拼进 SQL
+  const amountSince = (since) => {
+    const rows = db.prepare(`
+      SELECT model,
+             COALESCE(SUM(COALESCE(tokens_in,0)-COALESCE(tokens_cached,0)),0) AS in_billable,
+             COALESCE(SUM(COALESCE(tokens_cached,0)),0) AS in_cached,
+             COALESCE(SUM(COALESCE(tokens_out,0)),0) AS tokens_out
+      FROM request_logs
+      WHERE user_name = ? AND blocked = 0 AND ts >= datetime('now','localtime',${since})
+      GROUP BY model
+    `).all(username)
+    const pm = priceMap()
+    let amount = 0
+    for (const r of rows) {
+      const p = pm[r.model] ?? { in: 0, out: 0, cache: 0 }
+      amount += (r.in_billable / 1e6) * (p.in ?? 0) + (r.in_cached / 1e6) * (p.cache ?? 0) + (r.tokens_out / 1e6) * (p.out ?? 0)
+    }
+    return Math.round(amount * 1000) / 1000
+  }
+  const q = normQuota(group?.quota)
+  return {
+    group: group?.name ?? null,
+    limits: q,
+    used: {
+      dailyTokens: day.tokens, dailyAmount: amountSince("'start of day'"),
+      weeklyTokens: week.tokens, weeklyAmount: amountSince("'weekday 0', '-6 days'"),
+      monthlyTokens: month.tokens, monthlyAmount: amountSince("'start of month'"),
+    },
+    hasQuota: QUOTA_KEYS.some((k) => q[k] > 0),
+  }
+}
+
+/** 转发前准入判定（chat/responses 共用）：模型白名单 + 每人独立额度。命中即拒，不改状态。
+ *  叠加语义：Token 与金额可同时设置（都受控，任一超限即拒）；日/周/月各自独立窗口 */
+export function groupAccessCheck(username, modelId) {
+  const g = groupOfUser(username)
+  if (!g) return { ok: true }
+  if (!groupAllowsModel(g, modelId)) {
+    return { ok: false, status: 403, type: 'model_not_allowed', message: `该模型不在你的可用范围内（分组：${g.name}），请联系管理员调整分组` }
+  }
+  const st = groupQuotaState(username, g)
+  const { limits, used } = st
+  const over = (limit, usedVal) => limit > 0 && usedVal >= limit
+  if (over(limits.dailyTokens, used.dailyTokens)) {
+    return { ok: false, status: 429, type: 'quota_exceeded', message: `今日 Token 额度已用尽（${limits.dailyTokens}），明天自动恢复`, quota: st }
+  }
+  if (over(limits.dailyAmount, used.dailyAmount)) {
+    return { ok: false, status: 429, type: 'quota_exceeded', message: `今日金额额度已用尽（${limits.dailyAmount} 元），明天自动恢复`, quota: st }
+  }
+  if (over(limits.weeklyTokens, used.weeklyTokens)) {
+    return { ok: false, status: 429, type: 'quota_exceeded', message: `本周 Token 额度已用尽（${limits.weeklyTokens}），下周一自动恢复`, quota: st }
+  }
+  if (over(limits.weeklyAmount, used.weeklyAmount)) {
+    return { ok: false, status: 429, type: 'quota_exceeded', message: `本周金额额度已用尽（${limits.weeklyAmount} 元），下周一自动恢复`, quota: st }
+  }
+  if (over(limits.monthlyTokens, used.monthlyTokens)) {
+    return { ok: false, status: 429, type: 'quota_exceeded', message: `本月 Token 额度已用尽（${limits.monthlyTokens}），下月自动恢复`, quota: st }
+  }
+  if (over(limits.monthlyAmount, used.monthlyAmount)) {
+    return { ok: false, status: 429, type: 'quota_exceeded', message: `本月金额额度已用尽（${limits.monthlyAmount} 元），下月自动恢复`, quota: st }
+  }
+  return { ok: true, quota: st.hasQuota ? st : undefined }
 }
 
 /* ---------- 计费（日聚合视图，按需查询生成） ---------- */

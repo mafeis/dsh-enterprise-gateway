@@ -109,7 +109,7 @@ function chunkToResponseEvents(j, state) {
 export function createResponsesHandler({ store, auth, dlp, upstream }) {
   const { auditContent, scanMessages, serializeContext, auditMaxChars } = dlp
   const { forwardWithFailover, pumpSse } = upstream
-  const { insertLog } = store
+  const { insertLog, groupAccessCheck } = store
   const { authenticate } = auth
 
   return async function handleResponses(req, res) {
@@ -126,6 +126,12 @@ export function createResponsesHandler({ store, auth, dlp, upstream }) {
     // Responses → chat.completions 内部形态，此后与 chat 链路完全同构
     const body = responsesToChat(raw)
     const entModel = body.model ?? 'ent-default'
+    // 分组准入：模型白名单 + 每人独立额度（未分组用户恒通过）
+    const access = groupAccessCheck(authResult.user.username, entModel)
+    if (!access.ok) {
+      console.log(`[${ts()}] ⛔ 分组拦截(responses) user=${authResult.user.username} ${entModel} type=${access.type}`)
+      return json(res, access.status, { error: { message: access.message, type: access.type } })
+    }
     const messages = Array.isArray(body.messages) ? body.messages : []
     const userMsg = messages.at(-1)?.content ?? ''
     const promptText = typeof userMsg === 'string' ? userMsg : JSON.stringify(userMsg)

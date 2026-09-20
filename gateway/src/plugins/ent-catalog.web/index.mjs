@@ -3,7 +3,7 @@
  * 数据源：/admin/config + /admin/providers* + /admin/models*（本插件提供）
  * 约定：网关 4xx 返回 JSON {error:{message}}，统一经 must() 转异常后进错误提示
  */
-import { api, $, toast, esc, must, confirmDlg } from '/admin/static/contract.mjs';
+import { api, $, toast, esc, must, confirmDlg, icon, openDlg, closeDlg } from '/admin/static/contract.mjs';
 import { T } from '/admin/static/js/i18n.mjs';
 
 let cachedConfig = { providers: [], models: [] };
@@ -26,20 +26,12 @@ function renderProbeLvBoxes() {
   wrap.innerHTML = PRESET_LEVELS.map((lv) => `<label class="chk"><input type="checkbox" class="probeLv" value="${esc(lv)}" ${probeLevelsCfg.includes(lv) ? 'checked' : ''}>${esc(lv)}</label>`).join('');
 }
 
-/* ---------- 弹窗开关（编辑器/探测共用：打开锁页面滚动，关闭/全关时解锁） ---------- */
+/* ---------- 弹窗开关（统一走 core.mjs dlg 栈：openDlg/closeDlg 管滚动锁与 Esc） ---------- */
 function openModal(el) {
-  el.hidden = false;
-  document.body.style.overflow = 'hidden';
+  openDlg(el);
 }
 function closeModal(el) {
-  el.hidden = true;
-  // 弹层全关才恢复页面滚动
-  if ($('probeModal').hidden && $('provEditorCard').hidden && $('modelEditorCard').hidden && $('healthModal')?.hidden !== false) {
-    document.body.style.overflow = '';
-  }
-}
-function unlockScroll() {
-  document.body.style.overflow = '';
+  closeDlg(el);
 }
 
 /* ---------- 加载与渲染 ---------- */
@@ -510,8 +502,7 @@ function bindPage() {
         $('meProv').value = pid;
         $('meId').value = imp.dataset.model;
         $('meUpstream').value = imp.dataset.model;
-        $('probeModal').hidden = true;
-        unlockScroll();   // 从探测弹窗跳转编辑弹窗：先解锁再重新锁定，避免滚动锁计数错乱
+        closeModal($('probeModal'));   // 从探测弹窗跳转编辑弹窗：先出栈再入栈（dlg 栈统一管滚动锁）
         openModal($('modelEditorCard'));
         toast(T('已预填模型编辑器，补齐展示名/价格后保存', 'Model editor prefilled; set display name and price, then save'), 'ok');
       }
@@ -571,15 +562,6 @@ function bindPage() {
     if (e.key === 'Escape') { e.target.value = ''; applyFilter(); e.target.blur(); }
   });
 
-  // Esc 统一关闭弹层（确认弹窗打开时让位给它自己的 Esc 处理）
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    if (document.querySelector('.confirm-mask.show')) return;
-    if (!$('probeModal').hidden) { closeModal($('probeModal')); return; }
-    if (!$('provEditorCard').hidden) { closeModal($('provEditorCard')); return; }
-    if (!$('modelEditorCard').hidden) { closeModal($('modelEditorCard')); return; }
-    if ($('healthModal') && !$('healthModal').hidden) { closeModal($('healthModal')); }
-  });
 
   // 编辑器内部（密钥单框化：peKeyMode 切换已移除，Key 输入直接落 .env）
   $('peCloseBtn').addEventListener('click', () => closeModal($('provEditorCard')));
@@ -926,13 +908,13 @@ export default {
   </div>
 
   <!-- 供应商编辑器（弹窗 · md 档） -->
-  <div class="edit-modal-mask" id="provEditorCard" hidden>
-    <div class="edit-modal md">
-      <div class="modal-head">
+  <div class="dlg-mask" id="provEditorCard" hidden>
+    <div class="dlg md">
+      <div class="dlg-head">
         <h3 id="provEditorTitle">${T('新增供应商', 'Add provider')}</h3>
-        <button class="close" id="peCloseBtn" title="${T('关闭 (Esc)', 'Close (Esc)')}">×</button>
+        <button class="dlg-x" id="peCloseBtn" data-dlg-close title="${T('关闭 (Esc)', 'Close (Esc)')}">${icon('x', { size: 16 })}</button>
       </div>
-      <div class="edit-modal-body">
+      <div class="dlg-body">
       <div class="frm">
         <div class="fldgrp full"><span class="fldgrp-t">${T('基础信息', 'Basics')}</span></div>
         <div class="fld">
@@ -1004,13 +986,13 @@ export default {
   </div>
 
   <!-- 模型编辑器（弹窗 · lg 档） -->
-  <div class="edit-modal-mask" id="modelEditorCard" hidden>
-    <div class="edit-modal lg">
-      <div class="modal-head">
+  <div class="dlg-mask" id="modelEditorCard" hidden>
+    <div class="dlg lg">
+      <div class="dlg-head">
         <h3 id="modelEditorTitle">${T('上架模型', 'Add model')}</h3>
-        <button class="close" id="meCloseBtn" title="${T('关闭 (Esc)', 'Close (Esc)')}">×</button>
+        <button class="dlg-x" id="meCloseBtn" data-dlg-close title="${T('关闭 (Esc)', 'Close (Esc)')}">${icon('x', { size: 16 })}</button>
       </div>
-      <div class="edit-modal-body">
+      <div class="dlg-body">
       <div class="frm">
         <div class="fldgrp full"><span class="fldgrp-t">${T('基础信息', 'Basics')}</span></div>
         <div class="fld">
@@ -1120,11 +1102,11 @@ export default {
   </div>
 
   <!-- 上游模型探测弹窗 -->
-  <div class="probe-modal-mask" id="probeModal" hidden>
-    <div class="probe-modal">
-      <div class="modal-head">
+  <div class="dlg-mask" id="probeModal" hidden>
+    <div class="dlg bench">
+      <div class="dlg-head">
         <h3 id="probeTitle">${T('模型设置', 'Model settings')}</h3>
-        <button class="close" id="probeCloseBtn" title="${T('关闭 (Esc)', 'Close (Esc)')}">×</button>
+        <button class="dlg-x" id="probeCloseBtn" data-dlg-close title="${T('关闭 (Esc)', 'Close (Esc)')}">${icon('x', { size: 16 })}</button>
       </div>
       <div class="toolbar" id="probeFilterWrap">
         <input class="input" id="probeSearch" placeholder="${T('筛选模型…', 'Filter models…')}" style="width:170px;padding:4px 8px;font-size:12.5px" autocomplete="off">
@@ -1146,13 +1128,13 @@ export default {
   </div>
 
   <!-- 供应商状态检测弹窗 -->
-  <div class="edit-modal-mask" id="healthModal" hidden>
-    <div class="edit-modal md">
-      <div class="modal-head">
+  <div class="dlg-mask" id="healthModal" hidden>
+    <div class="dlg md">
+      <div class="dlg-head">
         <h3 id="healthTitle">${T('状态检测', 'Health check')}</h3>
-        <button class="close" id="healthCloseBtn" title="${T('关闭 (Esc)', 'Close (Esc)')}">×</button>
+        <button class="dlg-x" id="healthCloseBtn" data-dlg-close title="${T('关闭 (Esc)', 'Close (Esc)')}">${icon('x', { size: 16 })}</button>
       </div>
-      <div class="edit-modal-body" id="healthBody"></div>
+      <div class="dlg-body" id="healthBody"></div>
     </div>
   </div>`,
 

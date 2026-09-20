@@ -47,12 +47,45 @@ function mergedNavItems() {
 /** 重建侧边导航（菜单管理保存后即时重排；不重复挂载页面） */
 function renderSidebar() {
   const aside = document.querySelector('.sidebar');
-  const foot = aside?.querySelector('.nav-foot');
-  if (!aside || !foot) return;
+  if (!aside) return;
   aside.querySelectorAll('.nav-item, .nav-group, .nav-sub, .nav-sep').forEach((el) => el.remove());
-  for (const n of mergedNavItems()) {
+  // 跨插件 section 归组：相邻且声明同一 section 的项收进同一个可展开二级菜单
+  const items = mergedNavItems();
+  const groups = [];   // [{key?, item}] — key 存在 = 合成 section 组
+  for (const n of items) {
+    const sid = n.section?.id ?? null;
+    const prev = groups[groups.length - 1];
+    if (sid && prev?.key === 'sec-' + sid) prev.children.push(n);
+    else if (sid) groups.push({ key: 'sec-' + sid, section: n.section, children: [n] });
+    else groups.push({ item: n });
+  }
+  for (const g of groups) {
+    if (g.key) {
+      const vis = g.children.filter((c) => !navPrefs.hidden.includes(c.id));
+      if (!vis.length) continue;
+      const a = document.createElement('a');
+      a.className = 'nav-item nav-group';
+      a.dataset.navgroup = g.key;
+      a.href = '#/' + vis[0].id;
+      a.innerHTML = `<span class="ic">${icon(g.section.icon ?? 'puzzle', { size: 16 })}</span><span>${esc(T(g.section.title ?? '', g.section.titleEn) || g.section.id)}</span><span class="sub-arw">${icon('chevron-right', { size: 14 })}</span>`;
+      const sub = document.createElement('div');
+      sub.className = 'nav-sub';
+      sub.id = 'navSub-' + g.key;
+      for (const c of vis) {
+        const s = document.createElement('a');
+        s.className = 'nav-item sub';
+        s.href = '#/' + c.id;
+        s.dataset.nav = c.id;
+        s.innerHTML = `<span>${esc(navTitle(c))}</span>`;
+        sub.appendChild(s);
+      }
+      aside.append(sub);
+      aside.insertBefore(a, sub);
+      continue;
+    }
+    const n = g.item;
     if (navPrefs.hidden.includes(n.id)) continue;
-    // 分组导航：插件声明 nav.children 时渲染为分组头 + 缩进二级项（如「客户端管控」拆出的子页）
+    // 插件内二级页（nav.children）：分组头 + 缩进二级项（如「客户端管控」拆出的子页）
     if (Array.isArray(n.children) && n.children.length) {
       const vis = n.children.filter((c) => !navPrefs.hidden.includes(c.id));
       if (!vis.length) continue;
@@ -60,7 +93,7 @@ function renderSidebar() {
       g.className = 'nav-item nav-group';
       g.dataset.navgroup = n.id;
       g.href = '#/' + vis[0].id;   // 兜底：直接回车/中键打开落第一个子页（普通点击被 initRouter 拦下只做展开）
-      g.innerHTML = `<span class="ic">${icon(n.icon ?? 'puzzle', { size: 16 })}</span><span>${esc(navTitle(n))}</span><span class="sub-arw">▸</span>`;
+      g.innerHTML = `<span class="ic">${icon(n.icon ?? 'puzzle', { size: 16 })}</span><span>${esc(navTitle(n))}</span><span class="sub-arw">${icon('chevron-right', { size: 14 })}</span>`;
       const sub = document.createElement('div');
       sub.className = 'nav-sub';
       sub.id = 'navSub-' + n.id;
@@ -72,8 +105,8 @@ function renderSidebar() {
         a.innerHTML = `<span>${esc(navTitle(c))}</span>`;
         sub.appendChild(a);
       }
-      aside.insertBefore(sub, foot);
-      aside.insertBefore(g, sub);
+      aside.append(sub);
+      aside.append(g);
       continue;
     }
     const a = document.createElement('a');
@@ -81,7 +114,7 @@ function renderSidebar() {
     a.href = '#/' + n.id;
     a.dataset.nav = n.id;
     a.innerHTML = `<span class="ic">${icon(n.icon ?? 'puzzle', { size: 16 })}</span><span>${esc(navTitle(n))}</span>`;
-    aside.insertBefore(a, foot);
+    aside.append(a);
   }
   // 恢复当前路由高亮（renderSidebar 可能在导航中途被调用）
   syncNavActive();
@@ -90,12 +123,23 @@ function renderSidebar() {
 /** 当前路由高亮 + 分组展开态：子页命中时展开所属分组并高亮子项 */
 function syncNavActive() {
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === current));
+  const curSection = navRegistry.find((n) => n.id === current)?.section?.id ?? null;
   document.querySelectorAll('[data-navgroup]').forEach((g) => {
-    const item = navRegistry.find((n) => n.id === g.dataset.navgroup);
+    const gid = g.dataset.navgroup;
+    if (gid.startsWith('sec-')) {
+      // 合成 section 组：当前页属于该 section 时展开高亮
+      const hit = curSection === gid.slice(4);
+      if (hit) g.classList.add('open');
+      g.classList.toggle('active', hit && !g.classList.contains('open'));
+      const sub = document.getElementById('navSub-' + gid);
+      if (sub) sub.hidden = !g.classList.contains('open');
+      return;
+    }
+    const item = navRegistry.find((n) => n.id === gid);
     const hit = (item?.children ?? []).some((c) => c.id === current);
     if (hit) g.classList.add('open');
     g.classList.toggle('active', hit && !g.classList.contains('open'));
-    const sub = document.getElementById('navSub-' + g.dataset.navgroup);
+    const sub = document.getElementById('navSub-' + gid);
     if (sub) sub.hidden = !g.classList.contains('open');
   });
 }
@@ -116,7 +160,6 @@ async function ensurePluginRoutes() {
   plugRoutesPromise = (async () => {
     const d = await api('/admin/plugins');
     const aside = document.querySelector('.sidebar');
-    const foot = aside?.querySelector('.nav-foot');
     const content = document.querySelector('.content');
     for (const p of d.loaded ?? []) {
       const adm = p.admin;
@@ -124,7 +167,7 @@ async function ensurePluginRoutes() {
       const route = adm.nav.id;
       // 二级页声明（nav.children）：每个子页一个路由与 section；未声明则保持单页行为不变
       const children = Array.isArray(adm.nav.children) ? adm.nav.children.filter((c) => c?.id && c?.title) : [];
-      navRegistry.push({ id: route, title: adm.nav.title, titleEn: adm.nav.titleEn, icon: adm.nav.icon, order: adm.nav.order ?? 100, name: p.name, children });
+      navRegistry.push({ id: route, title: adm.nav.title, titleEn: adm.nav.titleEn, icon: adm.nav.icon, order: adm.nav.order ?? 100, name: p.name, children, section: adm.nav.section ?? null });
       // 懒加载插件页面模块（契约：default export { html, load, bind }；分组插件另可给 pages[id] 每子页一份）
       let mod = null;
       try {

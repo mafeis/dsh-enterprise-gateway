@@ -8,7 +8,7 @@
  * 兼容：老壳不识别 nav.children 时回退 html/load/bind（= 第一个子页）。
  * 数据源：/admin/policy* /admin/policy-detail（ent-console 聚合提供）
  */
-import { api, $, toast, esc, openDlg, closeDlg } from '/admin/static/contract.mjs'
+import { api, $, toast, esc, openDlg, closeDlg, confirmDlg } from '/admin/static/contract.mjs'
 import { T } from '/admin/static/js/i18n.mjs'
 
 /* ---------- 公共片段 ---------- */
@@ -39,20 +39,20 @@ const switchesHtml = `
       <span class="lab2" style="padding-top:2px">${T('隐藏设置页', 'Hide settings pages')}<span class="desc">${T('按标签关键词隐藏用户端设置导航项（中英文都填，宿主改名后在此加关键词）', 'Hide client settings nav items by label keyword (fill both zh/en; add new keywords here if the host renames them)')}</span></span>
       <span style="flex:1;max-width:420px">
         <input class="input" id="hidePagesInput" placeholder="${T('桌面设置, Desktop settings（逗号分隔）', 'Desktop settings, 桌面设置 (comma-separated)')}" style="width:100%;font-size:12px;height:30px">
-        <div style="font-size:11px;color:#94a3b8;margin-top:3px">${T('改动自动下发，用户端 10s 内隐藏', 'Auto-deploys; clients hide within 10s')}</div>
+        <div style="font-size:11px;color:var(--dim);margin-top:3px">${T('改动自动下发，用户端 10s 内隐藏', 'Auto-deploys; clients hide within 10s')}</div>
       </span>
     </div>
     <div class="switchrow">
       <span class="lab2">${T('界面水印', 'UI watermark')}<span class="desc">${T('用户端 Web 界面叠加半透明水印，截屏外传可溯源；仅影响显示', 'Translucent watermark over the client web UI for traceability; display only')}</span></span>
       <span class="switch" id="swWm"></span>
     </div>
-    <div id="wmStylePanel" style="display:none;margin:4px 0 12px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+    <div id="wmStylePanel" style="display:none;margin:4px 0 12px;padding:12px 14px;background:var(--bg);border:1px solid var(--line);border-radius:8px">
       <div style="font-size:12.5px;font-weight:600;margin-bottom:10px">${T('水印样式', 'Watermark style')} <span class="badge dim">${T('改完即自动保存，用户端 10s 内跟随', 'Auto-saved; client follows within 10s')}</span></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
-        <label style="font-size:12px;color:#475569">${T('内容模板', 'Template')}<br>
+        <label style="font-size:12px;color:var(--txt)">${T('内容模板', 'Template')}<br>
           <input id="wmTemplate" class="input" style="width:320px;font-size:12px;margin-top:3px" placeholder="${T('{user} · {time} · 企业机密', '{user} · {time} · Confidential')}">
         </label>
-        <span style="font-size:11px;color:#94a3b8;padding-bottom:7px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">${T('点选插入：', 'Insert:')}
+        <span style="font-size:11px;color:var(--dim);padding-bottom:7px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">${T('点选插入：', 'Insert:')}
           <button type="button" class="btn sm" data-wmvar="{user}" title="${T('登录账号', 'Sign-in account')}" style="padding:1px 8px;font-size:11px">{user}</button>
           <button type="button" class="btn sm" data-wmvar="{time}" title="${T('当前时间（分钟级刷新）', 'Current time (per-minute refresh)')}" style="padding:1px 8px;font-size:11px">{time}</button>
           <button type="button" class="btn sm" data-wmvar="{device}" title="${T('设备名（主机名）', 'Device name (hostname)')}" style="padding:1px 8px;font-size:11px">{device}</button>
@@ -61,13 +61,13 @@ const switchesHtml = `
         </span>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-        <label style="font-size:12px;color:#475569">${T('颜色', 'Color')}<br><input id="wmColor" type="color" class="input" style="width:52px;height:28px;padding:1px;margin-top:3px;cursor:pointer"></label>
-        <label style="font-size:12px;color:#475569">${T('透明度', 'Opacity')} <span id="wmOpacityVal" class="mono">0.06</span><br>
+        <label style="font-size:12px;color:var(--txt)">${T('颜色', 'Color')}<br><input id="wmColor" type="color" class="input" style="width:52px;height:28px;padding:1px;margin-top:3px;cursor:pointer"></label>
+        <label style="font-size:12px;color:var(--txt)">${T('透明度', 'Opacity')} <span id="wmOpacityVal" class="mono">0.06</span><br>
           <input id="wmOpacity" type="range" min="0.01" max="0.5" step="0.01" style="width:120px;margin-top:8px;cursor:pointer"></label>
-        <label style="font-size:12px;color:#475569">${T('字号', 'Font size')}<br><input id="wmFontSize" class="input" type="number" min="8" max="40" style="width:64px;font-size:12px;margin-top:3px"></label>
-        <label style="font-size:12px;color:#475569">${T('横向间距', 'H spacing')}<br><input id="wmGapX" class="input" type="number" min="80" max="800" step="10" style="width:76px;font-size:12px;margin-top:3px"></label>
-        <label style="font-size:12px;color:#475569">${T('纵向间距', 'V spacing')}<br><input id="wmGapY" class="input" type="number" min="50" max="600" step="10" style="width:76px;font-size:12px;margin-top:3px"></label>
-        <label style="font-size:12px;color:#475569">${T('角度°', 'Angle°')}<br><input id="wmAngle" class="input" type="number" min="-90" max="90" step="2" style="width:64px;font-size:12px;margin-top:3px"></label>
+        <label style="font-size:12px;color:var(--txt)">${T('字号', 'Font size')}<br><input id="wmFontSize" class="input" type="number" min="8" max="40" style="width:64px;font-size:12px;margin-top:3px"></label>
+        <label style="font-size:12px;color:var(--txt)">${T('横向间距', 'H spacing')}<br><input id="wmGapX" class="input" type="number" min="80" max="800" step="10" style="width:76px;font-size:12px;margin-top:3px"></label>
+        <label style="font-size:12px;color:var(--txt)">${T('纵向间距', 'V spacing')}<br><input id="wmGapY" class="input" type="number" min="50" max="600" step="10" style="width:76px;font-size:12px;margin-top:3px"></label>
+        <label style="font-size:12px;color:var(--txt)">${T('角度°', 'Angle°')}<br><input id="wmAngle" class="input" type="number" min="-90" max="90" step="2" style="width:64px;font-size:12px;margin-top:3px"></label>
         <button class="btn sm" id="wmReset" type="button" style="margin-bottom:1px">${T('恢复默认', 'Reset')}</button>
       </div>
     </div>
@@ -104,7 +104,7 @@ const switchesHtml = `
 
 /* ============ 子页 2 · 插件管控（页签：插件仓库 / 允许清单；插件源 = 右上角齿轮设置弹窗） ============ */
 const pluginsHtml = `
-  ${headrow(T('插件管控', 'Plugin Control'), `<span class="mono" id="regModeBadge" style="font-size:11px;color:#94a3b8"></span>
+  ${headrow(T('插件管控', 'Plugin Control'), `<span class="mono" id="regModeBadge" style="font-size:11px;color:var(--dim)"></span>
     <button class="btn sm" id="regSettingBtn" title="${T('插件设置', 'Plugin settings')}">⚙ ${T('插件设置', 'Plugin settings')}</button>
     <button class="btn sm primary" id="repoAddBtn">＋ ${T('添加插件', 'Add plugin')}</button>`)}
 
@@ -116,8 +116,11 @@ const pluginsHtml = `
   <!-- ============ 页签 A · 企业插件仓库 ============ -->
   <div class="pane on" id="pane-repo">
   <div class="card">
-    <h2><span class="bar"></span>${T('企业插件仓库', 'Enterprise plugin repo')} <span class="badge dim" id="repoCount">${T('0 个', '0')}</span>
-      <span style="margin-left:auto"><input id="repoSearch" class="input" placeholder="${T('搜插件名 / 描述…', 'Search plugins…')}" style="width:200px;font-size:12px;height:28px"></span>
+    <h2><span class="bar"></span>${T('企业插件仓库', 'Enterprise plugin repo')} <span class="badge dim" id="repoCount">${T('0 个', '0')}</span><span class="badge warn" id="repoUpdCount" style="display:none"></span>
+      <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <input id="repoSearch" class="input" placeholder="${T('搜插件名 / 描述…', 'Search plugins…')}" style="width:200px;font-size:12px;height:28px">
+        <button class="btn sm" id="repoCheckBtn" title="${T('从 npm 源检查各插件最新版本', 'Check npm registries for newer versions')}">⟳ ${T('检查更新', 'Check updates')}</button>
+      </span>
     </h2>
     <div class="tablewrap">
       <table>
@@ -138,7 +141,7 @@ const pluginsHtml = `
     </h2>
     <div class="sub">${T('清单外插件用户端安装被拦截 · 改动自动下发', 'Plugins outside the allowlist are blocked on client · changes deploy automatically')}</div>
     <div id="allowList"></div>
-    <div id="allowPage" style="display:flex;align-items:center;gap:10px;justify-content:flex-end;margin-top:10px;font-size:12px;color:#64748b"></div>
+    <div id="allowPage" style="display:flex;align-items:center;gap:10px;justify-content:flex-end;margin-top:10px;font-size:12px;color:var(--dim)"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <input class="input" id="allowInput" placeholder="${T('插件包名，如 dsh-review · @corp/dsh-review', 'Package name, e.g. dsh-review · @corp/dsh-review')}" style="flex:1;font-size:12px;height:30px">
       <button class="btn sm" id="allowAddBtn">＋ ${T('添加', 'Add')}</button>
@@ -147,7 +150,7 @@ const pluginsHtml = `
   </div>
 
   <!-- 自动保存状态（无保存按钮：所有改动即时下发） -->
-  <div style="margin-top:10px;font-size:12px;color:#94a3b8;min-height:16px" id="plugAutoMsg"></div>
+  <div style="margin-top:10px;font-size:12px;color:var(--dim);min-height:16px" id="plugAutoMsg"></div>
   </div>
 
   <!-- 插件设置弹窗 -->
@@ -205,19 +208,19 @@ const pluginsHtml = `
           <button type="button" class="btn" id="repoSrcUp" style="flex:1">${T('上传压缩包', 'Upload archive')}</button>
         </div>
         <div id="repoNpmGroup">
-          <label style="font-size:12.5px;color:#475569;display:block">${T('包名或 .tgz 地址', 'Package name or .tgz URL')}
+          <label style="font-size:12.5px;color:var(--txt);display:block">${T('包名或 .tgz 地址', 'Package name or .tgz URL')}
             <input id="repoSpec" class="input" placeholder="dsh-review · @corp/dsh-review@1.2.0 · https://…/x.tgz" style="width:100%;margin-top:4px">
           </label>
-          <label style="font-size:12.5px;color:#475569;display:block;margin-top:10px">${T('npm 源（可选，默认用镜像地址 / 官方源）', 'npm registry (optional; defaults to mirror / official)')}
+          <label style="font-size:12.5px;color:var(--txt);display:block;margin-top:10px">${T('npm 源（可选，默认用镜像地址 / 官方源）', 'npm registry (optional; defaults to mirror / official)')}
             <input id="repoRegistry" class="input" placeholder="http://npm.corp.local:4873" style="width:100%;margin-top:4px">
           </label>
         </div>
         <div id="repoUpGroup" style="display:none">
-          <label style="font-size:12.5px;color:#475569;display:block">${T('压缩包（.tgz，内含 package.json）', 'Archive (.tgz containing package.json)')}
+          <label style="font-size:12.5px;color:var(--txt);display:block">${T('压缩包（.tgz，内含 package.json）', 'Archive (.tgz containing package.json)')}
             <input id="repoFile" type="file" accept=".tgz,.gz,.tar" class="input" style="width:100%;margin-top:4px;padding:6px">
           </label>
         </div>
-        <label style="font-size:12.5px;color:#475569;display:block;margin-top:10px">${T('版本说明（可选）', 'Version note (optional)')}
+        <label style="font-size:12.5px;color:var(--txt);display:block;margin-top:10px">${T('版本说明（可选）', 'Version note (optional)')}
           <input id="repoNote" class="input" placeholder="${T('例：首版上架 / 升级到 x.y 修复 xx', 'e.g. initial release / upgrade to x.y fixes xx')}" style="width:100%;margin-top:4px">
         </label>
         <div class="notebox" id="repoAddResult" style="display:none;margin-top:12px"></div>
@@ -239,8 +242,8 @@ const pluginsHtml = `
       </div>
       <div class="dlg-body">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-          <span style="font-size:12.5px;color:#475569;flex-shrink:0">${T('描述', 'Description')}</span>
-          <span id="rvDesc" style="font-size:12.5px;color:#334155;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+          <span style="font-size:12.5px;color:var(--txt);flex-shrink:0">${T('描述', 'Description')}</span>
+          <span id="rvDesc" style="font-size:12.5px;color:var(--txt);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
           <button class="btn sm" id="rvDescEdit">${T('编辑', 'Edit')}</button>
         </div>
         <div class="tablewrap" style="max-height:380px;overflow:auto">
@@ -265,9 +268,9 @@ const pluginsHtml = `
         <button class="dlg-x" data-dlg-close title="${T('关闭', 'Close')}">✕</button>
       </div>
       <div class="dlg-body">
-        <div style="font-size:12px;color:#64748b;margin-bottom:4px">${T('中文描述', 'Chinese description')}</div>
+        <div style="font-size:12px;color:var(--dim);margin-bottom:4px">${T('中文描述', 'Chinese description')}</div>
         <textarea id="rdText" class="input" rows="3" style="width:100%;resize:vertical" placeholder="${T('一句话说明该插件用途，用户端插件市场可见', 'One-line description shown in the client plugin market')}"></textarea>
-        <div style="font-size:12px;color:#64748b;margin:8px 0 4px">${T('英文描述', 'English description')}</div>
+        <div style="font-size:12px;color:var(--dim);margin:8px 0 4px">${T('英文描述', 'English description')}</div>
         <textarea id="rdTextEn" class="input" rows="3" style="width:100%;resize:vertical" placeholder="${T('English description for the client plugin market', 'English description for the client plugin market')}"></textarea>
       </div>
       <div class="dlg-foot">
@@ -325,38 +328,38 @@ const rulesHtml = `
       </div>
       <div class="dlg-body">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-          <span style="font-size:12.5px;color:#475569;width:52px">${T('位置', 'Position')}</span>
+          <span style="font-size:12.5px;color:var(--txt);width:52px">${T('位置', 'Position')}</span>
           <select id="bannerPos" class="input" style="width:140px;font-size:12.5px">
             <option value="top-right">${T('右上角', 'Top right')}</option>
             <option value="top-center">${T('顶部居中', 'Top center')}</option>
             <option value="top-left">${T('左上角', 'Top left')}</option>
             <option value="bottom-right">${T('右下角', 'Bottom right')}</option>
           </select>
-          <span style="font-size:12.5px;color:#475569;width:52px;margin-left:10px">${T('宽度', 'Width')}</span>
+          <span style="font-size:12.5px;color:var(--txt);width:52px;margin-left:10px">${T('宽度', 'Width')}</span>
           <input id="bannerW" class="input" type="number" min="240" max="1200" step="10" style="width:90px;font-size:12.5px" placeholder="420">
-          <span style="font-size:11.5px;color:#94a3b8">${T('px（240-1200）', 'px (240-1200)')}</span>
+          <span style="font-size:11.5px;color:var(--dim)">${T('px（240-1200）', 'px (240-1200)')}</span>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-          <span style="font-size:12.5px;color:#475569;width:52px">${T('边距', 'Margin')}</span>
-          <span style="font-size:11.5px;color:#94a3b8">${T('上', 'Top')}</span>
+          <span style="font-size:12.5px;color:var(--txt);width:52px">${T('边距', 'Margin')}</span>
+          <span style="font-size:11.5px;color:var(--dim)">${T('上', 'Top')}</span>
           <input id="bannerMt" class="input" type="number" min="0" max="400" step="2" style="width:70px;font-size:12.5px" placeholder="14">
-          <span style="font-size:11.5px;color:#94a3b8">${T('右', 'Right')}</span>
+          <span style="font-size:11.5px;color:var(--dim)">${T('右', 'Right')}</span>
           <input id="bannerMr" class="input" type="number" min="0" max="400" step="2" style="width:70px;font-size:12.5px" placeholder="18">
-          <span style="font-size:11.5px;color:#94a3b8">${T('下', 'Bottom')}</span>
+          <span style="font-size:11.5px;color:var(--dim)">${T('下', 'Bottom')}</span>
           <input id="bannerMb" class="input" type="number" min="0" max="400" step="2" style="width:70px;font-size:12.5px" placeholder="0">
-          <span style="font-size:11.5px;color:#94a3b8">${T('左', 'Left')}</span>
+          <span style="font-size:11.5px;color:var(--dim)">${T('左', 'Left')}</span>
           <input id="bannerMl" class="input" type="number" min="0" max="400" step="2" style="width:70px;font-size:12.5px" placeholder="0">
-          <span style="font-size:11.5px;color:#94a3b8">${T('px（0-400，距屏幕边缘）', 'px (0-400, from screen edge)')}</span>
+          <span style="font-size:11.5px;color:var(--dim)">${T('px（0-400，距屏幕边缘）', 'px (0-400, from screen edge)')}</span>
         </div>
-        <div style="font-size:11.5px;color:#94a3b8;margin-bottom:12px">${T('配色固定：拦截红 / 提醒橙 / 公告蓝（语义区分，不随样式配置）', 'Fixed colors: block red / warn orange / notice blue (semantic, not configurable)')}</div>
-        <div style="background:#f8fafc;border:1px dashed #e2e8f0;border-radius:8px;padding:18px 14px;position:relative;min-height:110px;overflow:hidden">
-          <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">${T('效果示意（实际以用户端屏幕为准）：', 'Preview (actual look on client screens):')}</div>
+        <div style="font-size:11.5px;color:var(--dim);margin-bottom:12px">${T('配色固定：拦截红 / 提醒橙 / 公告蓝（语义区分，不随样式配置）', 'Fixed colors: block red / warn orange / notice blue (semantic, not configurable)')}</div>
+        <div style="background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:18px 14px;position:relative;min-height:110px;overflow:hidden">
+          <div style="font-size:11px;color:var(--dim);margin-bottom:8px">${T('效果示意（实际以用户端屏幕为准）：', 'Preview (actual look on client screens):')}</div>
           <div id="bannerMock" style="max-width:420px;padding:11px 40px 11px 16px;border-radius:10px;background:#fff7ed;border:1.5px solid #fb923c;box-shadow:0 6px 18px rgba(0,0,0,.10);font-size:12.5px;color:#9a3412;display:flex;align-items:center;gap:8px">
             <span style="font-size:14px;flex-shrink:0">⚠️</span>
             <span>${T('检测到涉密关键词', 'Sensitive keyword detected')} <b>${T('示例', 'example')}</b>${T('，请注意外发风险', ' — mind the outbound risk')}</span>
           </div>
         </div>
-        <div id="bannerMsg" style="font-size:12px;color:#059669;margin-top:10px"></div>
+        <div id="bannerMsg" style="font-size:12px;color:var(--ok);margin-top:10px"></div>
       </div>
       <div class="dlg-foot">
         <span class="err" id="bannerDlgErr"></span>
@@ -375,14 +378,14 @@ const rulesHtml = `
       </div>
       <div class="dlg-body">
         <div style="display:flex;gap:10px;margin-bottom:12px">
-          <label style="font-size:12.5px;color:#475569">${T('类型', 'Type')}
+          <label style="font-size:12.5px;color:var(--txt)">${T('类型', 'Type')}
             <select id="reType" class="input" style="display:block;margin-top:4px;width:130px;font-size:12.5px">
               <option value="block-url">${T('网址', 'URL')}</option>
               <option value="block-word">${T('关键词', 'Keyword')}</option>
               <option value="notice">${T('公告', 'Notice')}</option>
             </select>
           </label>
-          <label style="font-size:12.5px;color:#475569">${T('动作', 'Action')}
+          <label style="font-size:12.5px;color:var(--txt)">${T('动作', 'Action')}
             <select id="reAction" class="input" style="display:block;margin-top:4px;width:110px;font-size:12.5px">
               <option value="block">${T('拦截', 'Block')}</option>
               <option value="warn">${T('提醒', 'Warn')}</option>
@@ -390,11 +393,11 @@ const rulesHtml = `
           </label>
           <span class="crumb" style="margin:0;align-self:end;padding-bottom:6px" id="reHint"></span>
         </div>
-        <label style="font-size:12.5px;color:#475569;display:block">${T('匹配值（value）', 'Match value')}
+        <label style="font-size:12.5px;color:var(--txt);display:block">${T('匹配值（value）', 'Match value')}
           <textarea id="reValue" class="input mono" rows="3" placeholder="${T('域名 / 正则 / 公告全文', 'Domain / regex / notice text')}"
             style="width:100%;margin-top:4px;font-size:12.5px;line-height:1.55;font-family:ui-monospace,monospace;resize:vertical"></textarea>
         </label>
-        <label id="reMsgWrap" style="font-size:12.5px;color:#475569;display:block;margin-top:12px">${T('提示语（可选；含 [] 占位符时自动填入触发词）', 'Message (optional; [] is replaced with the trigger word)')}
+        <label id="reMsgWrap" style="font-size:12.5px;color:var(--txt);display:block;margin-top:12px">${T('提示语（可选；含 [] 占位符时自动填入触发词）', 'Message (optional; [] is replaced with the trigger word)')}
           <textarea id="reMsg" rows="2" class="input"
             style="width:100%;margin-top:4px;font-size:12.5px;line-height:1.55;resize:vertical"></textarea>
         </label>
@@ -421,10 +424,10 @@ const acksHtml = `
   <div class="card">
     <h2><span class="bar"></span>${T('版本发布与灰度', 'Versioning & gray release')} <span class="badge dim">${T('策略每次保存自动产生新版本', 'Each policy save creates a new version')}</span></h2>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-      <span style="font-size:12.5px;color:#475569">${T('当前版本', 'Current')} <b class="mono" id="verCur">—</b></span>
-      <span style="font-size:12.5px;color:#475569">${T('灰度状态', 'Gray release')} <b id="verGrayState" class="mono" style="color:#d97706">${T('无灰度（全员 current）', 'No gray release (all on current)')}</b></span>
+      <span style="font-size:12.5px;color:var(--txt)">${T('当前版本', 'Current')} <b class="mono" id="verCur">—</b></span>
+      <span style="font-size:12.5px;color:var(--txt)">${T('灰度状态', 'Gray release')} <b id="verGrayState" class="mono" style="color:var(--warn)">${T('无灰度（全员 current）', 'No gray release (all on current)')}</b></span>
       <span style="flex:1"></span>
-      <label style="font-size:12px;color:#475569;display:flex;gap:8px;align-items:center">${T('灰度比例', 'Gray percent')}
+      <label style="font-size:12px;color:var(--txt);display:flex;gap:8px;align-items:center">${T('灰度比例', 'Gray percent')}
         <input id="verPercent" class="input" type="number" min="0" max="100" step="5" style="width:72px;font-size:12px">
         <span class="crumb" style="margin:0">%</span>
       </label>
@@ -584,13 +587,13 @@ function bindHidePages() {
       try {
         await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { hiddenSettingsPages: list } }) })
         toast(T('隐藏设置页已下发，用户端 10s 内跟随', 'Hidden pages deployed; clients follow within 10s'))
-      } catch (e) { if (e.message !== '401') toast(T('✗ 保存失败：{m}', '✗ Save failed: {m}', { m: e.message }), 'bad') }
+      } catch (e) { if (e.message !== '401') toast(T('保存失败：{m}', 'Save failed: {m}', { m: e.message }), 'bad') }
     }, 600)
   })
 }
 
 /* ---- 水印样式：回显 + 自动保存（debounce 600ms）+ 恢复默认 ---- */
-const WM_DEFAULTS = { template: '{user} · {time}', color: '#0f172a', opacity: 0.06, fontSize: 13, gapX: 260, gapY: 150, angle: -22 }
+const WM_DEFAULTS = { template: '{user} · {time}', color: 'var(--txt)', opacity: 0.06, fontSize: 13, gapX: 260, gapY: 150, angle: -22 }
 let _wmSaveTimer = null
 function wmReadForm() {
   const out = {}
@@ -611,7 +614,7 @@ function scheduleWmSave() {
       const style = wmReadForm()
       await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { watermarkStyle: Object.keys(style).length ? style : null } }) })
       toast(T('水印样式已保存，用户端 10s 内跟随', 'Watermark style saved; client follows within 10s'))
-    } catch (e) { if (e.message !== '401') toast(T('✗ 水印样式保存失败：{m}', '✗ Failed to save watermark style: {m}', { m: e.message }), 'bad') }
+    } catch (e) { if (e.message !== '401') toast(T('水印样式保存失败：{m}', 'Failed to save watermark style: {m}', { m: e.message }), 'bad') }
   }, 600)
 }
 function bindWmStyle() {
@@ -638,7 +641,7 @@ function bindWmStyle() {
       await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { watermarkStyle: null } }) })
       wmEcho(WM_DEFAULTS)
       toast(T('水印样式已恢复默认', 'Watermark style reset'))
-    } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
+    } catch (e) { if (e.message !== '401') toast(e.message, 'bad') }
   })
 }
 function wmEcho(style = {}) {
@@ -673,7 +676,7 @@ async function loadRepo() {
     repoData = d.plugins ?? []
     renderRepo()
     if ($('allowList')) renderAllowList()   // 允许清单显示仓库描述/版本，同步刷新
-  } catch (e) { if (e.message !== '401') toast(T('✗ 插件仓库加载失败：{m}', '✗ Failed to load plugin repo: {m}', { m: e.message }), 'bad') }
+  } catch (e) { if (e.message !== '401') toast(T('插件仓库加载失败：{m}', 'Failed to load plugin repo: {m}', { m: e.message }), 'bad') }
 }
 
 function renderRepo() {
@@ -684,21 +687,25 @@ function renderRepo() {
   if ($('repoCount')) $('repoCount').textContent = T('{n} 个', '{n}', { n: repoData.length })
   tbody.innerHTML = rows.map((p) => {
     const inAllow = allowItems.includes(p.name)
+    const hasUpdate = p.npmLatest && verCmpJs(p.npmLatest, p.defaultVersion ?? '0') > 0
     return `
     <tr>
       <td colspan="7" style="padding:0;border-bottom:none">
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f1f5f9">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line)">
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <span class="mono" style="font-size:12px;font-weight:600;color:#0f172a">${esc(p.name)}</span>
+              <span class="mono" style="font-size:12px;font-weight:600;color:var(--txt)">${esc(p.name)}</span>
               <span class="badge dim" style="font-size:10px">${T('默认 v{v}', 'default v{v}', { v: esc(p.defaultVersion ?? '—') })}</span>
+              ${hasUpdate ? `<span class="badge warn" style="font-size:10px">${T('npm 有新版 v{v}', 'npm has v{v}', { v: esc(p.npmLatest) })}</span>` : ''}
+              ${!hasUpdate && p.npmError ? `<span class="badge dim" style="font-size:10px" title="${esc(p.npmError)}">${T('源检查失败', 'npm check failed')}</span>` : ''}
               <span class="badge dim" style="font-size:10px">${T('{n} 个版本 · {s}', '{n} versions · {s}', { n: p.versionCount, s: fmtSize(p.totalSize) })}</span>
               ${inAllow ? `<span class="badge ok" style="font-size:10px">${T('已入清单', 'In allowlist')}</span>` : ''}
             </div>
-            <div style="font-size:11.5px;color:#64748b;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.description)}">${esc(p.description) || `<span style="color:#cbd5e1">${T('无描述 · 点「描述」补充（用户端市场显示）', 'No description · use "Description" to add (shown in client market)')}</span>`}</div>
+            <div style="font-size:11.5px;color:var(--dim);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.description)}">${esc(p.description) || `<span style="color:var(--line)">${T('无描述 · 点「描述」补充（用户端市场显示）', 'No description · use "Description" to add (shown in client market)')}</span>`}</div>
           </div>
-          <span class="mono" style="font-size:11px;color:#94a3b8;flex-shrink:0">${esc(p.updatedAt ?? '')}</span>
+          <span class="mono" style="font-size:11px;color:var(--dim);flex-shrink:0">${esc(p.updatedAt ?? '')}</span>
           <span style="white-space:nowrap;flex-shrink:0">
+            ${hasUpdate ? `<button class="btn sm primary" data-repo-upd="${esc(p.name)}">${T('更新到 v{v}', 'Update to v{v}', { v: esc(p.npmLatest) })}</button>` : ''}
             <button class="btn sm" data-repo-ver="${esc(p.name)}">${T('版本', 'Versions')}</button>
             <button class="btn sm" data-repo-allow="${esc(p.name)}" ${inAllow ? `disabled title="${T('已在允许清单', 'Already in allowlist')}"` : `title="${T('加入允许清单', 'Add to allowlist')}"`}>${T('＋清单', '＋Allow')}</button>
             <button class="btn sm" data-repo-desc="${esc(p.name)}">${T('描述', 'Description')}</button>
@@ -708,6 +715,12 @@ function renderRepo() {
       </td>
     </tr>`
   }).join('') || `<tr><td colspan="7" class="empty">${T('仓库为空 —— 点右上「＋ 添加插件」，输入 npm 地址或上传 .tgz', 'Repo is empty — use "Add plugin" above to add an npm URL or upload a .tgz')}</td></tr>`
+  // 顶部汇总角标：可更新插件数
+  const updCount = repoData.filter((p) => p.npmLatest && verCmpJs(p.npmLatest, p.defaultVersion ?? '0') > 0).length
+  if ($('repoUpdCount')) {
+    $('repoUpdCount').style.display = updCount ? '' : 'none'
+    if (updCount) $('repoUpdCount').textContent = T('{n} 个可更新', '{n} updates', { n: updCount })
+  }
 }
 
 /* ---- 添加插件弹窗 ---- */
@@ -754,6 +767,31 @@ async function submitRepoAdd() {
   } catch (e) { if (e.message !== '401') err.textContent = e.message } finally { ok.disabled = false; ok.textContent = T('添加', 'Add') }
 }
 
+/* ---- npm 更新检查 / 一键更新 ---- */
+async function repoCheckUpdates(btn) {
+  const old = btn.textContent
+  btn.disabled = true; btn.textContent = T('检查中…', 'Checking…')
+  try {
+    const d = await api('/admin/plugin-repo/check-updates', { method: 'POST' })
+    repoData = d.plugins ?? []
+    renderRepo()
+    if (d.updates?.length) toast(T('发现 {n} 个可更新插件：{names}', '{n} plugins have updates: {names}', { n: d.updates.length, names: d.updates.map((x) => x.name).join(', ') }))
+    else if (d.errors?.length) toast(T('检查完成：全部最新（{n} 个 npm 源不可达）', 'Done: all up to date ({n} registry unreachable)', { n: d.errors.length }))
+    else toast(T('检查完成：全部最新', 'Done: all up to date'))
+  } catch (e) { if (e.message !== '401') toast(e.message, 'bad') } finally { btn.disabled = false; btn.textContent = old }
+}
+
+async function repoUpdateLatest(name, btn) {
+  const p = repoData.find((x) => x.name === name)
+  const old = btn.textContent
+  btn.disabled = true; btn.textContent = T('更新中…', 'Updating…')
+  try {
+    const r = await api('/admin/plugin-repo/npm', { method: 'POST', body: JSON.stringify({ spec: name, registry: p?.registry ?? '', note: 'update-to-latest' }) })
+    toast(T('已更新：{spec}', 'Updated: {spec}', { spec: `${r.name}@${r.version}` }))
+    loadRepo()
+  } catch (e) { if (e.message !== '401') toast(e.message, 'bad'); btn.disabled = false; btn.textContent = old }
+}
+
 /* ---- 版本管理弹窗 ---- */
 function openRepoVer(name) {
   repoVerCur = name
@@ -770,8 +808,8 @@ function fillRepoVerDlg() {
     <tr>
       <td style="white-space:nowrap"><span class="mono" style="font-size:12px">${esc(v)}</span>${v === p.defaultVersion ? ` <span class="badge ok">${T('默认', 'Default')}</span>` : ''}</td>
       <td class="mono" style="font-size:12px">${fmtSize(meta.size)}</td>
-      <td style="font-size:12px">${esc(meta.by || '-')}<div class="mono" style="font-size:10.5px;color:#94a3b8">${esc((meta.ts ?? '').slice(0, 10))}</div></td>
-      <td style="font-size:12px;color:#64748b;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(meta.note ?? '')}">${esc(meta.note) || '—'}</td>
+      <td style="font-size:12px">${esc(meta.by || '-')}<div class="mono" style="font-size:10.5px;color:var(--dim)">${esc((meta.ts ?? '').slice(0, 10))}</div></td>
+      <td style="font-size:12px;color:var(--dim);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(meta.note ?? '')}">${esc(meta.note) || '—'}</td>
       <td style="white-space:nowrap">
         ${v === p.defaultVersion ? '' : `<button class="btn sm" data-rv-default="${esc(v)}">${T('设默认', 'Set default')}</button>`}
         <button class="btn sm danger" data-rv-del="${esc(v)}">${T('删', 'Delete')}</button>
@@ -787,7 +825,7 @@ async function repoVerAction(act, arg) {
       await api('/admin/plugin-repo/' + encodeURIComponent(name), { method: 'PATCH', body: JSON.stringify({ defaultVersion: ver }) })
       toast(T('默认版本 → {v}', 'Default version → {v}', { v: ver }))
     } else if (act === 'del') {
-      if (!confirm(T('删除版本 {v}？包文件一并删除，不可恢复。', 'Delete version {v}? Its files are removed permanently.', { v: ver }))) return
+      if (!(await confirmDlg({ title: T('删除版本', 'Delete version'), message: T('删除版本 {v}？包文件一并删除，不可恢复。', 'Delete version {v}? Its files are removed permanently.', { v: ver }), confirmText: T('确认删除', 'Delete'), danger: true }))) return
       await api(`/admin/plugin-repo/${encodeURIComponent(name)}/${encodeURIComponent(ver)}`, { method: 'DELETE' })
       toast(T('已删除版本 {v}', 'Version {v} deleted', { v: ver }))
     } else if (act === 'delPlugin') {
@@ -798,7 +836,7 @@ async function repoVerAction(act, arg) {
     repoData = d.plugins ?? []
     renderRepo()
     if (act !== 'delPlugin') fillRepoVerDlg()
-  } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
+  } catch (e) { if (e.message !== '401') toast(e.message, 'bad') }
 }
 
 /* ---- 描述编辑弹窗 ---- */
@@ -844,15 +882,15 @@ async function autoSavePlug(immediate = false) {
         packagePrefix: builtin ? location.origin + '/plugin-packages/' : $('regPrefix').value.trim(),
         allowedFallback: $('regFallback').checked,
       }
-      if (pluginRegistry.mode === 'proxy' && !pluginRegistry.npmRegistryUrl) { if (msg) msg.textContent = T('✗ proxy 模式需要填写 NPM 镜像地址', '✗ proxy mode needs an NPM mirror URL'); return }
-      if (pluginRegistry.mode === 'url' && !pluginRegistry.packagePrefix) { if (msg) msg.textContent = T('✗ url 模式需要填写包地址前缀', '✗ url mode needs a package URL prefix'); return }
+      if (pluginRegistry.mode === 'proxy' && !pluginRegistry.npmRegistryUrl) { if (msg) msg.textContent = T('proxy 模式需要填写 NPM 镜像地址', 'proxy mode needs an NPM mirror URL'); return }
+      if (pluginRegistry.mode === 'url' && !pluginRegistry.packagePrefix) { if (msg) msg.textContent = T('url 模式需要填写包地址前缀', 'url mode needs a package URL prefix'); return }
       // 服务端兜底去重：任何路径攒出的重复项在保存前剔除
       allowItems = [...new Set(allowItems)]
       if (msg) msg.textContent = T('保存中…', 'Saving…')
       await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { allowedPlugins: allowItems.slice(), pluginEnforce: $('regEnforce')?.value ?? 'enforce', pluginRegistry, clientAccessUrl: $('regAccess')?.value.trim() ?? '' } }) })
       if (msg) msg.textContent = T('已自动保存 ✓ {t}', 'Saved ✓ {t}', { t: new Date().toLocaleTimeString(undefined, { hour12: false }) })
     } catch (e) {
-      if (e.message !== '401' && msg) msg.textContent = T('✗ 保存失败：{m}', '✗ Save failed: {m}', { m: e.message })
+      if (e.message !== '401' && msg) msg.textContent = T('保存失败：{m}', 'Save failed: {m}', { m: e.message })
     }
   }
   clearTimeout(plugSaveTimer)
@@ -896,19 +934,19 @@ function renderAllowList() {
     const desc = repo?.description ?? ''
     const ver = repo?.defaultVersion ?? ''
     return `
-    <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;background:var(--bg);border:1px solid var(--line);border-radius:6px">
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:8px">
-          <span class="mono" style="font-size:12px;font-weight:600;color:#0f172a">${esc(n)}</span>
+          <span class="mono" style="font-size:12px;font-weight:600;color:var(--txt)">${esc(n)}</span>
           ${ver ? `<span class="badge dim" style="font-size:10px">v${esc(ver)}</span>` : ''}
           ${n === 'dsh-enterprise' ? `<span class="badge ok" title="${T('企业必装组件，删除后用户端登录与策略失效', 'Required component; removing it breaks client sign-in and policy')}">${T('必装', 'Required')}</span>` : ''}
         </div>
-        <div style="font-size:11.5px;color:#64748b;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${desc ? esc(desc) : `<span style="color:#cbd5e1">${T('未入库 · 无描述', 'Not imported · no description')}</span>`}</div>
+        <div style="font-size:11.5px;color:var(--dim);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${desc ? esc(desc) : `<span style="color:var(--line)">${T('未入库 · 无描述', 'Not imported · no description')}</span>`}</div>
       </div>
       <button class="btn sm" data-allow-repo="${esc(n)}" style="padding:1px 8px;font-size:11px" title="${repo ? T('已在仓库，可管理版本与描述', 'Already in repo; manage versions and description') : T('从 npm 拉进企业插件仓库', 'Import from npm into the enterprise plugin repo')}">${repo ? T('已入库', 'In repo') : T('入库', 'Import')}</button>
       <button class="btn sm danger" data-allow-del="${i}" style="padding:1px 8px;font-size:11px">${T('移除', 'Remove')}</button>
     </div>`
-  }).join('') || (allowItems.length ? `<div style="font-size:12px;color:#94a3b8;padding:6px 2px">${T('没有匹配的插件', 'No matching plugins')}</div>` : `<div style="font-size:12px;color:#94a3b8;padding:6px 2px">${T('清单为空 = 不限制（用户可装任意插件）', 'Empty allowlist = no restriction (any plugin allowed)')}</div>`)
+  }).join('') || (allowItems.length ? `<div style="font-size:12px;color:var(--dim);padding:6px 2px">${T('没有匹配的插件', 'No matching plugins')}</div>` : `<div style="font-size:12px;color:var(--dim);padding:6px 2px">${T('清单为空 = 不限制（用户可装任意插件）', 'Empty allowlist = no restriction (any plugin allowed)')}</div>`)
   // 分页条
   const pg = $('allowPage')
   if (pg) {
@@ -934,9 +972,9 @@ function allowAdd(raw) {
   autoSavePlug(true)
 }
 
-function allowRemove(i) {
+async function allowRemove(i) {
   const name = allowItems[i]
-  if (name === 'dsh-enterprise' && !confirm(T('移除 dsh-enterprise 后用户端登录与策略失效，确定？', 'Removing dsh-enterprise breaks client sign-in and policy. Confirm?'))) return
+  if (name === 'dsh-enterprise' && !(await confirmDlg({ title: T('移出必装插件', 'Remove required plugin'), message: T('移除 dsh-enterprise 后用户端登录与策略失效，确定？', 'Removing dsh-enterprise breaks client sign-in and policy. Confirm?'), confirmText: T('仍要移除', 'Remove'), danger: true }))) return
   allowItems.splice(i, 1)
   renderAllowList()
   renderRepo()   // 仓库行内"已入清单"徽章/按钮同步恢复
@@ -993,7 +1031,7 @@ const RULE_PRESETS = {
 }
 
 const TYPE_META = {
-  'block-url': { label: T('网址', 'URL'), color: '#2563eb', bg: '#eff6ff', ph: T('域名，多个用 | 分隔。例：github.com|pan.baidu.com', 'Domains separated by |, e.g. github.com|pan.baidu.com'), hint: T('拦该域名及全部子域（用户端浏览器环境内）', 'Blocks the domain and all subdomains (client browser)') },
+  'block-url': { label: T('网址', 'URL'), color: 'var(--accent)', bg: '#eff6ff', ph: T('域名，多个用 | 分隔。例：github.com|pan.baidu.com', 'Domains separated by |, e.g. github.com|pan.baidu.com'), hint: T('拦该域名及全部子域（用户端浏览器环境内）', 'Blocks the domain and all subdomains (client browser)') },
   'block-word': { label: T('关键词', 'Keyword'), color: '#b45309', bg: '#fffbeb', ph: T('正则或关键词，多个用 | 分隔。例：内部资料|未公开', 'Regex or keywords separated by |, e.g. secret|internal'), hint: T('正则不区分大小写；非法时自动退化为包含匹配', 'Case-insensitive; falls back to contains match if invalid') },
   'notice': { label: T('公告', 'Notice'), color: '#1d4ed8', bg: '#eff6ff', ph: T('公告全文，用户端原样展示', 'Notice text, shown as-is on client'), hint: T('公告无需动作选择，用户端展示蓝底信息条', 'No action needed; client shows a blue info banner') },
 }
@@ -1014,11 +1052,11 @@ function renderRulesTable() {
     const v = esc(String(r.value ?? '').replace(/\n/g, ' ').slice(0, 46))
     const m = esc(String(r.message ?? '').slice(0, 36))
     return `<tr data-rule-idx="${i}" style="cursor:pointer">
-      <td class="mono" style="color:#94a3b8;font-size:11.5px">${String(i + 1).padStart(2, '0')}</td>
+      <td class="mono" style="color:var(--dim);font-size:11.5px">${String(i + 1).padStart(2, '0')}</td>
       <td style="white-space:nowrap"><span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap;color:${meta.color};background:${meta.bg}">${meta.label}</span></td>
-      <td style="white-space:nowrap">${r.type === 'notice' ? '<span style="font-size:11.5px;color:#94a3b8">—</span>' : `<span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;${r.action !== 'warn' ? 'color:#b91c1c;background:#fef2f2' : 'color:#9a3412;background:#fff7ed'}">${r.action !== 'warn' ? T('拦截', 'Block') : T('提醒', 'Warn')}</span>`}</td>
-      <td class="mono" style="font-size:12px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v || `<i style="color:#cbd5e1">${T('（空）', '(empty)')}</i>`}</td>
-      <td style="font-size:12px;color:#64748b;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m || '<i style="color:#cbd5e1">—</i>'}</td>
+      <td style="white-space:nowrap">${r.type === 'notice' ? '<span style="font-size:11.5px;color:var(--dim)">—</span>' : `<span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;${r.action !== 'warn' ? 'color:#b91c1c;background:#fef2f2' : 'color:#9a3412;background:#fff7ed'}">${r.action !== 'warn' ? T('拦截', 'Block') : T('提醒', 'Warn')}</span>`}</td>
+      <td class="mono" style="font-size:12px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v || `<i style="color:var(--line)">${T('（空）', '(empty)')}</i>`}</td>
+      <td style="font-size:12px;color:var(--dim);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m || '<i style="color:var(--line)">—</i>'}</td>
       <td style="white-space:nowrap">
         <button class="btn sm" data-rule-edit="${i}" title="${T('编辑', 'Edit')}">${T('编辑', 'Edit')}</button>
         <button class="btn sm danger" data-rule-del="${i}" title="${T('删除', 'Delete')}">${T('删', 'Delete')}</button>
@@ -1039,7 +1077,7 @@ function markRulesDirty() {
       for (const r of rules) { if (!r.value) { toast(T('有规则缺匹配值，未自动保存', 'A rule is missing a match value; not saved'), 'bad'); return } }
       await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { clientRules: rules } }) })
       toast(T('已自动保存：本地规则 {n} 条', 'Auto-saved: {n} local rules', { n: rules.length }))
-    } catch (e) { if (e.message !== '401') toast(T('✗ 自动保存失败：{m}', '✗ Auto-save failed: {m}', { m: e.message }), 'bad') }
+    } catch (e) { if (e.message !== '401') toast(T('自动保存失败：{m}', 'Auto-save failed: {m}', { m: e.message }), 'bad') }
   }, 800)
 }
 
@@ -1083,7 +1121,7 @@ async function renderVersions() {
     $('verCur').textContent = d.current ?? '—'
     const g = d.gray ?? null
     $('verGrayState').textContent = g?.version ? T('灰度中：{v} @ {p}%', 'Gray: {v} @ {p}%', { v: g.version, p: g.percent }) : T('无灰度（全员 current）', 'No gray release (all on current)')
-    $('verGrayState').style.color = g?.version ? '#d97706' : '#64748b'
+    $('verGrayState').style.color = g?.version ? 'var(--warn)' : 'var(--dim)'
     $('verGrayBtn').disabled = !verSelection
     $('verGrayBtn').textContent = verSelection ? T('开始灰度 {v}', 'Gray {v}', { v: verSelection }) : T('开始灰度', 'Start gray')
     const summarize = (policy) => {
@@ -1100,16 +1138,16 @@ async function renderVersions() {
       const isCur = d.current === v.version
       return `<tr>
         <td class="mono" style="font-size:12px;white-space:nowrap">${v.version}${isCur ? ` <span class="badge ok">${T('当前', 'Current')}</span>` : ''}${isGray ? ` <span class="badge warn">${T('灰度中', 'Gray')}</span>` : ''}</td>
-        <td class="mono" style="font-size:11.5px;color:#94a3b8;white-space:nowrap">${v.ts ?? ''}</td>
+        <td class="mono" style="font-size:11.5px;color:var(--dim);white-space:nowrap">${v.ts ?? ''}</td>
         <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.note ?? '') || '—'}</td>
-        <td style="font-size:12px;color:#64748b">${summarize(v.policy)}</td>
+        <td style="font-size:12px;color:var(--dim)">${summarize(v.policy)}</td>
         <td style="white-space:nowrap">
           <button class="btn sm" data-ver-gray="${v.version}" ${isCur ? `disabled title="${T('当前版本无需灰度', 'Current version needs no gray release')}"` : ''}>${T('选为灰度', 'Select for gray')}</button>
           <button class="btn sm" data-ver-rollback="${v.version}" title="${T('把该版本内容写回当前策略', 'Write this version back to the current policy')}">${T('回滚到此', 'Rollback')}</button>
         </td>
       </tr>`
     }).join('') || `<tr><td colspan="5" class="empty">${T('暂无版本历史 —— 保存一次策略即产生', 'No version history yet — save a policy once to create one')}</td></tr>`
-  } catch (e) { if (e.message !== '401') toast(T('✗ 版本历史加载失败：{m}', '✗ Failed to load version history: {m}', { m: e.message }), 'bad') }
+  } catch (e) { if (e.message !== '401') toast(T('版本历史加载失败：{m}', 'Failed to load version history: {m}', { m: e.message }), 'bad') }
 }
 
 function bindVersions() {
@@ -1120,12 +1158,12 @@ function bindVersions() {
     if (g) { verSelection = verSelection === g.dataset.verGray ? null : g.dataset.verGray; await renderVersions(); return }
     const rb = e.target.closest('[data-ver-rollback]')
     if (rb) {
-      if (!confirm(T('回滚到 {v}？\n当前策略内容将被该版本快照覆盖（版本号继续递增）。', 'Roll back to {v}? Current policy content will be overwritten by this snapshot (version number keeps increasing).', { v: rb.dataset.verRollback }))) return
+      if (!(await confirmDlg({ title: T('回滚策略', 'Roll back policy'), message: T('回滚到 {v}？当前策略内容将被该版本快照覆盖（版本号继续递增）。', 'Roll back to {v}? Current policy content will be overwritten by this snapshot (version number keeps increasing).', { v: rb.dataset.verRollback }), confirmText: T('确认回滚', 'Roll back'), danger: true }))) return
       try {
         const r = await api('/admin/policy-rollback', { method: 'POST', body: JSON.stringify({ version: rb.dataset.verRollback }) })
         toast(T('已回滚，新版本 {v}', 'Rolled back; new version {v}', { v: r.version }))
         loadAll()
-      } catch (e2) { if (e2.message !== '401') toast(T('✗ 回滚失败：{m}', '✗ Rollback failed: {m}', { m: e2.message }), 'bad') }
+      } catch (e2) { if (e2.message !== '401') toast(T('回滚失败：{m}', 'Rollback failed: {m}', { m: e2.message }), 'bad') }
     }
   })
   $('verGrayBtn')?.addEventListener('click', async () => {
@@ -1137,21 +1175,21 @@ function bindVersions() {
       toast(T('灰度已开始：{v} @ {p}%', 'Gray release started: {v} @ {p}%', { v: verSelection, p: percent }))
       verSelection = null
       loadAll()
-    } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
+    } catch (e) { if (e.message !== '401') toast(e.message, 'bad') }
   })
   $('verPromoteBtn')?.addEventListener('click', async () => {
     try {
       await api('/admin/policy-promote', { method: 'POST', body: '{}' })
       toast(T('已转正：全员拉取当前版本', 'Promoted: everyone pulls the current version'))
       loadAll()
-    } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
+    } catch (e) { if (e.message !== '401') toast(e.message, 'bad') }
   })
   $('verCancelGrayBtn')?.addEventListener('click', async () => {
     try {
       await api('/admin/policy-gray', { method: 'POST', body: JSON.stringify({}) })
       toast(T('灰度已取消：全员拉取当前版本', 'Gray release canceled: everyone pulls the current version'))
       loadAll()
-    } catch (e) { if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
+    } catch (e) { if (e.message !== '401') toast(e.message, 'bad') }
   })
 }
 
@@ -1187,7 +1225,7 @@ function renderAcks(d) {
     const vp = online > 0 ? Math.min(100, Math.round((v.devices / online) * 100)) : 0
     return `<div class="chan">
       <span class="nm"><span class="mono">${esc(v.policy_version)}</span> ${isCur ? `<span class="badge ok">${T('当前', 'Current')}</span>` : `<span class="badge dim">${T('历史', 'History')}</span>`}</span>
-      <div class="bar"><i style="width:${vp}%;background:${isCur ? 'var(--ok)' : '#94a3b8'}"></i></div>
+      <div class="bar"><i style="width:${vp}%;background:${isCur ? 'var(--ok)' : 'var(--dim)'}"></i></div>
       <span class="mono" style="white-space:nowrap;flex-shrink:0">${T('{d} 台 / {a} 条 · {p}%', '{d} devices / {a} receipts · {p}%', { d: v.devices, a: v.acks, p: vp })}</span>
       <span class="crumb" style="margin:0;white-space:nowrap;flex-shrink:0" title="${T('最早 {t}', 'First {t}', { t: esc(v.first_local ?? '') })}">${T('最近 {t}', 'Last {t}', { t: ago(v.last_local) })}</span>
     </div>`
@@ -1260,7 +1298,7 @@ function bindAcks() {
 /* ---------- 保存（每个子页各管各的段，互不覆盖） ---------- */
 function showSaveErr(msgEl, text) {
   if (msgEl) msgEl.textContent = text
-  if (text) toast('✗ ' + text, 'bad')
+  if (text) toast(text, 'bad')
 }
 
 async function doSave(msgEl, patch, okMsg) {
@@ -1303,7 +1341,7 @@ async function saveBannerStyle() {
     await api('/admin/policy', { method: 'PATCH', body: JSON.stringify({ policy: { bannerPosition, bannerStyle: Object.keys(bannerStyle).length ? bannerStyle : null } }) })
     toast(T('横幅样式已保存：{p}', 'Banner style saved: {p}', { p: bannerPosition }))
     loadAll()
-  } catch (e) { if (err) err.textContent = e.message; if (e.message !== '401') toast('✗ ' + e.message, 'bad') }
+  } catch (e) { if (err) err.textContent = e.message; if (e.message !== '401') toast(e.message, 'bad') }
 }
 
 /* ---------- 各子页事件绑定（元素存在才绑，兼容老壳单页回退） ---------- */
@@ -1373,9 +1411,11 @@ function bindPlugins() {
     $('repoSrcNpm').addEventListener('click', () => setRepoSrc('npm'))
     $('repoSrcUp').addEventListener('click', () => setRepoSrc('upload'))
     $('repoSearch').addEventListener('input', renderRepo)
+    if ($('repoCheckBtn')) $('repoCheckBtn').addEventListener('click', (e) => repoCheckUpdates(e.currentTarget))
     $('repoBody').addEventListener('click', (e) => {
       let el
       if ((el = e.target.closest('[data-repo-ver]'))) openRepoVer(el.dataset.repoVer)
+      else if ((el = e.target.closest('[data-repo-upd]'))) repoUpdateLatest(el.dataset.repoUpd, el)
       else if ((el = e.target.closest('[data-repo-allow]'))) allowFromRepo(el.dataset.repoAllow)
       else if ((el = e.target.closest('[data-repo-desc]'))) openRepoDesc(el.dataset.repoDesc)
       else if ((el = e.target.closest('[data-repo-del]'))) repoVerAction('delPlugin', el.dataset.repoDel)
@@ -1401,13 +1441,15 @@ function bindRules() {
 
   // —— 列表事件委托：编辑 / 删除 / 点行打开编辑
   if ($('rulesList')) {
-    $('rulesList').addEventListener('click', (e) => {
+    $('rulesList').addEventListener('click', async (e) => {
       const del = e.target.closest('[data-rule-del]')
       if (del) {
         const i = Number(del.dataset.ruleDel)
         const r = rulesData[i]
         const brief = String(r?.value ?? '').trim().slice(0, 24) || T('（空规则）', '(empty rule)')
-        if (confirm(T('删除这条规则？\n{b}', 'Delete this rule?\n{b}', { b: brief }))) {
+        e.stopPropagation()
+        const okDel = await confirmDlg({ title: T('删除规则', 'Delete rule'), message: T('删除这条规则？{b}', 'Delete this rule? {b}', { b: brief }), confirmText: T('确认删除', 'Delete'), danger: true })
+        if (okDel) {
           rulesData.splice(i, 1)
           if ($('ruleFilter')) $('ruleFilter').value = ''
           if ($('ruleTypeFilter')) $('ruleTypeFilter').value = ''
@@ -1415,7 +1457,6 @@ function bindRules() {
           markRulesDirty()
           toast(T('已删除，自动保存中…', 'Deleted; auto-saving…'))
         }
-        e.stopPropagation()
         return
       }
       const edit = e.target.closest('[data-rule-edit]')
@@ -1440,12 +1481,12 @@ function bindRules() {
     $('reAction').addEventListener('change', updateRePreview)
     $('reMsg').addEventListener('input', updateRePreview)
   }
-  if ($('ruleEditOk')) $('ruleEditOk').addEventListener('click', () => {
+  if ($('ruleEditOk')) $('ruleEditOk').addEventListener('click', async () => {
     const err = $('ruleEditErr'); err.textContent = ''
     const value = $('reValue').value.trim()
     if (!value) { err.textContent = T('匹配值（value）不能为空', 'Match value is required'); $('reValue').focus(); return }
     const type = $('reType').value
-    if (type === 'block-word') { try { new RegExp(value) } catch { if (!confirm(T('正则不合法（会退化为包含匹配），仍要保存吗？', 'Invalid regex (falls back to contains match). Save anyway?'))) return } }
+    if (type === 'block-word') { try { new RegExp(value) } catch { if (!(await confirmDlg({ title: T('正则不合法', 'Invalid regex'), message: T('正则不合法（会退化为包含匹配），仍要保存吗？', 'Invalid regex (falls back to contains match). Save anyway?'), confirmText: T('仍要保存', 'Save anyway') }))) return } }
     const rule = { type, action: type === 'notice' ? 'block' : $('reAction').value, value, message: $('reMsg').value.trim() }
     if (ruleEditIdx >= 0) rulesData[ruleEditIdx] = rule
     else if (type === 'notice' && rulesData.some((r) => r.type === 'notice')) {
@@ -1486,7 +1527,7 @@ function bindRules() {
           <span style="font-size:16px;flex-shrink:0">⚠️</span>
           <span style="word-break:break-word">${T('样式预览：检测到关键词', 'Preview: keyword detected')} <b>${T('示例', 'example')}</b>${T('，请注意外发风险（宽 {w}px）', ' — mind the outbound risk (width {w}px)', { w: bs.maxWidth })}</span>
         </div>
-        <div style="padding:16px;color:#94a3b8;font-size:12px">${T('预览窗口 —— 保存后用户端下一次弹出即生效。', 'Preview window — takes effect on the next client banner after save.')}</div>
+        <div style="padding:16px;color:var(--dim);font-size:12px">${T('预览窗口 —— 保存后用户端下一次弹出即生效。', 'Preview window — takes effect on the next client banner after save.')}</div>
       </body></html>`)
     w.document.close()
   })
@@ -1507,7 +1548,7 @@ function openRuleEdit(idx, noticeTip) {
   $('reValue').value = preset.value ?? ''
   $('reMsg').value = preset.message ?? ''
   $('ruleEditErr').textContent = noticeTip ?? ''
-  if (noticeTip) $('ruleEditErr').style.color = '#2563eb'   // 提示用蓝色区别于错误红
+  if (noticeTip) $('ruleEditErr').style.color = 'var(--accent)'   // 提示用蓝色区别于错误红
   else $('ruleEditErr').style.color = ''
   $('reType').disabled = false
   $('reType').dispatchEvent(new Event('change'))

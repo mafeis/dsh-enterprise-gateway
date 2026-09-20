@@ -67,6 +67,26 @@ export const PLUGIN_META = {
     category: 'domain',
     summary: '用户账号 CRUD API（/admin/users*）+ 用户管理页（创建/改密/启停/账号活动详情）',
   },
+  'ent-license': {
+    title: '商业授权',
+    category: 'domain',
+    summary: '商业授权码录入/验签 API（/admin/license）+ 商业授权页（状态徽章/授权详情）；社区许可 ≤30 席免费，超限仅提醒不拦截',
+  },
+  'ent-groups': {
+    title: '用户分组',
+    category: 'domain',
+    summary: '用户分组 CRUD API（/admin/groups*）+ 分组页（新建/改名/描述/成员归属，一人一组）；模型与额度在「模型管理」「额度管理」页配置',
+  },
+  'ent-group-models': {
+    title: '模型管理',
+    category: 'domain',
+    summary: '按组配置可见模型白名单（/admin/group-models*），只列已上架模型；强制点在 /v1/models 过滤与 chat/responses 转发前准入',
+  },
+  'ent-quota': {
+    title: '额度管理',
+    category: 'domain',
+    summary: '按组配置每人额度（日/周/月 × Token/金额，可叠加可单一）（/admin/quota*）；强制点在 chat/responses 转发前准入',
+  },
   'ent-billing': {
     title: '用量与计费',
     category: 'domain',

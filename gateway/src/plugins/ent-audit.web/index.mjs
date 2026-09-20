@@ -109,7 +109,7 @@ function renderRows(logs) {
   const host = $('auditTableHost');
   if (!logs.length) {
     const filtered = filterParams().u || filterParams().m || filterParams().flag;
-    host.innerHTML = `<table>${head}<tbody><tr><td colspan="${colSpan() + 1}" class="empty">${filtered ? T('无匹配留痕','No matching records') : T('暂无留痕','No audit records')}</td></tr></tbody></table>`;
+    host.innerHTML = `<div class="tablewrap"><table>${head}<tbody><tr><td colspan="${colSpan() + 1}" class="empty">${filtered ? T('无匹配留痕','No matching records') : T('暂无留痕','No audit records')}</td></tr></tbody></table></div>`;
     return;
   }
   const rows = logs.map((l) => {
@@ -128,7 +128,7 @@ function renderRows(logs) {
       <td><button class="btn sm" data-log="${l.id}">${T('详情','Details')}</button></td>
     </tr>`;
   }).join('');
-  host.innerHTML = `<table>${head}<tbody>${rows}</tbody></table>`;
+  host.innerHTML = `<div class="tablewrap"><table>${head}<tbody>${rows}</tbody></table></div>`;
 }
 
 /** 分页条：总数 · 页码（当前页±1 + 首末页）· 上一页/下一页 · 跳页 */

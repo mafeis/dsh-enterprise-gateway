@@ -13,7 +13,7 @@ const CAT_CLS = { kernel: 'l-meta', service: 'l-biz', domain: 'l-ui', collab: 'l
 function catOf(p) {
   if (p.category) return p.category;
   if (p.source === 'external') return 'external';
-  return 'business';
+  return 'domain';
 }
 const byCategory = (a, b) => (CAT_RANK[catOf(a)] - CAT_RANK[catOf(b)]);
 
@@ -28,32 +28,32 @@ export default {
   <div class="card">
     <h2><span class="bar"></span>${T('侧边菜单', 'Side menu')}
       <span style="flex:1"></span>
-      <button class="btn" id="navManageBtn">☰ ${T('菜单管理', 'Menu management')}</button>
+      <button class="btn" id="navManageBtn">${icon('menu', { size: 13 })} ${T('菜单管理', 'Menu management')}</button>
     </h2>
     </div>
 
   <div class="card">
     <h2><span class="bar"></span>${T('已装载', 'Loaded')} <span class="badge" id="plugLoadedCount"></span></h2>
-      <table>
+      <div class="tablewrap"><table>
       <thead><tr><th>${T('插件', 'Plugin')}</th><th>${T('层', 'Layer')}</th><th>provides</th><th>inject</th><th>capabilities</th><th>exposes</th><th class="num">${T('操作', 'Actions')}</th></tr></thead>
       <tbody id="plugLoadedBody"><tr><td colspan="7" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
-    </table>
+    </table></div>
   </div>
 
   <div class="card">
     <h2><span class="bar"></span>${T('已禁用', 'Disabled')} <span class="badge" id="plugDisabledCount"></span></h2>
-    <table>
+    <div class="tablewrap"><table>
       <thead><tr><th>${T('插件', 'Plugin')}</th><th>${T('来源', 'Source')}</th><th>${T('说明', 'Notes')}</th><th class="num">${T('操作', 'Actions')}</th></tr></thead>
       <tbody id="plugDisabledBody"><tr><td colspan="4" class="empty">${T('无', 'None')}</td></tr></tbody>
-    </table>
+    </table></div>
   </div>
 
   <div class="card">
     <h2><span class="bar"></span>${T('装载失败', 'Failed to load')} <span class="badge" id="plugFailedCount"></span></h2>
-    <table>
+    <div class="tablewrap"><table>
       <thead><tr><th>${T('插件', 'Plugin')}</th><th>${T('来源', 'Source')}</th><th>${T('原因', 'Reason')}</th><th class="num">${T('操作', 'Actions')}</th></tr></thead>
       <tbody id="plugFailedBody"><tr><td colspan="4" class="empty">${T('无', 'None')}</td></tr></tbody>
-    </table>
+    </table></div>
   </div>`,
 
   async load() {

@@ -39,15 +39,19 @@ const BUILTIN_PLUGINS = [
   { name: 'ent-router', path: './plugins/ent-router.mjs' },
   { name: 'ent-config', path: './plugins/ent-config.mjs' },
   { name: 'ent-registry', path: './plugins/ent-registry.mjs' },
-  { name: 'ent-meta', path: './plugins/ent-meta.mjs' },
-  // 基础服务：被多个业务域依赖的引擎
+  // 基础服务：被多个业务域依赖的引擎（ent-meta 的 /v1/models 按用户分组过滤，须在 store/auth 之后）
   { name: 'ent-store', path: './plugins/ent-store.mjs' },
   { name: 'ent-auth', path: './plugins/ent-auth.mjs' },
+  { name: 'ent-meta', path: './plugins/ent-meta.mjs' },
   { name: 'ent-security', path: './plugins/ent-security.mjs' },   // provides dlp（必须在 ent-upstream 之前）
   { name: 'ent-upstream', path: './plugins/ent-upstream.mjs' },
   // 业务域：API + 页面同域（谁的业务谁挂路由）
   { name: 'ent-catalog', path: './plugins/ent-catalog.mjs' },
   { name: 'ent-users', path: './plugins/ent-users.mjs' },
+  { name: 'ent-license', path: './plugins/ent-license.mjs' },
+  { name: 'ent-groups', path: './plugins/ent-groups.mjs' },
+  { name: 'ent-group-models', path: './plugins/ent-group-models.mjs' },
+  { name: 'ent-quota', path: './plugins/ent-quota.mjs' },
   { name: 'ent-billing', path: './plugins/ent-billing.mjs' },
   { name: 'ent-client', path: './plugins/ent-client.mjs' },
   { name: 'ent-setup', path: './plugins/ent-setup.mjs' },

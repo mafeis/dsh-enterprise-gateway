@@ -22,10 +22,10 @@ export default {
 
   <div class="card">
     <h2><span class="bar"></span>${T('最近事件', 'Recent events')} <span class="badge" id="ntfyCount"></span></h2>
-    <table>
+    <div class="tablewrap"><table>
       <thead><tr><th>${T('时间', 'Time')}</th><th>${T('类型', 'Type')}</th><th>${T('详情', 'Detail')}</th></tr></thead>
       <tbody id="ntfyBody"><tr><td colspan="3" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
-    </table>
+    </table></div>
   </div>`,
 
   async load() {

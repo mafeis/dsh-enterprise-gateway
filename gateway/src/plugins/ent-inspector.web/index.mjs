@@ -14,18 +14,18 @@ export default {
 
   <div class="card">
     <h2><span class="bar"></span>${T('插件契约扫描', 'Plugin contract scan')} <span class="badge" id="inspCount"></span></h2>
-    <table>
+    <div class="tablewrap"><table>
       <thead><tr><th>${T('插件', 'Plugin')}</th><th>provides</th><th>inject</th><th>capabilities</th><th>exposes</th><th>${T('来源', 'Source')}</th></tr></thead>
       <tbody id="inspBody"><tr><td colspan="6" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
-    </table>
+    </table></div>
   </div>
 
   <div class="card">
     <h2><span class="bar"></span>${T('exposes 信息快照', 'exposes snapshot')} <span class="badge" id="inspSnapCount"></span></h2>
-      <table>
+      <div class="tablewrap"><table>
       <thead><tr><th>${T('插件', 'Plugin')}</th><th>${T('快照数据', 'Snapshot data')}</th></tr></thead>
       <tbody id="inspSnapBody"><tr><td colspan="2" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
-    </table>
+    </table></div>
   </div>`,
 
   async load() {

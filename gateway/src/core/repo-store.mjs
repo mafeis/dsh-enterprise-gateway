@@ -134,7 +134,7 @@ function verCmp(a, b) {
 export const highestVersion = (vers) => Object.keys(vers).sort(verCmp).pop() ?? null
 
 /* ---------- 写入 ---------- */
-function putTarball(buf, { by = '-', note = '', source = 'upload' } = {}) {
+function putTarball(buf, { by = '-', note = '', source = 'upload', registry = '' } = {}) {
   const { manifest } = inspectTarball(buf)
   const name = String(manifest.name ?? '').trim()
   const version = String(manifest.version ?? '').trim()
@@ -147,6 +147,7 @@ function putTarball(buf, { by = '-', note = '', source = 'upload' } = {}) {
   const idx = loadIndex()
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
   const p = (idx.plugins[name] ??= { name, description: '', descriptionEn: '', descriptionManual: false, createdAt: now, versions: {} })
+  if (registry) p.registry = registry   // npm 来源记录拉取仓库，后续检测/更新走同一源
   if (!p.defaultVersion || verCmp(version, p.defaultVersion) > 0) p.defaultVersion = version
   if (manifest.description && !p.descriptionManual) {
     const raw = String(manifest.description).slice(0, 300)
@@ -167,6 +168,7 @@ function putTarball(buf, { by = '-', note = '', source = 'upload' } = {}) {
     by: String(by).slice(0, 64),
     note: String(note ?? '').slice(0, 200),
     source,
+    ...(registry ? { registry } : {}),
   }
   p.updatedAt = now
   saveIndex()
@@ -194,7 +196,10 @@ async function fetchBuffer(url) {
 export async function addFromNpm({ spec, registry, by, note } = {}) {
   const parsed = parseSpec(spec)
   if (parsed.kind === 'url') return { ...putTarball(await fetchBuffer(parsed.url), { by, note, source: 'npm' }), spec: parsed.url }
-  const base = String(registry ?? '').trim().replace(/\/+$/, '') || 'https://registry.npmjs.org'
+  // registry 优先取入参；未带版本号的裸包名沿用该插件上次入库的源（点「更新」不用再填仓库地址）
+  let base = String(registry ?? '').trim().replace(/\/+$/, '')
+  if (!base && !parsed.version) base = getPlugin(parsed.name)?.registry ?? ''
+  base = base || 'https://registry.npmjs.org'
   const metaUrl = `${base}/${parsed.name.replace('/', '%2F')}`
   const r = await fetch(metaUrl, { redirect: 'follow' })
   if (!r.ok) throw new Error(`npm 源查询失败 ${r.status}：${metaUrl}`)
@@ -207,7 +212,7 @@ export async function addFromNpm({ spec, registry, by, note } = {}) {
   }
   const dist = versions[want]?.dist?.tarball
   if (!dist) throw new Error(`npm 源上没有版本 ${want}（可选：${Object.keys(versions).slice(-5).join(', ')}）`)
-  return { ...putTarball(await fetchBuffer(dist), { by, note, source: 'npm' }), spec: `${parsed.name}@${want}` }
+  return { ...putTarball(await fetchBuffer(dist), { by, note, source: 'npm', registry: base }), spec: `${parsed.name}@${want}` }
 }
 
 export function addFromUpload(buf, { by, note } = {}) {
@@ -231,12 +236,49 @@ export function listRepo() {
       totalSize,
       versions: Object.fromEntries(vers),
       updatedAt: p.updatedAt ?? '',
+      registry: p.registry ?? '',
+      npmLatest: p.npmLatest ?? '',
+      npmCheckedAt: p.npmCheckedAt ?? '',
+      npmError: p.npmError ?? '',
     }
   }).sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export function getPlugin(name) {
   return loadIndex().plugins[String(name)] ?? null
+}
+
+/* ---------- npm 新版本检测 ---------- */
+/** 逐个查询插件登记的 npm 源 dist-tags.latest，结果写回索引（仓库页角标数据源）。
+ *  只查 source=npm 且记录过 registry 的插件；上传入库的包没有 npm 源，跳过。 */
+export async function checkNpmUpdates() {
+  const idx = loadIndex()
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+  const updates = []
+  const errors = []
+  for (const p of Object.values(idx.plugins)) {
+    // registry：新数据入库时记录；历史数据回退 npmjs（旧版 addFromNpm 的默认源）
+    const reg = String(p.registry ?? '').replace(/\/+$/, '')
+      || (Object.values(p.versions).some((v) => v.source === 'npm') ? 'https://registry.npmjs.org' : '')
+    if (!reg) continue
+    try {
+      const r = await fetch(`${reg}/${p.name.replace('/', '%2F')}`, { redirect: 'follow', signal: AbortSignal.timeout(8000) })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      const meta = await r.json()
+      const latest = meta['dist-tags']?.latest
+      if (!latest) throw new Error('无 dist-tags.latest')
+      p.npmLatest = latest
+      p.npmCheckedAt = now
+      p.npmError = ''
+      if (verCmp(latest, p.defaultVersion ?? '0') > 0) updates.push({ name: p.name, current: p.defaultVersion, latest, registry: reg })
+    } catch (e) {
+      p.npmCheckedAt = now
+      p.npmError = String(e.message ?? e).slice(0, 120)
+      errors.push({ name: p.name, error: p.npmError })
+    }
+  }
+  saveIndex()
+  return { checkedAt: now, updates, errors }
 }
 
 export function setMeta(name, { description, descriptionEn } = {}) {

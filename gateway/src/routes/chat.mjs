@@ -14,7 +14,7 @@ function cut(s, maxChars) {
 export function createChatHandler({ store, auth, dlp, upstream }) {
   const { auditContent, scanMessages, serializeContext, auditMaxChars } = dlp
   const { forwardWithFailover, pumpSse } = upstream
-  const { insertLog } = store
+  const { insertLog, groupAccessCheck } = store
   const { authenticate } = auth
 
   return async function handleChat(req, res) {
@@ -29,6 +29,12 @@ export function createChatHandler({ store, auth, dlp, upstream }) {
     if (!body) return json(res, 400, { error: { message: '请求体不是合法 JSON', type: 'bad_request' } })
 
     const entModel = body.model ?? 'ent-default'
+    // 分组准入：模型白名单 + 每人独立额度（未分组用户恒通过）
+    const access = groupAccessCheck(authResult.user.username, entModel)
+    if (!access.ok) {
+      console.log(`[${ts()}] ⛔ 分组拦截 user=${authResult.user.username} ${entModel} type=${access.type}`)
+      return json(res, access.status, { error: { message: access.message, type: access.type } })
+    }
     const messages = Array.isArray(body.messages) ? body.messages : []
     const userMsg = messages.at(-1)?.content ?? ''
     const promptText = typeof userMsg === 'string' ? userMsg : JSON.stringify(userMsg)

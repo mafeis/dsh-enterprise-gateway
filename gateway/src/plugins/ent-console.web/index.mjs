@@ -5,7 +5,7 @@
  * 配置经 GET/PATCH /admin/console-config 落盘持久化，即时生效
  */
 import { api, $, fmtTok, esc, icon, toast, openDlg, closeDlg } from '/admin/static/contract.mjs';
-import { T, getLang } from '/admin/static/js/i18n.mjs';
+import { T, getLang, isEn } from '/admin/static/js/i18n.mjs';
 import { loadTerminals, bindTerminalsEvents, renderTerminals, renderTerminalsCards } from './terminals.mjs';
 import { renderInstalls, bindInstallsEvents } from './installs.mjs';
 
@@ -88,7 +88,8 @@ async function loadAll() {
   const parts = [];
   // —— 商业授权提醒（仅超限/无效时出现） ——
   if (license && (license.state === 'over-limit' || license.state === 'invalid')) {
-    parts.push(`<div class="notebox warn" style="margin-bottom:16px"><b>${T('商业授权提醒','Commercial license')}</b> — ${esc(license.message)} · <a href="#/users">${T('到用户管理页录入授权码','Enter the key on the Users page')}</a></div>`);
+    const licMsg = esc(isEn() ? (license.messageEn ?? license.message) : license.message);
+    parts.push(`<div class="notebox warn" style="margin-bottom:16px"><b>${T('商业授权提醒','Commercial license')}</b> — ${licMsg} · <a href="#/license">${T('到商业授权页录入授权码','Enter the key on the License page')}</a></div>`);
   }
   // —— KPI 区块（统一容器：全部同形态才组合渲染；混合形态各自渲染） ——
   if (kpiKeys.length) {
@@ -197,8 +198,8 @@ function metricRow(key) {
 }
 
 function tableHtml(rows) {
-  return `<table><thead><tr><th>${T('指标','Metric')}</th><th class="num">${T('值','Value')}</th></tr></thead><tbody>${rows.map((r) =>
-    `<tr><td>${esc(r.cells[0])}</td><td class="num"><b>${esc(r.cells[1])}</b></td></tr>`).join('')}</tbody></table>`;
+  return `<div class="tablewrap"><table><thead><tr><th>${T('指标','Metric')}</th><th class="num">${T('值','Value')}</th></tr></thead><tbody>${rows.map((r) =>
+    `<tr><td>${esc(r.cells[0])}</td><td class="num"><b>${esc(r.cells[1])}</b></td></tr>`).join('')}</tbody></table></div>`;
 }
 
 /** bar 形态：占比条 */
@@ -220,13 +221,13 @@ function barRow(key, value, max) {
 
 /** usage 的三种形态 */
 function usageTable(rows) {
-  return `<table>
+  return `<div class="tablewrap"><table>
     <thead><tr><th>${T('用户','User')}</th><th class="num">${T('请求数','Requests')}</th><th class="num">${T('Token 总量','Total tokens')}</th><th>${T('占比','Share')}</th></tr></thead>
     <tbody>${rows.length ? rows.map((u) => {
       const pct = Math.round(u.tokens / ((rows.reduce((a, b) => a + b.tokens, 0)) || 1) * 100);
       return `<tr><td><b>${esc(u.user_name)}</b></td><td class="num">${u.requests}</td><td class="num">${fmtTok(u.tokens)}</td>
         <td><div class="bar" style="margin:0"><i style="width:${pct}%;background:var(--accent)"></i></div></td></tr>`;
-    }).join('') : '<tr><td colspan="4" class="empty">' + T('近 7 日暂无用量','No usage in 7 days') + '</td></tr>'}</tbody></table>`;
+    }).join('') : '<tr><td colspan="4" class="empty">' + T('近 7 日暂无用量','No usage in 7 days') + '</td></tr>'}</tbody></table></div>`;
 }
 function usageBars(rows) {
   if (!rows.length) return '<div class="empty">' + T('近 7 日暂无用量','No usage in 7 days') + '</div>';

@@ -67,7 +67,7 @@ export async function loadTerminals() {
 /** 表格形态渲染（返回 HTML，装进容器后由 bindTerminalsEvents 接管点击） */
 export function renderTerminals(list) {
   lastList = list;
-  return `<table>
+  return `<div class="tablewrap"><table>
     <thead><tr><th>${T('设备指纹', 'Fingerprint')}</th><th>${T('账号', 'Account')}</th><th>${T('主机名', 'Hostname')}</th><th>${T('环境', 'Env')}</th><th>${T('最后心跳', 'Last heartbeat')}</th><th></th></tr></thead>
     <tbody id="termBody">${list.length ? list.map((x, i) =>
       `<tr class="term-row" data-idx="${i}" title="${T('点击查看完整设备信息', 'Click for full device info')}">
@@ -78,7 +78,7 @@ export function renderTerminals(list) {
          <td class="mono">${esc(x.ts_local ?? '-')}</td>
          <td class="mono term-more">${T('详情 ›', 'Details ›')}</td>
        </tr>`
-    ).join('') : `<tr><td colspan="6" class="empty">${T('暂无终端心跳 · Desktop 插件接入后显示', 'No device heartbeats yet · shown once Desktop plugins connect')}</td></tr>`}</tbody></table>`;
+    ).join('') : `<tr><td colspan="6" class="empty">${T('暂无终端心跳 · Desktop 插件接入后显示', 'No device heartbeats yet · shown once Desktop plugins connect')}</td></tr>`}</tbody></table></div>`;
 }
 
 /** 卡片墙形态渲染（每台终端一张卡） */

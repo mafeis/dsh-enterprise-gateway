@@ -48,32 +48,42 @@ export function parseLicenseKey(keyStr) {
 /**
  * 授权状态计算（唯一口径：启用账号数 vs 免费 30 席 vs 授权席位数）
  * 返回 { state, message }，state：
- *   free       启用账号 ≤30，社区许可范围内
- *   licensed   启用账号 >30 且授权有效（席位/有效期都够）
- *   over-limit 启用账号 >30 且无有效授权（提醒态）
+ *   licensed   录入了有效授权（验签通过、未到期、席位够）——无论是否超出免费线
+ *   free       启用账号 ≤30 且无有效授权，社区许可范围内
+ *   over-limit 启用账号 >30 且无有效授权，或授权已到期/席位不足（提醒态）
  *   invalid    录了授权码但验签失败/字段不合法
  */
 export function licenseStatus(userCount, licenseKey) {
   const over = userCount > FREE_SEAT_LIMIT
-  if (!over) return { state: 'free', message: `启用账号 ${userCount}/${FREE_SEAT_LIMIT}，社区许可范围内` }
   const parsed = parseLicenseKey(licenseKey)
-  if (!parsed.ok) {
-    const msg = parsed.reason === '未录入授权码'
-      ? `启用账号 ${userCount} 超过社区许可免费上限（${FREE_SEAT_LIMIT}），请录入商业授权码或联系 ${LICENSE_CONTACT} 取得授权`
-      : `启用账号 ${userCount} 超过免费上限（${FREE_SEAT_LIMIT}），且${parsed.reason}`
-    return { state: parsed.reason === '未录入授权码' ? 'over-limit' : 'invalid', message: msg }
+  const lic = parsed.ok ? parsed.license : null
+  if (lic) {
+    const now = Date.now()
+    const expired = lic.expiresAt != null && Date.parse(lic.expiresAt) < now
+    const seatsShort = lic.seats !== 'unlimited' && lic.seats < userCount
+    const whoZh = `被授权方：${lic.licensee} · ${lic.seats === 'unlimited' ? '不限席位' : `${lic.seats} 席位`}${lic.expiresAt ? `，有效期至 ${lic.expiresAt.slice(0, 10)}` : '，永久有效'}`
+    const whoEn = `licensee ${lic.licensee} · ${lic.seats === 'unlimited' ? 'unlimited seats' : `${lic.seats} seats`}${lic.expiresAt ? `, valid until ${lic.expiresAt.slice(0, 10)}` : ', perpetual'}`
+    if (expired) {
+      return over
+        ? { state: 'over-limit', message: `商业授权已于 ${lic.expiresAt.slice(0, 10)} 到期（${whoZh}），请续期或联系 ${LICENSE_CONTACT}`, messageEn: `Commercial license expired on ${lic.expiresAt.slice(0, 10)} (${whoEn}). Renew or contact ${LICENSE_CONTACT}` }
+        : { state: 'free', message: `商业授权已于 ${lic.expiresAt.slice(0, 10)} 到期（${whoZh}）；当前启用账号 ${userCount} 在社区免费额度内，续期前可继续使用`, messageEn: `Commercial license expired on ${lic.expiresAt.slice(0, 10)} (${whoEn}); ${userCount} enabled users are within the community free tier until renewal` }
+    }
+    if (seatsShort) {
+      return over
+        ? { state: 'over-limit', message: `用户数已超过限制（${userCount}/${lic.seats}），请联系 ${LICENSE_CONTACT} 进行扩容`, messageEn: `User count exceeds the limit (${userCount}/${lic.seats}). Contact ${LICENSE_CONTACT} to expand seats` }
+        : { state: 'free', message: `启用账号 ${userCount} 超出商业授权席位数 ${lic.seats}（${whoZh}）；仍在社区免费额度内可继续使用，建议扩容备用`, messageEn: `Enabled accounts ${userCount} exceed the ${lic.seats}-seat commercial license (${whoEn}); still within the community free tier — expanding seats is recommended` }
+    }
+    const usageZh = over ? '' : `（当前启用账号 ${userCount}，社区免费额度内）`
+    const usageEn = over ? '' : ` (${userCount} enabled users, within community free tier)`
+    return { state: 'licensed', message: `商业授权有效（${whoZh}）${usageZh}`, messageEn: `Commercial license active (${whoEn})${usageEn}` }
   }
-  const lic = parsed.license
-  const now = Date.now()
-  if (lic.expiresAt != null && Date.parse(lic.expiresAt) < now) {
-    return { state: 'over-limit', message: `商业授权已于 ${lic.expiresAt.slice(0, 10)} 到期（被授权方：${lic.licensee}），请续期或联系 ${LICENSE_CONTACT}` }
+  if (!over) {
+    return { state: 'free', message: licenseKey && String(licenseKey).trim() ? `启用账号 ${userCount}/${FREE_SEAT_LIMIT}，社区许可范围内；已录入的授权码无效（${parsed.reason}）` : `启用账号 ${userCount}/${FREE_SEAT_LIMIT}，社区许可范围内` }
   }
-  if (lic.seats !== 'unlimited' && lic.seats < userCount) {
-    return { state: 'over-limit', message: `启用账号 ${userCount} 超出商业授权席位数 ${lic.seats}（被授权方：${lic.licensee}），请扩容或联系 ${LICENSE_CONTACT}` }
+  if (parsed.reason === '未录入授权码') {
+    return { state: 'over-limit', message: `用户数已超过限制（${userCount}/${FREE_SEAT_LIMIT}），请录入商业授权码或联系 ${LICENSE_CONTACT}`, messageEn: `User count exceeds the limit (${userCount}/${FREE_SEAT_LIMIT}). Enter a commercial key or contact ${LICENSE_CONTACT}` }
   }
-  const seatTxt = lic.seats === 'unlimited' ? '不限席位' : `${lic.seats} 席位`
-  const expTxt = lic.expiresAt ? `，有效期至 ${lic.expiresAt.slice(0, 10)}` : '，永久有效'
-  return { state: 'licensed', message: `商业授权有效（被授权方：${lic.licensee} · ${seatTxt}${expTxt}）` }
+  return { state: parsed.reason === '未录入授权码' ? 'over-limit' : 'invalid', message: `启用账号 ${userCount} 超过免费上限（${FREE_SEAT_LIMIT}），且${parsed.reason}` }
 }
 
 /** 授权状态汇总（API 返回体；绝不回传授权码原文） */

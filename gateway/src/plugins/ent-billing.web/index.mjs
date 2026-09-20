@@ -32,9 +32,14 @@ function todayStr() {
 }
 
 /* ---------- 模块状态（bind 后复用） ---------- */
-let lastDays = 14
+let lastDays = 1
 let lastBilled = []
 let lastUsers = new Map()
+
+/** 周期文案：days=1 为「当前」（当天），其余为「近 N 天」 */
+function periodLabel(days) {
+  return days <= 1 ? T('当前', 'Current') : T('近 {d} 天', 'Last {d} days', { d: days })
+}
 
 /* ---------- CSV 导出（前端生成，含 BOM 便于 Excel 打开） ---------- */
 function exportCsv() {
@@ -50,7 +55,9 @@ function exportCsv() {
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
   const a = document.createElement('a')
   a.href = url
-  a.download = T('DSH企业账单_近{d}天_{t}.csv', 'DSH-bill-{d}d-{t}.csv', { d: lastDays, t: todayStr() })
+  a.download = lastDays <= 1
+    ? T('DSH企业账单_当前_{t}.csv', 'DSH-bill-current-{t}.csv', { t: todayStr() })
+    : T('DSH企业账单_近{d}天_{t}.csv', 'DSH-bill-{d}d-{t}.csv', { d: lastDays, t: todayStr() })
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -75,7 +82,9 @@ function renderKpis(billed, daily, days) {
   const models = new Set(billed.flatMap((d) => (d.byModel ?? []).map((m) => m.model)))
 
   $('kpiAmount').textContent = fmtYuan(total)
-  $('kpiAmountSub').textContent = T('近 {d} 天 · {n} 个计费日', 'Last {d} days · {n} billed days', { d: days, n: billed.length })
+  $('kpiAmountSub').textContent = days <= 1
+    ? T('当前 · {n} 个计费日', 'Current · {n} billed days', { n: billed.length })
+    : T('近 {d} 天 · {n} 个计费日', 'Last {d} days · {n} billed days', { d: days, n: billed.length })
   $('kpiReq').textContent = fmtTok(totalReq)
   $('kpiReqSub').textContent = models.size ? T('涉及 {n} 个模型', '{n} models', { n: models.size }) : T('暂无模型数据', 'No model data')
   $('kpiTok').textContent = fmtTok(tokIn + tokOut)
@@ -153,7 +162,7 @@ function renderDaily(billed, daily) {
 }
 
 function renderModels(billed) {
-  const body = $('modelBody')
+  const body = $('billModelBody')
   const agg = new Map()
   for (const d of billed) {
     for (const m of d.byModel ?? []) {
@@ -202,8 +211,8 @@ export default {
     <div><h1>${T('计费账单', 'Bills')}</h1></div>
     <span style="flex:1"></span>
     <select id="billDays" title="${T('统计周期', 'Period')}">
+      <option value="1" selected>${T('当前', 'Current')}</option>
       <option value="7">${T('近 7 天', 'Last 7 days')}</option>
-      <option value="14" selected>${T('近 14 天', 'Last 14 days')}</option>
       <option value="30">${T('近 30 天', 'Last 30 days')}</option>
       <option value="90">${T('近 90 天', 'Last 90 days')}</option>
     </select>
@@ -230,30 +239,30 @@ export default {
     </div>
 
     <div class="pane on" data-pane="daily">
-      <table>
+      <div class="tablewrap"><table>
         <thead><tr><th>${T('日期', 'Date')}</th><th class="num">${T('请求', 'Requests')}</th><th class="num">${T('入 Token', 'In tokens')}</th><th class="num">${T('缓存命中', 'Cache hits')}</th><th class="num">${T('出 Token', 'Out tokens')}</th><th class="num">${T('活跃用户', 'Active users')}</th><th>${T('分模型金额', 'By model')}</th><th class="num">${T('应付金额', 'Amount due')}</th></tr></thead>
         <tbody id="billBody"><tr><td colspan="8" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
         <tfoot id="billFoot"></tfoot>
-      </table>
+      </table></div>
     </div>
 
     <div class="pane" data-pane="model">
-          <table>
+          <div class="tablewrap"><table>
         <thead><tr><th>${T('模型', 'Model')}</th><th class="num">${T('请求数', 'Requests')}</th><th class="num">${T('应付金额', 'Amount due')}</th><th>${T('金额占比', 'Share')}</th></tr></thead>
-        <tbody id="modelBody"><tr><td colspan="4" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
-      </table>
+        <tbody id="billModelBody"><tr><td colspan="4" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
+      </table></div>
     </div>
 
     <div class="pane" data-pane="price">
-          <table>
+          <div class="tablewrap"><table>
         <thead><tr><th>${T('模型', 'Model')}</th><th class="num">${T('输入单价', 'Input price')}</th><th class="num">${T('输出单价', 'Output price')}</th><th class="num">${T('缓存单价', 'Cache price')}</th></tr></thead>
         <tbody id="priceBody"><tr><td colspan="4" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
-      </table>
+      </table></div>
     </div>
   </div>`,
   async load() {
     try {
-      const days = Number($('billDays')?.value) || 14
+      const days = Number($('billDays')?.value) || 1
       const r = await api('/admin/usage?days=' + days)
       const billed = r.billed ?? []
       const daily = r.daily ?? []
@@ -271,7 +280,7 @@ export default {
       // 周期说明：首个 / 末个计费日
       $('billRange').textContent = billed.length
         ? `${billed[billed.length - 1].day} ~ ${billed[0].day}`
-        : T('近 {d} 天', 'Last {d} days', { d: days })
+        : periodLabel(days)
     } catch { /* 401 已处理 */ }
   },
   bind() {
