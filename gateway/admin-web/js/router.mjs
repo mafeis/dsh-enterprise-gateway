@@ -106,7 +106,7 @@ function renderSidebar() {
         sub.appendChild(a);
       }
       aside.append(sub);
-      aside.append(g);
+      aside.insertBefore(g, sub);   // 分组头必须在子项之前（append 次序错了会让展开后子项跑到标题上面）
       continue;
     }
     const a = document.createElement('a');
