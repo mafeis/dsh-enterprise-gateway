@@ -384,6 +384,10 @@ $pluginPkgPath = Join-Path $ProfileD 'node_modules\dsh-enterprise\package.json'
 
 function Invoke-PnpmAdd([string]$mode, [string[]]$a) {
   $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  # pnpm 错误码两侧带 U+2009 窄空格，node 输出 UTF-8 而 PS5.1 按控制台代码页(GBK)解码，
+  # 'ERR' 会被解码成 '鈥塃RR' 吞掉首字母，关键字匹配全失效 —— 调用期间强制 UTF-8 输出编码
+  $encS = [Console]::OutputEncoding
+  try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
   $out = ''
   $rc = 1
   try {
@@ -396,7 +400,10 @@ function Invoke-PnpmAdd([string]$mode, [string[]]$a) {
     } else {
       $out = & pnpm.cmd add @a 2>&1; $rc = $LASTEXITCODE
     }
-  } finally { $ErrorActionPreference = $eapS }
+  } finally {
+    try { [Console]::OutputEncoding = $encS } catch {}
+    $ErrorActionPreference = $eapS
+  }
   [pscustomobject]@{ Rc = $rc; Text = (($out | ForEach-Object { "$_" }) -join "`n") }
 }
 
@@ -427,13 +434,17 @@ foreach ($m in $modes) {
   else                    { Log '  尝试：系统 pnpm' }
   $r = Invoke-PnpmAdd $m $addArgs
   if ($r.Text) { $r.Text -split "`n" | ForEach-Object { Write-Host $_ } }
-  if ($r.Rc -ne 0 -and ($r.Text -match 'ERR_PNPM_UNEXPECTED_STORE')) {
+  # RR_ 开头写法兼容编码污染吞掉首字母 E 的情形
+  if ($r.Rc -ne 0 -and ($r.Text -match 'RR_PNPM_UNEXPECTED_STORE')) {
     Log '  node_modules 与 pnpm store 不一致（机器切换过 pnpm 大版本），清空重装'
     Remove-Item (Join-Path $ProfileD 'node_modules') -Recurse -Force -ErrorAction SilentlyContinue
     $r = Invoke-PnpmAdd $m $addArgs
     if ($r.Text) { $r.Text -split "`n" | ForEach-Object { Write-Host $_ } }
   }
-  if (Test-Path $pluginPkgPath) { $installed = $true; break }
+  if (Test-Path $pluginPkgPath) {
+    if ($r.Rc -ne 0) { Log '  注意：本次 pnpm 返回非零但插件实体已在位（多为 store 已与应用对齐），继续' }
+    $installed = $true; break
+  }
   Log "  该途径未能装上插件（rc=$($r.Rc)），降级下一个"
 }
 Remove-Item Env:CI -ErrorAction SilentlyContinue
