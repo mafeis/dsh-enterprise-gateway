@@ -373,13 +373,25 @@ if ($fromGw) {
 }
 # 机器上若有别的 pnpm 大版本装过这个 node_modules（store 路径记在 .modules.yaml 里），
 # pnpm 会拒装 ERR_PNPM_UNEXPECTED_STORE —— 按其官方指引清掉重装即可，一次自愈
-$out = & pnpm.cmd add @addArgs 2>&1
+# 与桌面应用统一 pnpm：应用在启动迁移时用它自带的 pnpm（resources\app\node_modules\pnpm，
+# store 用 %LOCALAPPDATA%\pnpm\store 默认位）。脚本若用其它大版本/其它 store，两边会把
+# profile 的 node_modules 来回踩出 ERR_PNPM_UNEXPECTED_STORE（真机复现过）。应用在场时
+# 直接用应用自带 pnpm + 同一 store；不在场退回系统 pnpm，store 不一致仍由下方自愈兜底。
+$appPnpmMjs = Join-Path (Split-Path $Exe) 'resources\app\node_modules\pnpm\bin\pnpm.mjs'
+if (Test-Path $appPnpmMjs) {
+  Log '  使用桌面应用自带 pnpm（与应用启动迁移同版本同 store，杜绝互踩）'
+  $appPnpmStore = Join-Path $env:LOCALAPPDATA 'pnpm\store'
+  $pnpmAdd = { param($a) & node $appPnpmMjs add @a --store-dir $appPnpmStore 2>&1 }
+} else {
+  $pnpmAdd = { param($a) & pnpm.cmd add @a 2>&1 }
+}
+$out = & $pnpmAdd $addArgs
 $rc = $LASTEXITCODE
 $out | ForEach-Object { "$_" } | ForEach-Object { Write-Host $_ }
 if ($rc -ne 0 -and (($out | Out-String) -match 'ERR_PNPM_UNEXPECTED_STORE')) {
   Log '  检测到 node_modules 与当前 pnpm 的 store 不一致（机器上切换过 pnpm 大版本），清空重装'
   Remove-Item (Join-Path $ProfileD 'node_modules') -Recurse -Force -ErrorAction SilentlyContinue
-  $out = & pnpm.cmd add @addArgs 2>&1
+  $out = & $pnpmAdd $addArgs
   $rc = $LASTEXITCODE
   $out | ForEach-Object { "$_" } | ForEach-Object { Write-Host $_ }
 }

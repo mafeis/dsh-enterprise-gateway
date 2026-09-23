@@ -361,15 +361,24 @@ cd "$P"
 ENT_TGZ="$HOME/.dsh/enterprise/dsh-enterprise.tgz"
 ENT_SPEC="dsh-enterprise${PLUGIN_VER:+@$PLUGIN_VER}"
 mkdir -p "$HOME/.dsh/enterprise"
+# 与桌面应用统一 pnpm：应用启动迁移用它自带的 pnpm（app 包内 node_modules/pnpm），
+# 脚本用其它大版本会把 profile 的 node_modules store 踩出 ERR_PNPM_UNEXPECTED_STORE。
+# 应用在场直接用自带 pnpm；不在场退回系统 pnpm，store 不一致仍由下方自愈兜底
+APP_PNPM="$APP/Contents/Resources/app/node_modules/pnpm/bin/pnpm.mjs"
+if [ -f "$APP_PNPM" ]; then
+  PNPM_CMD=(node "$APP_PNPM")
+else
+  PNPM_CMD=(pnpm)
+fi
 # 机器上若有别的 pnpm 大版本装过这个 node_modules（store 路径记在 .modules.yaml），
 # pnpm 会拒装 ERR_PNPM_UNEXPECTED_STORE —— 按其官方指引清掉重装，一次自愈
 add_plugin() {
   local out
-  out=$(pnpm add "$@" 2>&1) && return 0
+  out=$("${PNPM_CMD[@]}" add "$@" 2>&1) && return 0
   if printf '%s' "$out" | grep -q 'ERR_PNPM_UNEXPECTED_STORE'; then
     log '  检测到 node_modules 与当前 pnpm 的 store 不一致（机器上切换过 pnpm 大版本），清空重装'
     rm -rf node_modules
-    out=$(pnpm add "$@" 2>&1) && return 0
+    out=$("${PNPM_CMD[@]}" add "$@" 2>&1) && return 0
   fi
   printf '%s\n' "$out" >&2
   return 1
