@@ -57,6 +57,8 @@ npm run e2e               # 端到端验收（插件链路 + 禁用场景）
 npm run e2e:desktop       # 客户端安装包库回归（上传→发布→下载→Range→回滚→删包，离线）
 npm run test:mirror       # 物料库重复下载回归（已入库不重拉、force 才重拉，离线）
 ENT_ADMIN_TOKEN=*** npm run ui:check   # 管理台每个页面真渲染体检：挂载 + class 是否真有样式 + 控制台报错 + 截图
+npm run release -- 3.2.3 --note "摘要"   # 发版唯一入口：预检（工作区干净/在 main/与 origin 一致/tag 未占用/npm 号位可用，含墓碑检测）+ check + smoke → 生成 docs/release-notes/vX.zh.md → 提交 → 打 tag → push → publish → 轮询核对 latest
+npm run release -- --publish-only   # tag 已打但 publish 挂了（如 ECONNRESET 后）时只补发，不改内容不换号
 ```
 
 ## 启动
