@@ -25,7 +25,8 @@
     "test:mirror": "node scripts/repo-skip-test.mjs",
     "e2e": "node scripts/e2e.mjs",
     "e2e:desktop": "node scripts/desktop-repo-e2e.mjs",
-    "ui:check": "node scripts/ui-all-pages-check.mjs"
+    "ui:check": "node scripts/ui-all-pages-check.mjs",
+    "release": "node scripts/release.mjs"
   },
   "engines": {
     "node": ">=22.5"
