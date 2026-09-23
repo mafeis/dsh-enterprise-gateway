@@ -355,6 +355,7 @@ if (!navigator.language || !navigator.language.startsWith('zh')) setLang('en')
 const SCRIPTS = {
   'windows-setup.ps1': { file: 'windows-setup.ps1', type: 'text/plain; charset=utf-8' },
   'mac-setup.sh': { file: 'mac-setup.sh', type: 'text/x-shellscript; charset=utf-8' },
+  'diag.ps1': { file: 'diag.ps1', type: 'text/plain; charset=utf-8' },
 }
 
 export function apply(ctx) {
