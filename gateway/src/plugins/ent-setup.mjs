@@ -96,7 +96,7 @@ footer { color:var(--dim); font-size:12.5px; margin-top:24px; }
 <main>
 <button id="lang" onclick="setLang(document.documentElement.lang==='zh-CN'?'en':'zh-CN')">English</button>
 <h1><span class="bar"></span><span data-zh="接入企业 DSH" data-en="Set up DSH Enterprise">接入企业 DSH</span></h1>
-<p class="sub" data-zh="4 步完成，全程约 5 分钟，装完用企业账号登录。" data-en="4 steps, about 5 minutes. Sign in with your company account when done.">4 步完成，全程约 5 分钟，装完用企业账号登录。</p>
+<p class="sub" data-zh="全程约 5 分钟，装完用企业账号登录。" data-en="About 5 minutes. Sign in with your company account when done.">全程约 5 分钟，装完用企业账号登录。</p>
 <p class="sub" id="served" style="margin-top:-18px;margin-bottom:24px"></p>
 <noscript><p id="noscript">本页需要开启 JavaScript 才能显示分步指引。</p></noscript>
 
