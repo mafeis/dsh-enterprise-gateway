@@ -1,15 +1,31 @@
 # DSH 企业客户端 · Windows 一键安装（PowerShell 5.1+ 兼容，用户级安装无需管理员）
-# 流程: 装 Node/pnpm → 装 DSH Desktop 最新版 → dsh CLI shim → 装企业插件 → 预置(零弹窗/增强模式/网关预填/工作区) → 启动落在登录页
+# 流程: 网关地址 → 装 Node/pnpm（网关镜像优先，用户目录免管理员）→ 装 DSH Desktop（网关镜像优先）→ dsh CLI shim → 装企业插件 → 预置(零弹窗/增强模式/网关预填/工作区) → 启动落在登录页
 # 托管: 网关自带接入页 http://<网关>:8899/setup 下发本脚本，__GATEWAY_URL__ 占位符按请求来源自动替换
-# 用法（在 PowerShell 中执行）:
-#   & ([scriptblock]::Create((irm http://<网关>:8899/setup/windows-setup.ps1)))
-#   或下载后: powershell -ExecutionPolicy Bypass -File .\windows-setup.ps1 -GatewayUrl http://<网关>:8899
+# 用法（在 PowerShell 中执行，三选一）:
+#   irm http://<网关>:<端口>/setup/windows-setup.ps1 | iex
+#   & ([scriptblock]::Create((irm http://<网关>:<端口>/setup/windows-setup.ps1)))
+#   下载后: powershell -ExecutionPolicy Bypass -File .\windows-setup.ps1 -GatewayUrl http://<网关>:<端口>
+# 参数也可用环境变量给：DSH_GATEWAY_URL / DSH_PLUGIN_VERSION / DSH_NPM_REGISTRY
+# 注意：本脚本首条语句不能是 param()，也绝不能带 UTF-8 BOM（原因见下面绑参处注释，check.mjs 有 lint）
+#   离线拿 -File 跑时，PS 5.1 会把无 BOM 的 UTF-8 当 ANSI 读、日志乱码，改用：
+#   powershell -Command "iex ([Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes('.\windows-setup.ps1')))" 
+# 来源优先级：企业网关已发布物料（安装包读 releases.json，Node/pnpm 读 env.json，都带 sha256）> DSH_SETUP_MIRROR > 官方源/国内镜像
+# 纯内网可用前提：网关「桌面客户端 → 环境物料」把 Node/pnpm 也同步并发布；关掉公网回退后脚本绝不外连
 # 可选环境变量 DSH_SETUP_MIRROR: 安装包镜像前缀（如内网/镜像站），形如 https://mirror.example.com/dsh
-param(
-  [string]$GatewayUrl = '__GATEWAY_URL__',
-  [string]$PluginVersion = 'latest',
-  [string]$Registry = 'https://registry.npmjs.org/'
-)
+# 参数不用 param()：客户机走 `irm … | iex`，脚本是以「字符串」被编译的，首字符稍有污染
+# （BOM、复制粘贴带进来的全角空格等）param 就不再被当成声明，整块声明会被逐行当语句执行，
+# 报「赋值表达式无效 / InvalidLeftHandSide」——真机上踩过。手工绑 $args + 环境变量，两条路径都稳。
+$GatewayUrl    = if ($env:DSH_GATEWAY_URL)    { $env:DSH_GATEWAY_URL }    else { '__GATEWAY_URL__' }
+$PluginVersion = if ($env:DSH_PLUGIN_VERSION) { $env:DSH_PLUGIN_VERSION } else { 'latest' }
+$Registry      = if ($env:DSH_NPM_REGISTRY)   { $env:DSH_NPM_REGISTRY }   else { 'https://registry.npmjs.org/' }
+$Argv = if ($args) { @($args) } else { @() }
+for ($ai = 0; $ai -lt $Argv.Count; $ai++) {
+  $ak = [string]$Argv[$ai]
+  if     ($ak -eq '-GatewayUrl')    { if ($ai + 1 -lt $Argv.Count) { $GatewayUrl    = [string]$Argv[++$ai] } }
+  elseif ($ak -eq '-PluginVersion') { if ($ai + 1 -lt $Argv.Count) { $PluginVersion = [string]$Argv[++$ai] } }
+  elseif ($ak -eq '-Registry')      { if ($ai + 1 -lt $Argv.Count) { $Registry      = [string]$Argv[++$ai] } }
+  elseif ($ak) { Write-Host "  忽略不认识的参数 $ak" }
+}
 $ErrorActionPreference = 'Stop'
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072 } catch {}
 
@@ -31,76 +47,252 @@ $DshHome  = Join-Path $env:USERPROFILE '.dsh'
 $ProfileD = Join-Path $DshHome 'profiles\desktop'
 $Mirrors  = @('https://npmmirror.com/mirrors/node', 'https://nodejs.org/dist')
 
-# ===== [1/6] Node + pnpm =====
-Log '[1/6] 检查 Node 与 pnpm'
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-  Log '  未检测到 Node，安装便携版 Node 22（用户目录，无需管理员）'
-  $nodeDir = Join-Path $env:LOCALAPPDATA 'Programs\nodejs'
-  $rel = $null; $distBase = ''
-  foreach ($m in $Mirrors) {
+# ===== [1/6] 网关地址（放在最前：后面每一步都从网关取东西，包括 Node 本体） =====
+Log '[1/6] 网关地址'
+# 非 URL 格式（含未替换的源码占位符）才清空转交互；网关注入的真实地址直接使用
+if ($GatewayUrl -notmatch '^https?://') { $GatewayUrl = '' }
+if (-not $GatewayUrl -and [Environment]::UserInteractive) {
+  try { $GatewayUrl = Read-Host '企业网关地址（回车 = 默认 http://127.0.0.1:8899）' } catch {}
+}
+if (-not $GatewayUrl) { $GatewayUrl = 'http://127.0.0.1:8899' }
+$GatewayUrl = $GatewayUrl.Trim().TrimEnd('/')
+if ($GatewayUrl -notmatch '^https?://') { $GatewayUrl = "http://$GatewayUrl" }
+Log "  使用: $GatewayUrl"
+
+# ===== [2/6] Node 与 pnpm（缺什么补什么，企业网关镜像优先，公网只作兜底） =====
+# 装到用户目录、免管理员、免交互：Node 用官方 zip，pnpm 用官方按平台发布的原生 exe 包
+# （pnpm 12 起主 npm 包不再自带运行时：install.js 要用 optionalDependencies 里的
+#  @pnpm/exe.<平台> 顶掉占位 bin，顶不到就首次运行时联网下载 —— 纯内网两头都不通）。
+Log '[2/6] Node 与 pnpm'
+$NodeDir  = Join-Path $env:LOCALAPPDATA 'Programs\nodejs'
+$PnpmDir  = Join-Path $env:LOCALAPPDATA 'Programs\pnpm'
+$Registries = @('https://registry.npmmirror.com', 'https://registry.npmjs.org', ($Registry.TrimEnd('/'))) | Select-Object -Unique
+
+# 环境物料事实源：/setup/env.json（版本、路径、sha256 全由网关给，脚本里不写死）
+$EnvJson = $null
+try { $EnvJson = Invoke-RestMethod "$GatewayUrl/setup/env.json" -TimeoutSec 15 -UserAgent 'dsh-setup' } catch {}
+$AllowFallback = if ($EnvJson -and ($EnvJson.PSObject.Properties.Name -contains 'allowUpstreamFallback')) { [bool]$EnvJson.allowUpstreamFallback } else { $true }
+
+function Get-RemoteFile([string]$url, [string]$out) {
+  # 统一下载口：失败就抛，让调用方换下一个源
+  Invoke-WebRequest $url -OutFile $out -TimeoutSec 3600 -UserAgent 'dsh-setup'
+}
+function Test-Sha256([string]$file, [string]$want) {
+  if (-not $want) { Log "  注意：$([IO.Path]::GetFileName($file)) 没有可用校验值，跳过校验"; return $true }
+  $got = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+  if ($got -ne $want.ToLower()) { Die "$([IO.Path]::GetFileName($file)) 校验失败（包不完整或被篡改）" }
+  return $true
+}
+function Expand-TgzEntry([string]$tgz, [string]$leafName, [string]$outFile) {
+  # 优先系统自带 bsdtar（Win10 1803+ 有）；老系统回落到内置解包：
+  # gzip 流 + tar 的 512 字节头，只取需要的那个文件（npm 包里路径是 package/<name>）
+  if (Get-Command tar.exe -ErrorAction SilentlyContinue) {
+    $tmp = Join-Path $env:TEMP ('dsh-tar-' + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force -Path $tmp | Out-Null
     try {
-      $idx = Invoke-RestMethod "$m/index.json" -TimeoutSec 30 -UserAgent 'dsh-setup'
-      $rel = @($idx | Where-Object { $_.version -like 'v22.*' })[0]
-      if ($rel) { $distBase = $m; break }
-    } catch {}
+      & tar.exe -xzf $tgz -C $tmp
+      if ($LASTEXITCODE -ne 0) { throw "tar.exe 退出码 $LASTEXITCODE" }
+      $hit = @(Get-ChildItem -Path $tmp -Recurse -Filter $leafName -ErrorAction SilentlyContinue)
+      if (-not $hit.Count) { throw "包里找不到 $leafName" }
+      Copy-Item $hit[0].FullName $outFile -Force
+      return
+    } finally { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue }
   }
-  if (-not $rel) { Die '无法获取 Node 版本列表（官方源与镜像均不可达），请检查网络后重跑' }
-  $ver = $rel.version
-  $zipName = "node-$ver-win-x64.zip"
-  $zip = Join-Path $env:TEMP $zipName
-  $dl = $false
-  foreach ($m in $Mirrors) {
-    try { Invoke-WebRequest "$m/$ver/$zipName" -OutFile $zip -TimeoutSec 1800 -UserAgent 'dsh-setup'; $dl = $true; break } catch {}
+  $fs = [IO.File]::OpenRead($tgz)
+  $gz = New-Object IO.Compression.GzipStream($fs, [IO.Compression.CompressionMode]::Decompress)
+  try {
+    $hdr = New-Object byte[] 512
+    $buf = New-Object byte[] 65536
+    while ($true) {
+      $read = 0
+      while ($read -lt 512) { $n = $gz.Read($hdr, $read, 512 - $read); if ($n -le 0) { break }; $read += $n }
+      if ($read -lt 512 -or $hdr[0] -eq 0) { break }
+      $name = ([Text.Encoding]::ASCII.GetString($hdr, 0, 100) -split ([char]0))[0]
+      $sizeTxt = (([Text.Encoding]::ASCII.GetString($hdr, 124, 12) -split ([char]0))[0]).Trim()
+      $size = if ($sizeTxt) { [Convert]::ToInt64($sizeTxt, 8) } else { 0 }
+      $blocks = [int]([Math]::Ceiling($size / 512.0) * 512)
+      if ($name -and ([IO.Path]::GetFileName($name) -eq $leafName) -and $size -gt 0) {
+        $dst = [IO.File]::Create($outFile)
+        try {
+          $left = $size
+          while ($left -gt 0) {
+            $n = $gz.Read($buf, 0, [Math]::Min(65536, $left)); if ($n -le 0) { break }
+            $dst.Write($buf, 0, $n); $left -= $n
+          }
+        } finally { $dst.Dispose() }
+        $skip = $blocks - $size
+        while ($skip -gt 0) { $n = $gz.Read($buf, 0, [Math]::Min(65536, $skip)); if ($n -le 0) { break }; $skip -= $n }
+        return
+      }
+      $skip = $blocks
+      while ($skip -gt 0) { $n = $gz.Read($buf, 0, [Math]::Min(65536, $skip)); if ($n -le 0) { break }; $skip -= $n }
+    }
+    throw "包里找不到 $leafName"
+  } finally { $gz.Dispose(); $fs.Dispose() }
+}
+
+# ---- Node ----
+if (Get-Command node -ErrorAction SilentlyContinue) {
+  Log "  已检测到可用的 Node $(& node -v)，沿用"
+} else {
+  $zip = Join-Path $env:TEMP 'dsh-node-win-x64.zip'
+  $ver = ''; $src = ''
+  $mine = $null
+  if ($EnvJson -and $EnvJson.node) {
+    $files = @($EnvJson.node.files.PSObject.Properties) | Where-Object { $_.Name -eq 'win-x64' }
+    if ($files.Count) { $mine = $files[0].Value }
   }
-  if (-not $dl) { Die 'Node 下载失败，请检查网络后重跑' }
-  $sums = $null
-  foreach ($m in $Mirrors) { try { $sums = (Invoke-WebRequest "$m/$ver/SHASUMS256.txt" -TimeoutSec 60 -UserAgent 'dsh-setup').Content; break } catch {} }
-  if ($sums) {
-    $line = @($sums -split "`n" | Where-Object { $_ -match [regex]::Escape($zipName) })[0]
-    if ($line) {
-      $want = ($line.Trim() -split '\s+')[0]
-      $got  = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
-      if ($want -ne $got) { Die 'Node 压缩包 sha256 校验失败' }
+  if ($mine -and $mine.path) {
+    $ver = $mine.version
+    Log "  本机没有 Node，从企业网关取 Node $ver（win-x64）"
+    try { Get-RemoteFile "$GatewayUrl$($mine.path)" $zip; Test-Sha256 $zip $mine.sha256; $src = "企业网关 $ver" } catch { $src = ''; Remove-Item $zip -Force -ErrorAction SilentlyContinue }
+  }
+  if (-not $src) {
+    if (-not $AllowFallback) { Die '企业策略已禁止回退公网，且网关上没有 Windows 可用的 Node。请让 IT 在「桌面客户端 → 环境物料」同步并发布 Node LTS' }
+    Log '  回退公网取 Node LTS（版本动态探测，不写死）'
+    foreach ($m in $Mirrors) {
+      try {
+        $idx = Invoke-RestMethod "$m/index.json" -TimeoutSec 30 -UserAgent 'dsh-setup'
+        $rel = @($idx | Where-Object { $_.lts })[0]
+        if (-not $rel) { $rel = @($idx)[0] }
+        if (-not $rel) { continue }
+        $ver = $rel.version
+        $zipName = "node-$ver-win-x64.zip"
+        Get-RemoteFile "$m/$ver/$zipName" $zip
+        # 摘要清单是纯文本：<sha256>  node-vX-win-x64.zip；拿到就必校
+        $sums = $null
+        try { $sums = (Invoke-WebRequest "$m/$ver/SHASUMS256.txt" -TimeoutSec 60 -UserAgent 'dsh-setup').Content } catch {}
+        $line = @($sums -split "`n" | Where-Object { $_ -match [regex]::Escape($zipName) })[0]
+        if ($line) { Test-Sha256 $zip (($line.Trim() -split '\s+')[0]) } else { Log '  注意：该源没有校验清单，跳过校验' }
+        $src = "公网 $m $ver"
+        break
+      } catch { Remove-Item $zip -Force -ErrorAction SilentlyContinue }
     }
   }
+  if (-not $src) { Die 'Node 未能安装：网关与公网都没有可用的构建' }
   $tmpX = Join-Path $env:TEMP ('node-x-' + [guid]::NewGuid().ToString('N'))
   Expand-Archive $zip -DestinationPath $tmpX -Force
-  if (Test-Path $nodeDir) { Remove-Item $nodeDir -Recurse -Force }
-  Move-Item (Join-Path $tmpX $zipName.Replace('.zip','')) $nodeDir
+  if (Test-Path $NodeDir) { Remove-Item $NodeDir -Recurse -Force }
+  Move-Item (Join-Path $tmpX "node-$ver-win-x64") $NodeDir
   Remove-Item $tmpX -Recurse -Force
   Remove-Item $zip -Force
-  Add-UserPath $nodeDir
-  Log "  node $(& node -v) 已装（$nodeDir）"
+  Add-UserPath $NodeDir
+  Log "  已安装 Node $(& node -v) ← $src"
+}
+
+# ---- pnpm（官方按平台发布的原生二进制包，装完不依赖 Node、也不用 npm i -g） ----
+$PnpmExe = Join-Path $PnpmDir 'pnpm.exe'
+$PnpmCmd = Get-Command pnpm.cmd, pnpm.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($PnpmCmd) {
+  Log "  已检测到 pnpm $(& $PnpmCmd.Source -v)，沿用"
+} else {
+  $tgz = Join-Path $env:TEMP 'dsh-pnpm-win-x64.tgz'
+  $psrc = ''
+  $pver = ''
+  $pmine = $null
+  if ($EnvJson -and $EnvJson.pnpm) {
+    $pf = @($EnvJson.pnpm.files.PSObject.Properties) | Where-Object { $_.Name -eq 'win-x64' }
+    if ($pf.Count) { $pmine = $pf[0].Value; $pver = $EnvJson.pnpm.version }
+  }
+  if ($pmine -and $pmine.path) {
+    Log "  从企业网关取 pnpm $pver（win-x64 原生包）"
+    try { Get-RemoteFile "$GatewayUrl$($pmine.path)" $tgz; Test-Sha256 $tgz $pmine.sha256; $psrc = "企业网关 $pver" } catch { $psrc = ''; Remove-Item $tgz -Force -ErrorAction SilentlyContinue }
+  }
+  if (-not $psrc) {
+    if (-not $AllowFallback) { Die '企业策略已禁止回退公网，且网关上没有 pnpm。请让 IT 在「桌面客户端 → 环境物料」同步并发布 pnpm' }
+    Log '  回退公网取 pnpm 原生包（含 integrity 校验）'
+    foreach ($r in $Registries) {
+      try {
+        # 先问主包要「现在的最新版」，再取该版的平台原生包；平台包漏发这个版时才退回它自己的 latest
+        $pv = $null
+        try { $pv = (Invoke-RestMethod "$r/pnpm/latest" -TimeoutSec 30 -UserAgent 'dsh-setup').version } catch {}
+        $meta = $null
+        $cands = @()
+        if ($pv) { $cands += "$r/@pnpm%2Fexe.win32-x64/$pv" }
+        $cands += "$r/@pnpm%2Fexe.win32-x64/latest"
+        foreach ($q in $cands) {
+          try { $meta = Invoke-RestMethod $q -TimeoutSec 30 -UserAgent 'dsh-setup'; break } catch {}
+        }
+        if (-not $meta -or -not $meta.dist -or -not $meta.dist.tarball) { continue }
+        Get-RemoteFile $meta.dist.tarball $tgz
+        # npm 的 integrity 是 sha512-base64，与网关同一口径
+        $integrity = [string]$meta.dist.integrity
+        if ($integrity -like 'sha512-*') {
+          $sha = [Security.Cryptography.SHA512]::Create()
+          $bytes = [IO.File]::ReadAllBytes($tgz)
+          $got = [Convert]::ToBase64String($sha.ComputeHash($bytes))
+          if ($got.TrimEnd('=') -ne $integrity.Substring(7).TrimEnd('=')) { throw 'pnpm 包 integrity 校验不一致' }
+        }
+        $pver = [string]$meta.version
+        $psrc = "公网 $r"
+        break
+      } catch { if ($_ -match 'integrity') { Log "  $r 的包校验不过，换一个源" }; Remove-Item $tgz -Force -ErrorAction SilentlyContinue }
+    }
+  }
+  if (-not $psrc) { Die 'pnpm 未能安装：网关与公网都没有可用的包' }
+  New-Item -ItemType Directory -Force -Path $PnpmDir | Out-Null
+  Expand-TgzEntry $tgz 'pnpm.exe' $PnpmExe
+  Remove-Item $tgz -Force -ErrorAction SilentlyContinue
+  Add-UserPath $PnpmDir
+  Log "  已安装 pnpm $(& $PnpmExe -v) ← $psrc"
 }
 $env:Path = "$env:APPDATA\npm;$env:Path"
-if (-not (Get-Command pnpm.cmd -ErrorAction SilentlyContinue)) {
-  Log '  安装 pnpm（走官方 npm 源）'
-  & npm.cmd install -g pnpm --registry=$Registry
-  if ($LASTEXITCODE -ne 0) { Die 'pnpm 安装失败，请检查网络后重跑' }
-}
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Die 'node 仍不可用，请检查环境' }
-Log ("  node $(& node -v) / pnpm $(& pnpm.cmd -v)")
+$PnpmCmd = Get-Command pnpm.cmd, pnpm.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $PnpmCmd) { Die 'pnpm 仍不可用：请重开终端让 PATH 生效后重跑' }
+Log ("  node $(& node -v) / pnpm $(& $PnpmCmd.Source -v)")
 
-# ===== [2/6] DSH Desktop（动态最新版，已装一致跳过） =====
-Log '[2/6] DSH Desktop 版本检查'
+# ===== [3/6] DSH Desktop（网关镜像优先，公网只作兜底） =====
+# 版本、包地址、sha256 全部来自网关的 releases.json —— 脚本里不写死任何版本号或校验值。
+# 网关已把包拉到内网：这一跳走局域网，几百 MB 几秒完事，也不吃 GitHub 限流。
+Log '[3/6] DSH Desktop 版本检查'
 if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { Die '当前仅提供 x64 安装包，ARM64 机器请联系 IT' }
-$tag = $null; $setupUrl = ''; $setupSha = ''
+$targetVer = ''; $setupUrl = ''; $setupSha = ''; $src = '企业网关'; $allowFallback = $true
 try {
-  $r = Invoke-RestMethod 'https://api.github.com/repos/anywhere-labs/dsh-desktop/releases/latest' -TimeoutSec 30 -UserAgent 'dsh-setup'
-  $asset = @($r.assets | Where-Object { $_.name -like '*-x64-Setup.exe' })[0]
-  if ($asset) {
-    $tag = $r.tag_name
-    $setupUrl = $asset.browser_download_url
-    if ($asset.digest) { $setupSha = ($asset.digest -replace '^sha256:','').ToLower() }
+  $rel = Invoke-RestMethod "$GatewayUrl/setup/releases.json" -TimeoutSec 15 -UserAgent 'dsh-setup'
+  if ($rel.allowUpstreamFallback -eq $false) { $allowFallback = $false }
+  if ($rel.version -and $rel.win -and $rel.win.path) {
+    $targetVer = $rel.version
+    $setupUrl  = "$GatewayUrl$($rel.win.path)"
+    $setupSha  = if ($rel.win.sha256) { [string]$rel.win.sha256 } else { '' }
+    if (-not $setupSha) { Log '  注意：网关未提供该包的 sha256，跳过校验' }
   }
-} catch {}
+} catch { Log '  读取 releases.json 失败（网关可能是旧版本，或尚未同步安装包）' }
 if (-not $setupUrl) {
-  Log '  GitHub API 不可达，降级固定版本 2.0.11'
-  $tag = 'v2.0.11'
-  $setupUrl = 'https://github.com/anywhere-labs/dsh-desktop/releases/download/v2.0.11/DSH-Desktop-2.0.11-x64-Setup.exe'
-  $setupSha = 'e758d6cb70f33c748f14c9f66f40d93be8fdc661deba6bbfcf02b4d5ccd723f7'
+  if (-not $allowFallback) { Die '网关上没有 Windows 安装包，且企业策略已禁止回退公网，请联系 IT 在「桌面客户端」页同步并发布' }
+  Log '  网关暂无 Windows 包，回退公网下载源'
+  try {
+    $r = Invoke-RestMethod 'https://api.github.com/repos/anywhere-labs/dsh-desktop/releases/latest' -TimeoutSec 30 -UserAgent 'dsh-setup'
+    $asset = @($r.assets | Where-Object { $_.name -like '*-x64-Setup.exe' })[0]
+    if ($asset) {
+      $src = 'GitHub'
+      $targetVer = $r.tag_name.TrimStart('v')
+      $setupUrl = $asset.browser_download_url
+      if ($asset.digest) { $setupSha = ($asset.digest -replace '^sha256:','') }
+    }
+  } catch {}
 }
-$targetVer = $tag.TrimStart('v')
+if (-not $setupUrl) {
+  # 兜底镜像：版本与 sha256 都由镜像目录动态给出（不再钉死某个版本）
+  Log '  GitHub 不可达，降级 ModelScope 镜像'
+  try {
+    $ms = Invoke-RestMethod 'https://modelscope.cn/api/v1/models/t4wefan/deepseek-harness-desktop/repo/files?Revision=master&Recursive=true' -TimeoutSec 40 -UserAgent 'dsh-setup'
+    $best = $null
+    foreach ($f in @($ms.Data.Files)) {
+      if ($f.Name -notmatch '^DSH-Desktop-(\d+\.\d+\.\d+)-x64-Setup\.exe$') { continue }
+      $ver = $Matches[1]
+      $v = [version]$ver
+      if (-not $best -or $v -gt $best.v) { $best = [pscustomobject]@{ v = $v; ver = $ver; name = $f.Name; sha = $f.Sha256 } }
+    }
+    if ($best) {
+      $src = 'ModelScope 镜像'
+      $targetVer = $best.ver
+      $setupUrl = 'https://modelscope.cn/models/t4wefan/deepseek-harness-desktop/resolve/master/' + [uri]::EscapeDataString($best.name)
+      if ($best.sha) { $setupSha = [string]$best.sha }
+    }
+  } catch {}
+}
+if (-not $setupUrl) { Die '三个下载源都拿不到 Windows 安装包，请检查网络，或让 IT 在网关「桌面客户端」页同步后重试' }
 $curVer = ''
 if (Test-Path $Exe) {
   $curVer = ((Get-Item $Exe).VersionInfo.ProductVersion -split '\.')[0..2] -join '.'
@@ -115,8 +307,8 @@ if (Test-Path $appPkg) {
 $needInstall = $true
 if ($curVer -eq $targetVer) { $needInstall = $false }
 if ($needInstall) {
-  Log "  已装: $curVer / 最新: $targetVer"
-  Log "  下载并安装 $targetVer（约 150MB，请耐心等待）..."
+  Log "  已装: $curVer / 目标: $targetVer（来源: $src）"
+  Log "  下载并安装 $targetVer（来源 $src，约 150MB，请耐心等待）..."
   Get-Process 'DSH Desktop' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
   Start-Sleep 3
   $setup = Join-Path $env:TEMP "DSH-Desktop-$targetVer-x64-Setup.exe"
@@ -129,7 +321,7 @@ if ($needInstall) {
   }
   if ($setupSha) {
     $got = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower()
-    if ($got -ne $setupSha) { Die '安装包 sha256 校验失败' }
+    if ($got -ne $setupSha.ToLower()) { Die '安装包 sha256 校验失败（包不完整或被篡改）' }
   }
   Log '  静默安装中...'
   Start-Process -FilePath $setup -ArgumentList '/S' -Wait
@@ -140,18 +332,6 @@ if ($needInstall) {
 } else {
   Log '  版本已是最新，跳过'
 }
-
-# ===== [3/6] 网关地址 =====
-Log '[3/6] 网关地址'
-# 非 URL 格式（含未替换的源码占位符）才清空转交互；网关注入的真实地址直接使用
-if ($GatewayUrl -notmatch '^https?://') { $GatewayUrl = '' }
-if (-not $GatewayUrl -and [Environment]::UserInteractive) {
-  try { $GatewayUrl = Read-Host '企业网关地址（回车 = 默认 http://127.0.0.1:8899）' } catch {}
-}
-if (-not $GatewayUrl) { $GatewayUrl = 'http://127.0.0.1:8899' }
-$GatewayUrl = $GatewayUrl.Trim().TrimEnd('/')
-if ($GatewayUrl -notmatch '^https?://') { $GatewayUrl = "http://$GatewayUrl" }
-Log "  使用: $GatewayUrl"
 
 # ===== [4/6] 企业插件 =====
 Log '[4/6] 安装企业插件 dsh-enterprise'
@@ -222,7 +402,7 @@ mkdirSync(setupDir, { recursive: true })
 const setupFile = join(setupDir, 'state.json')
 if (!existsSync(setupFile)) {
   writeFileSync(setupFile, JSON.stringify({ version: 2, profileHash: hash, outcome: 'skipped',
-    desktopVersion: '2.0.11', dshVersion: '0.1.5-rc.2', setupRevision: 1,
+    desktopVersion: process.env.DSH_DESKTOP_VER || 'unknown', dshVersion: '0.1.5-rc.2', setupRevision: 1,
     recordedAt: new Date().toISOString() }, null, 2))
   done.push('wizard receipt')
 }
@@ -358,9 +538,11 @@ console.log('  provisioned: ' + (done.join(', ') || 'nothing to do'))
 '@
 [IO.File]::WriteAllText($prov, $provJs, (New-Object Text.UTF8Encoding($false)))
 $env:ENT_GATEWAY_PRESET = $GatewayUrl
+$env:DSH_DESKTOP_VER = $targetVer
 & node $prov
 $rc = $LASTEXITCODE
 Remove-Item Env:ENT_GATEWAY_PRESET -ErrorAction SilentlyContinue
+Remove-Item Env:DSH_DESKTOP_VER -ErrorAction SilentlyContinue
 Remove-Item $prov -Force -ErrorAction SilentlyContinue
 if ($rc -ne 0) { Die '预置失败，请把上方报错发给 IT' }
 
