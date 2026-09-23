@@ -137,6 +137,12 @@ document.addEventListener('click', (e) => {
 });
 
 export async function api(path, opts = {}) {
+  // 传对象就当 JSON 发：漏写 JSON.stringify 时，fetch 会把对象变成 "[object Object]"，
+  // 而网关把解析失败的体当空对象处理 → 请求「成功」但什么都没改（静默失效，极难发现）。
+  if (opts.body !== null && typeof opts.body === 'object' && !(opts.body instanceof ArrayBuffer)
+    && !ArrayBuffer.isView(opts.body) && typeof opts.body.arrayBuffer !== 'function' && typeof opts.body.text !== 'function') {
+    opts = { ...opts, body: JSON.stringify(opts.body) };
+  }
   const res = await fetch(GW + path, {
     ...opts,
     headers: { 'content-type': 'application/json', ...(session.jwt ? { Authorization: 'Bearer ' + session.jwt } : {}), ...(opts.headers || {}) },

@@ -100,7 +100,10 @@ export default {
 
 ### 5.2 公开组件类（受支持契约）
 
-`card / headrow / sub / crumb / badge(.ok/.warn/.bad/.dim) / layer(.l-meta/.l-biz/.l-collab/.l-ui/.l-ext) / table / empty / btn(.primary/.danger/.sm) / input / select / mono / num / grid2 / grid4 / codeblock / sw / dlg-mask / dlg(.sm/.md/.lg/.wide/.bench) / dlg-head / dlg-body / dlg-foot / dlg-x`
+`card / headrow(.sp) / sub / crumb / badge(.ok/.warn/.bad/.dim) / layer(.l-meta/.l-biz/.l-collab/.l-ui/.l-ext) / table + tablewrap / empty / btn(.primary/.danger/.sm) / input / select / mono / num / grid2 / grid4 / frm + fld(.full) + ctrl + unit + fldgrp(.t/.d) / chk / kv(.k/.v) / hint / notebox(.warn/.ok) / stat-card(.lab/.val) / codeblock / sw / dlg-mask / dlg(.sm/.md/.lg/.wide/.bench) / dlg-head / dlg-body / dlg-foot / dlg-x`
+
+> 表单一律 `.frm > .fld(label + .ctrl)`：字段说明放 `.unit`/`.desc`，`.fld > label` 是 92px 右对齐且 nowrap，中文长标签塞进 label 会溢出。
+> 表格一律 `<div class="tablewrap"><table>`（窄屏靠它横向滚动）；键值摘要用 `.kv`，`.k`/`.v` 脱离 `.kv` 没有样式。
 
 **活样册**：管理台「🎨 样式规范」页（#/design）可视化展示全部令牌与组件——插件作者从这里复制结构，保证每个插件页面长一个样。
 
@@ -114,6 +117,8 @@ export default {
 
 - 页面根元素标记 `data-ent-page="<插件名>"`（对齐 DSH 的 `data-dsh-*` DOM 约定）。
 - 禁止：`<style>` 私改风格、外链 CDN 资源、裸 `fetch`（一律走契约 `api()`）、操作壳私有 DOM（topbar/sidebar 核心区/登录遮罩）。
+- 写接口的 `body` 传对象等于发 `"[object Object]"`：网关对解析失败的 JSON 体按空体处理，请求会「返回成功但什么都没改」。
+  契约的 `api()` 已兜底把 plain object 序列化，但页面仍须显式 `JSON.stringify`（lint R8）。写接口收到坏体返回 400，不静默放行。
 
 ### 5.4 lint（可测试的契约，对齐 DSH Fabric 思路）
 
@@ -127,6 +132,8 @@ export default {
 | R4 | `html` 必须含 `data-ent-page` 锚点 |
 | R5 | 禁止裸 `fetch`（走契约 `api()`） |
 | R7 | 业务弹窗必须用统一 `.dlg-*` 族 + 契约 `openDlg/closeDlg`（历史 term/edit/probe/nu-modal、modal-mask 已下线） |
+| R8 | `api()` 的 `body` 必须已序列化：`JSON.stringify(…)`／字符串字面量／二进制（`arrayBuffer()`、`File`、`FormData`）。**由 `scripts/check.mjs` 内置 lint 强制** |
+| R9 | 只能用 5.2 列出的类（即 `admin-web/app.css` 里真实存在的类），禁止自造类名——自造类=该区块完全没样式，页面「能打开但难看」。以「🎨 样式规范」页为准 |
 
 lint 失败 = check 失败，插件页面进不了主干。
 

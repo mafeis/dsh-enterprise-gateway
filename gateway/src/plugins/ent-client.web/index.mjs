@@ -85,7 +85,7 @@ const switchesHtml = `
       <label>${T('统计窗口（分钟）', 'Window (min)')}</label><input class="input" id="lpWindow" type="number" min="1" max="1440">
       <label>${T('锁定时长（分钟）', 'Lock duration (min)')}</label><input class="input" id="lpLock" type="number" min="1" max="1440">
     </div>
-    <div class="hint">${T('当前配置：', 'Current: ')}<b id="lpExample">10</b>${T(' 次失败 / ', ' fails / ')}<b class="lpWin">15</b>${T(' 分钟窗口 → 锁定 ', ' min window → lock ')}<b class="lpLock">15</b>${T(' 分钟', ' min')}</div>
+    <div class="hint">${T('当前配置：', 'Current: ')}<b id="lpExample">10</b>${T(' 次失败 / ', ' fails / ')}<b id="lpWinText">15</b>${T(' 分钟窗口 → 锁定 ', ' min window → lock ')}<b id="lpLockText">15</b>${T(' 分钟', ' min')}</div>
     <details class="help">
       <summary>${T('锁定机制说明', 'How lockout works')}</summary>
       <div class="help-body">
@@ -548,8 +548,8 @@ function syncLpExample(over = {}) {
   const wm = over.windowMin ?? (Number($('lpWindow').value) || '?')
   const lm = over.lockMin ?? (Number($('lpLock').value) || '?')
   $('lpExample').textContent = mf
-  const winEl = document.querySelector('.lpWin')
-  const lockEl = document.querySelector('.lpLock')
+  const winEl = $('lpWinText')
+  const lockEl = $('lpLockText')
   if (winEl) winEl.textContent = wm
   if (lockEl) lockEl.textContent = lm
 }
