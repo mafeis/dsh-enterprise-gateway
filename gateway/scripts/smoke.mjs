@@ -8,7 +8,7 @@
  *   5. GET  /admin/stats     管理面鉴权 + 只读统计可用
  * 用法：node scripts/smoke.mjs   （或 npm run smoke）
  */
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
@@ -110,6 +110,43 @@ try {
   const denied = await req('GET', `:${port}/admin/stats`)
   if (denied.status === 200) return bad('无令牌访问 /admin/stats', '预期 401/403，实际放行——鉴权有洞')
   ok(`无令牌访问管理面被拒（HTTP ${denied.status}）`)
+
+  // 6. 客户端发布：安装脚本的事实源。离线也必须可用——没下发版本时返回空版本，而不是 500
+  const rel = await req('GET', `:${port}/setup/releases.json`)
+  if (rel.status !== 200 || rel.json?.ok !== true) return bad('/setup/releases.json', `HTTP ${rel.status} ${JSON.stringify(rel.json).slice(0, 200)}`)
+  if (!('mac' in rel.json) || !('win' in rel.json) || !('allowUpstreamFallback' in rel.json)) {
+    return bad('/setup/releases.json 契约', '缺 mac/win/allowUpstreamFallback 字段，安装脚本会解析失败')
+  }
+  ok('/setup/releases.json 契约完好（脚本据此走内网直装）')
+
+  // 6b. 环境物料的事实源：没下发也要给出可解析的空契约，否则纯内网装不了 Node/pnpm
+  const env = await req('GET', `:${port}/setup/env.json`)
+  if (env.status !== 200 || env.json?.ok !== true) return bad('/setup/env.json', `HTTP ${env.status} ${JSON.stringify(env.json).slice(0, 200)}`)
+  if (!('node' in env.json) || !('pnpm' in env.json) || !('allowUpstreamFallback' in env.json)) {
+    return bad('/setup/env.json 契约', '缺 node/pnpm/allowUpstreamFallback 字段，安装脚本会解析失败')
+  }
+  ok('/setup/env.json 契约完好（Node/pnpm 也能走内网直装）')
+
+  // 7. 桌面客户端发布台可读
+  const dsk = await req('GET', `:${port}/admin/desktop-repo`, { token: login.json.token })
+  if (dsk.status !== 200 || !dsk.json.settings || !Array.isArray(dsk.json.versions)
+    || !dsk.json.env?.kinds || !dsk.json.env?.settings || !dsk.json.env?.platforms?.node) {
+    return bad('/admin/desktop-repo', `HTTP ${dsk.status} ${JSON.stringify(dsk.json).slice(0, 200)}`)
+  }
+  ok(`/admin/desktop-repo 就绪（feed: ${dsk.json.settings.feeds.join('+')}）`)
+
+  // 8. 没入库的版本不许下发：否则脚本会被指向一个不存在的下载地址
+  const ghost = await req('PATCH', `:${port}/admin/desktop-repo`, { token: login.json.token, body: { published: '9.9.9' } })
+  if (ghost.status === 200) return bad('发布未入库的版本', '预期被拒，实际放行')
+  ok(`发布未入库版本被拒（HTTP ${ghost.status}）`)
+
+  // 9. 重复下载回归：已入库的实体不能被每轮检测重新拉一遍（专线环境会被这个打爆）
+  const skip = spawnSync(process.execPath, [join(root, 'scripts', 'repo-skip-test.mjs')], { encoding: 'utf8' })
+  if (skip.status !== 0) {
+    const lines = (skip.stdout + '\n' + skip.stderr).split('\n').filter((l) => l.trim().startsWith('✗'))
+    return bad('重复下载回归（scripts/repo-skip-test.mjs）', lines.join('\n') || '子进程非零退出')
+  }
+  ok('重复下载回归通过（已有实体不重拉，force 才重拉）')
 } catch (e) {
   bad('冒烟流程异常', String(e))
 } finally {

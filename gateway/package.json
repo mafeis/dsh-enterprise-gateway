@@ -22,7 +22,10 @@
     "start": "node gateway.mjs",
     "check": "node scripts/check.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "e2e": "node scripts/e2e.mjs"
+    "test:mirror": "node scripts/repo-skip-test.mjs",
+    "e2e": "node scripts/e2e.mjs",
+    "e2e:desktop": "node scripts/desktop-repo-e2e.mjs",
+    "ui:check": "node scripts/ui-all-pages-check.mjs"
   },
   "engines": {
     "node": ">=22.5"
