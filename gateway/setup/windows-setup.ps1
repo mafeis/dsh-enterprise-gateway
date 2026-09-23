@@ -568,5 +568,13 @@ if ($rc -ne 0) { Die '预置失败，请把上方报错发给 IT' }
 
 # ===== [6/6] 启动 =====
 Log '[6/6] 启动 DSH Desktop'
-Start-Process -FilePath $Exe
+# 走 WMI 起进程（父进程是系统服务 WmiPrvSE）：Windows Terminal / 新式 conhost 关窗口时
+# 会清扫整个进程树，Start-Process 直接挂在本次 PowerShell 树下的应用会被连带关掉；
+# WMI 创建的进程不进本控制台的作业对象，关掉这个 PS 窗口应用不受影响。失败回退 Start-Process。
+$launched = $false
+try {
+  $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = '"' + $Exe + '"' } -ErrorAction Stop
+  if ($r.ReturnValue -eq 0) { $launched = $true }
+} catch {}
+if (-not $launched) { Start-Process -FilePath $Exe }
 Log '完成！应用已打开，输入企业账号密码即可使用。'
