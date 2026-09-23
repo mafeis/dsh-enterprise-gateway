@@ -97,6 +97,11 @@ export const PLUGIN_META = {
     category: 'domain',
     summary: '用户端协议（/policy/current 下发、/policy/ack 回执、/heartbeat 心跳）+ 策略热更 API（/admin/policy）+ 企业插件仓库（/admin/plugin-repo 收口 npm/上传包，/plugin-packages 下载）+ 客户端管控页（拆 4 个二级页：策略与开关/插件管控/自助规则/下发回执）',
   },
+  'ent-desktop': {
+    title: '桌面客户端',
+    category: 'domain',
+    summary: '定期检测上游客户端新版本，并把安装包与装机环境物料（Node LTS、pnpm 各平台构建）镜像到内网：/admin/desktop-repo 与 /admin/env-repo 检测/同步/发布，/setup/releases.json、/setup/packages、/setup/env.json、/setup/env 供安装脚本直取；版本何时生效由管理员点「设为下发版本」决定，支持离线上传',
+  },
   'ent-setup': {
     title: '接入分发',
     category: 'domain',

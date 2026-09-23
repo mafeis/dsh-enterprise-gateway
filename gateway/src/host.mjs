@@ -54,6 +54,7 @@ const BUILTIN_PLUGINS = [
   { name: 'ent-quota', path: './plugins/ent-quota.mjs' },
   { name: 'ent-billing', path: './plugins/ent-billing.mjs' },
   { name: 'ent-client', path: './plugins/ent-client.mjs' },
+  { name: 'ent-desktop', path: './plugins/ent-desktop.mjs' },   // 客户端安装包镜像与发布（/setup 脚本的事实源，路由须在 ent-setup 之前注册）
   { name: 'ent-setup', path: './plugins/ent-setup.mjs' },
   { name: 'ent-audit', path: './plugins/ent-audit.mjs' },
   { name: 'ent-console', path: './plugins/ent-console.mjs' },

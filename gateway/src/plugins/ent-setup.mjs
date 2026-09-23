@@ -28,8 +28,10 @@ function originOf(req) {
 /** 读脚本并注入网关地址；文件缺失（异常安装）时返回 null 而非抛错 */
 function script(name, origin) {
   try {
-    const body = readFileSync(join(SETUP_DIR, name), 'utf8')
-    return body.split('__GATEWAY_URL__').join(origin)
+    // 剥 BOM：PowerShell 5.1 的 irm 会把 U+FEFF 留在 .Content 里，脚本首条语句被污染后
+    // 整段会被当语句解析，客户端当场 ParserError（真机踩过；仓库侧 check.mjs 也有 lint）
+    const raw = readFileSync(join(SETUP_DIR, name), 'utf8')
+    return raw.replace(/^\uFEFF/, '').split('__GATEWAY_URL__').join(origin)
   } catch {
     return null
   }
@@ -95,6 +97,7 @@ footer { color:var(--dim); font-size:12.5px; margin-top:24px; }
 <button id="lang" onclick="setLang(document.documentElement.lang==='zh-CN'?'en':'zh-CN')">English</button>
 <h1><span class="bar"></span><span data-zh="接入企业 DSH" data-en="Set up DSH Enterprise">接入企业 DSH</span></h1>
 <p class="sub" data-zh="4 步完成，全程约 5 分钟，装完用企业账号登录。" data-en="4 steps, about 5 minutes. Sign in with your company account when done.">4 步完成，全程约 5 分钟，装完用企业账号登录。</p>
+<p class="sub" id="served" style="margin-top:-18px;margin-bottom:24px"></p>
 <noscript><p id="noscript">本页需要开启 JavaScript 才能显示分步指引。</p></noscript>
 
 <div class="card" id="win">
@@ -172,6 +175,24 @@ document.getElementById('cmd-win').textContent =
   'irm ' + ORIGIN + '/setup/windows-setup.ps1 | iex'
 document.getElementById('cmd-mac').textContent =
   'curl -fsSL ' + ORIGIN + '/setup/mac-setup.sh | bash'
+// 网关已镜像并发布的客户端版本：IT 打开就知道「新机器会装到哪个版本」，用户只当灰字注释
+fetch(ORIGIN + '/setup/releases.json').then(function (r) { return r.ok ? r.json() : null }).then(function (d) {
+  var el = document.getElementById('served')
+  if (!d || !el) return
+  var zh = document.documentElement.lang === 'zh-CN'
+  if (d.version) {
+    var parts = []
+    if (d.mac) parts.push('macOS ' + d.mac.sizeMb + ' MB')
+    if (d.win) parts.push('Windows ' + d.win.sizeMb + ' MB')
+    el.textContent = zh
+      ? '本网关下发版本 ' + d.version + '（' + parts.join(' · ') + '，从局域网直装）'
+      : 'Served by this gateway: ' + d.version + ' (' + parts.join(' \u00b7 ') + ', installed over the LAN)'
+  } else {
+    el.textContent = zh
+      ? '本网关还没有镜像安装包，安装脚本会从公网下载'
+      : 'No installer mirrored on this gateway yet — the script will download from upstream'
+  }
+}).catch(function () {})
 var ua = navigator.userAgent
 var isMac = /Mac|iPhone|iPad/.test(ua)
 var isWin = /Windows/.test(ua)

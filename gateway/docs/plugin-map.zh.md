@@ -45,6 +45,7 @@ demo（示例）     给插件作者看的活样册，生产可禁用
 | ent-users | 用户管理 | /admin/users*（含账号活动详情） | 用户管理页 | — |
 | ent-billing | 用量与计费 | /admin/usage（管理账单）+ /usage/me（用户自助） | 计费账单页 | — |
 | ent-client | 客户端管控 | /policy/current、/policy/ack、/heartbeat（用户端协议）+ /admin/policy*（策略热更） | 客户端管控页（4 个二级页：策略与开关/插件管控/自助规则/下发回执） | — |
+| ent-desktop | 桌面客户端 | /setup/releases.json、/setup/packages/*、/setup/env.json、/setup/env/*（安装脚本取包与取 Node/pnpm）+ /admin/desktop-repo*、/admin/env-repo*（检测/入库/发布/上传） | 桌面客户端页，四个二级页：版本清单、环境物料、下发设置、离线上传 | —（实现模块 core/desktop-repo.mjs、core/env-repo.mjs，共用 core/artifact-http.mjs） |
 | ent-audit | 审计留痕 | /admin/logs*、/admin/verify-anchor、/admin/seal-anchor、/admin/purge | 审计留痕页 | — |
 | ent-console | 运营总览 | /admin/stats、/admin/terminals + 管理台壳（SPA 静态资源 + /admin/plug/* 分发） | 运营总览页 | — |
 

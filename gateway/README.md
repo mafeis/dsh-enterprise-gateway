@@ -54,7 +54,9 @@ npm install               # 安装 @deepseek-ai/cordis（唯一依赖）
 npm run check             # 语法检查（自动枚举，含所有新模块）
 npm run smoke             # 冒烟测试（临时数据目录，跑完自动清理）
 npm run e2e               # 端到端验收（插件链路 + 禁用场景）
-node scripts/ui-all-pages-check.mjs  # 管理台全部 11 个插件页面 UI 诊断（导航注入+挂载+交互回归+截图）
+npm run e2e:desktop       # 客户端安装包库回归（上传→发布→下载→Range→回滚→删包，离线）
+npm run test:mirror       # 物料库重复下载回归（已入库不重拉、force 才重拉，离线）
+ENT_ADMIN_TOKEN=*** npm run ui:check   # 管理台每个页面真渲染体检：挂载 + class 是否真有样式 + 控制台报错 + 截图
 ```
 
 ## 启动
@@ -80,6 +82,18 @@ $env:UPSTREAM_API_KEY = "<key>"; node gateway.mjs
 | GET | `/` | 浏览器访问 302 到用户接入页（程序化请求不受影响） | 公开 |
 | GET | `/setup` | 用户接入页（按系统给分步指引：打开什么 → 复制什么 → 回车 → 排障） | 公开 |
 | GET | `/setup/windows-setup.ps1` `/setup/mac-setup.sh` | 一键安装脚本（自动注入网关地址） | 公开 |
+| GET | `/setup/releases.json` | 当前下发的客户端版本 + 各平台包路径与 sha256（安装脚本的事实源） | 公开 |
+| GET | `/setup/packages/:platform[/:version]` | 客户端安装包实体（内网直装，支持 Range 续传；缺省取下发版本） | 公开 |
+| GET | `/admin/desktop-repo` | 桌面客户端发布台（版本清单 + 各平台包状态 + 设置） | admin |
+| POST | `/admin/desktop-repo/check` `/admin/desktop-repo/sync` | 立即检测上游新版本 / 同步指定版本入库（已有且摘要一致的平台自动跳过，`{force:true}` 才强制重下） | admin |
+| PATCH | `/admin/desktop-repo` | 改检测与入库设置 / 设为下发版本（发布与回滚）/ 存 GitHub 令牌 | admin |
+| POST | `/admin/desktop-repo/upload` | 离线上传安装包（不通公网的客户） | admin |
+| DELETE | `/admin/desktop-repo/:version` | 删除某版本的本地包（上游清单保留，可重新同步） | admin |
+| GET | `/setup/env.json` | 当前下发的 Node / pnpm 版本 + 各平台包路径与 sha256（安装脚本的事实源） | 公开 |
+| GET | `/setup/env/:kind/:platform[/:version]` | 环境物料实体（`kind=node\|pnpm`，内网直装，支持 Range 续传） | 公开 |
+| POST | `/admin/env-repo/check` `/admin/env-repo/sync` | 立即检测上游新 LTS / pnpm 版本 / 同步指定物料入库（同上：已有一致实体自动跳过，`{force:true}` 强制重下） | admin |
+| POST | `/admin/env-repo/upload` | 离线上传 Node/pnpm 包（不通公网的客户） | admin |
+| DELETE | `/admin/env-repo/:kind/:version` | 删除某版本的环境物料（上游清单保留，可重新同步） | admin |
 | POST | `/policy/ack` `/heartbeat` | 插件回执/心跳 | 可选 |
 | GET | `/admin/stats` | 今日统计 + 7 日按用户 | admin |
 | GET | `/admin/logs?user=&limit=` | 留痕检索 | admin |
@@ -90,6 +104,32 @@ $env:UPSTREAM_API_KEY = "<key>"; node gateway.mjs
 | GET | `/admin/verify-anchor?day=` | 防篡改校验 | admin |
 | PATCH | `/admin/policy` | 策略热更（audit/dlp/policy） | admin |
 | GET | `/admin/config` | 渠道配置（Key 脱敏） | admin |
+
+## 客户端发布（桌面客户端插件）
+
+网关自己成为 DSH Desktop 的**内网分发点**，安装脚本不再钉死版本号：
+
+- **检测**：默认每 6h（首启 20s 后先跑一次）拉 GitHub Releases + ModelScope 镜像两条 feed，按 `(版本, 平台)` 归并；`channel=beta` 才收预发布包
+- **入库**：`autoSync` 下自动把最近 `keepVersions` 个版本拉到 `data/desktop-repo/files/<版本>/<平台>-<文件>`；流式下载边算 sha256 边比对上游摘要，**不一致就删掉临时文件并记错**，绝不留半个坏包；单包 `maxPackageMb`、总量 `maxTotalGb` 双闸
+- **发布**：管理员在「桌面客户端」页点**设为下发版本**才生效（不自动发布），随时可切回旧版本回滚；被下发的版本不允许删包
+- **下发**：`/setup/releases.json` 给出 `{version, mac:{path,sha256,size}, win:{…}, allowUpstreamFallback}`，脚本据此走局域网直装；离线客户可在「离线上传」页签把包塞进同一个库
+- **兜底**：网关没有对应平台的包时脚本才回退 GitHub → ModelScope（均动态取最新版与摘要）；把 `allowUpstreamFallback` 关掉即纯内网闭环
+- **页面**：「桌面客户端」拆四个二级页签 —— **版本清单**（下发状态 + 版本表，默认只列最近 3 个，更早的展开看）、**环境物料**、**下发设置**（安装包与环境物料两张策略卡）、**离线上传**
+
+安全姿态：网关成了二进制分发点，所以上游摘要必校验、下载主机走白名单（github/modelscope/aliyuncs）、只允许 https；GitHub 匿名限额 60 次/小时，需要时把令牌存进 `data/.env` 的 `DSH_RELEASE_TOKEN`（页面只回 `hasToken`，不回令牌本身）。
+
+### 环境物料（「环境物料」页签）
+
+装机脚本要先有 Node 和 pnpm 才谈得上装插件。纯内网环境里这一步原先必挂（Homebrew / `npm i -g pnpm` 都要出网），现在同一套「检测 → 入库 → 发布 → 下发」也覆盖环境物料，存储与代码都跟安装包共用：
+
+- **物料**：`node` 按机器架构分三档（`mac-arm64` / `mac-x64` / `win-x64`），取官方 `index.json` + `SHASUMS256.txt`；`pnpm` 也按平台分档 —— pnpm 12 起主 npm 包不再自带运行时：`install.js` 要用 `optionalDependencies` 里的 `@pnpm/exe.<平台>` 顶掉占位 bin，顶不到就退回首次运行时去 `get.pnpm.io` / `registry.npmjs.org` 下载，纯内网两条路都不通；所以镜像的是官方 `@pnpm/exe.<os>-<cpu>` 原生包（解出来就是一个可执行文件，不依赖 Node、不碰 npm 源。注：pnpm 11 及更早的主包是自包含 JS，约 18 MB，不需要这套）
+- **源**：Node 走 nodejs.org 与 npmmirror 两条 feed（顺序即优先级），pnpm 走 npmjs 与 npmmirror 两个 registry；`nodeChannel=lts` 只收 LTS，`nodeKeepVersions`/`pnpmKeepVersions` 控住在库版本数
+- **发布**：同样由管理员点「设为下发版本」（环境物料按 kind 各一个指针），没有任何自动发布
+- **下发**：`/setup/env.json` 给 `{node:{version,lts,files:{平台:{path,sha256,…}}}, pnpm:{…}, allowUpstreamFallback}`；mac 脚本把 Node 装进 `~/.local/share/nodejs`、pnpm 装进 `~/.local/share/pnpm`，命令软链到 `~/.local/bin`（无 root、无交互、无 Homebrew），已装好满足版本要求的机器一律沿用
+- **兜底**：网关没有对应平台的包，脚本才回退官方源/国内镜像（同样先校验摘要再安装）；`allowUpstreamFallback` 关掉后脚本直接报错并提示让 IT 补包，绝不偷偷出网
+- 体量参考：Node 三档约 150MB + pnpm 三档约 106MB（每版本），`envMaxPackageMb` / `envMaxTotalGb` 双闸
+
+对应脚本步骤：`setup/mac-setup.sh` 与 `setup/windows-setup.ps1` 的 `[1/6] 网关地址` → `[2/6] Node 与 pnpm`（网关地址提前到第一步，否则拿不到 env.json）。
 
 ## 安全模型
 
