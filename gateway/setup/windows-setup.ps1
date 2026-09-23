@@ -409,6 +409,23 @@ if (!existsSync(setupFile)) {
     recordedAt: new Date().toISOString() }, null, 2))
   done.push('wizard receipt')
 }
+// 1.4 自愈悬空的 profile 选择：老版脚本/旧测试可能把选择状态指到已不存在的 profile
+// （如 "enterprise"）。桌面端启动自愈只兜底 active=desktop 缺失或零 profile 两种情况，
+// 悬空名会直接抛错进恢复模式。选择指向的 profile 目录不存在时，直接纠正为 desktop。
+const selDir = join(userData, 'profile-selection')
+const selFile = join(selDir, 'state.json')
+if (existsSync(join(profileDir, 'package.json'))) {
+  let sel = null
+  try { sel = JSON.parse(readFileSync(selFile, 'utf8')) } catch {}
+  if (sel && sel.active !== 'desktop') {
+    const target = join(dshHome, 'profiles', String(sel.active || ''))
+    if (!sel.active || !existsSync(join(target, 'package.json'))) {
+      mkdirSync(selDir, { recursive: true })
+      writeFileSync(selFile, JSON.stringify({ version: 2, active: 'desktop' }, null, 2))
+      done.push('profile selection repair: ' + (sel.active || '?') + ' -> desktop')
+    }
+  }
+}
 const prefDir = join(userData, 'profile-preferences', hash)
 const prefFile = join(prefDir, 'state.json')
 if (!existsSync(prefFile)) {
