@@ -625,13 +625,29 @@ if ($rc -ne 0) { Die '预置失败，请把上方报错发给 IT' }
 
 # ===== [6/6] 启动 =====
 Log '[6/6] 启动 DSH Desktop'
-# 走 WMI 起进程（父进程是系统服务 WmiPrvSE）：Windows Terminal / 新式 conhost 关窗口时
-# 会清扫整个进程树，Start-Process 直接挂在本次 PowerShell 树下的应用会被连带关掉；
-# WMI 创建的进程不进本控制台的作业对象，关掉这个 PS 窗口应用不受影响。失败回退 Start-Process。
-$launched = $false
-try {
-  $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = '"' + $Exe + '"' } -ErrorAction Stop
-  if ($r.ReturnValue -eq 0) { $launched = $true }
-} catch {}
-if (-not $launched) { Start-Process -FilePath $Exe }
+# 首选 WMI 脱离进程树启动（防 Windows Terminal 关窗扫树），但提权 PowerShell 的
+# Win32_Process.Create 存在落错窗口站/启动即死的可能（真机出现过）—— 因此启动后
+# 必须验证进程真的活着，不活就回退 Start-Process，再无进程则明确提示手动打开。
+function Count-DshProc { @(Get-Process | Where-Object { $_.ProcessName -like 'DSH*' }).Count }
+$before = Count-DshProc
+if ($before -gt 0) {
+  Log "  检测到 $before 个 DSH 进程已在运行（安装器自启），跳过重复拉起"
+} else {
+  $ok = $false
+  try {
+    $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = '"' + $Exe + '"' } -ErrorAction Stop
+    if ($r.ReturnValue -eq 0) {
+      Start-Sleep 4
+      if ((Count-DshProc) -gt 0) { $ok = $true } else { Log '  WMI 启动的进程未存活，回退 Start-Process' }
+    }
+  } catch { Log '  WMI 启动失败，回退 Start-Process' }
+  if (-not $ok) {
+    try { Start-Process -FilePath $Exe } catch {}
+    Start-Sleep 4
+    if ((Count-DshProc) -eq 0) {
+      Log '  警告：未能自动拉起应用。请从桌面/开始菜单打开「DSH Desktop」，或在 PowerShell 里运行：'
+      Log "    & `"$Exe`""
+    }
+  }
+}
 Log '完成！应用已打开，输入企业账号密码即可使用。'
