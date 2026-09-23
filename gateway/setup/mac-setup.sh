@@ -361,13 +361,25 @@ cd "$P"
 ENT_TGZ="$HOME/.dsh/enterprise/dsh-enterprise.tgz"
 ENT_SPEC="dsh-enterprise${PLUGIN_VER:+@$PLUGIN_VER}"
 mkdir -p "$HOME/.dsh/enterprise"
+# 机器上若有别的 pnpm 大版本装过这个 node_modules（store 路径记在 .modules.yaml），
+# pnpm 会拒装 ERR_PNPM_UNEXPECTED_STORE —— 按其官方指引清掉重装，一次自愈
+add_plugin() {
+  local out
+  out=$(pnpm add "$@" 2>&1) && return 0
+  if printf '%s' "$out" | grep -q 'ERR_PNPM_UNEXPECTED_STORE'; then
+    log '  检测到 node_modules 与当前 pnpm 的 store 不一致（机器上切换过 pnpm 大版本），清空重装'
+    rm -rf node_modules
+    out=$(pnpm add "$@" 2>&1) && return 0
+  fi
+  printf '%s\n' "$out" >&2
+  return 1
+}
 if curl -fsSL --max-time 120 -o "$ENT_TGZ" "$GW_URL/plugin-packages/dsh-enterprise"; then
   log '  从企业网关插件仓库安装'
-  pnpm add "file:$ENT_TGZ" >/dev/null 2>&1 || pnpm add "file:$ENT_TGZ" || die '插件安装失败'
+  add_plugin "file:$ENT_TGZ" || die '插件安装失败'
 else
   log '  网关仓库不可达，回退官方 npm 源'
-  pnpm add "$ENT_SPEC" --registry=https://registry.npmjs.org/ >/dev/null 2>&1 \
-    || { log '  官方源失败，重试（显示错误）'; pnpm add "$ENT_SPEC" --registry=https://registry.npmjs.org/ || die '插件安装失败'; }
+  add_plugin "$ENT_SPEC" --registry=https://registry.npmjs.org/ || die '插件安装失败'
 fi
 [ -d node_modules/dsh-enterprise ] || die '插件安装后未找到实体'
 node -e '

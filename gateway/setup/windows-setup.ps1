@@ -366,12 +366,22 @@ $fromGw = $false
 try { Get-RemoteFile "$GatewayUrl/plugin-packages/dsh-enterprise" $entTgz; $fromGw = $true } catch {}
 if ($fromGw) {
   Log '  从企业网关插件仓库安装'
-  & pnpm.cmd add "file:$entTgz"
-  $rc = $LASTEXITCODE
+  $addArgs = @("file:$entTgz")
 } else {
   Log "  网关仓库不可达，回退官方 npm 源: dsh-enterprise@$PluginVersion"
-  & pnpm.cmd add "dsh-enterprise@$PluginVersion" --registry=$Registry
+  $addArgs = @("dsh-enterprise@$PluginVersion", "--registry=$Registry")
+}
+# 机器上若有别的 pnpm 大版本装过这个 node_modules（store 路径记在 .modules.yaml 里），
+# pnpm 会拒装 ERR_PNPM_UNEXPECTED_STORE —— 按其官方指引清掉重装即可，一次自愈
+$out = & pnpm.cmd add @addArgs 2>&1
+$rc = $LASTEXITCODE
+$out | ForEach-Object { "$_" } | ForEach-Object { Write-Host $_ }
+if ($rc -ne 0 -and (($out | Out-String) -match 'ERR_PNPM_UNEXPECTED_STORE')) {
+  Log '  检测到 node_modules 与当前 pnpm 的 store 不一致（机器上切换过 pnpm 大版本），清空重装'
+  Remove-Item (Join-Path $ProfileD 'node_modules') -Recurse -Force -ErrorAction SilentlyContinue
+  $out = & pnpm.cmd add @addArgs 2>&1
   $rc = $LASTEXITCODE
+  $out | ForEach-Object { "$_" } | ForEach-Object { Write-Host $_ }
 }
 Remove-Item Env:CI -ErrorAction SilentlyContinue
 Pop-Location
