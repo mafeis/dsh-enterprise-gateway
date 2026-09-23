@@ -75,6 +75,9 @@ $AllowFallback = if ($EnvJson -and ($EnvJson.PSObject.Properties.Name -contains 
 
 function Get-RemoteFile([string]$url, [string]$out) {
   # 统一下载口：失败就抛，让调用方换下一个源
+  # PS 5.1 的 IWR 进度条逐块同步渲染，实测把局域网 150MB 从数百 MB/s 拖到 0.4MB/s ——
+  # 函数作用域内关掉进度显示，出函数自动还原，不污染用户会话
+  $ProgressPreference = 'SilentlyContinue'
   Invoke-WebRequest $url -OutFile $out -TimeoutSec 3600 -UserAgent 'dsh-setup'
 }
 function Test-Sha256([string]$file, [string]$want) {
@@ -314,10 +317,10 @@ if ($needInstall) {
   $setup = Join-Path $env:TEMP "DSH-Desktop-$targetVer-x64-Setup.exe"
   $dl = $false
   if ($env:DSH_SETUP_MIRROR) {
-    try { Invoke-WebRequest "$($env:DSH_SETUP_MIRROR.TrimEnd('/'))/DSH-Desktop-$targetVer-x64-Setup.exe" -OutFile $setup -TimeoutSec 1800 -UserAgent 'dsh-setup'; $dl = $true } catch {}
+    try { Get-RemoteFile "$($env:DSH_SETUP_MIRROR.TrimEnd('/'))/DSH-Desktop-$targetVer-x64-Setup.exe" $setup; $dl = $true } catch {}
   }
   if (-not $dl) {
-    Invoke-WebRequest $setupUrl -OutFile $setup -TimeoutSec 1800 -UserAgent 'dsh-setup'
+    Get-RemoteFile $setupUrl $setup
   }
   if ($setupSha) {
     $got = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower()
@@ -360,7 +363,7 @@ $env:CI = 'true'
 $entTgz = Join-Path $DshHome 'enterprise\dsh-enterprise.tgz'
 New-Item -ItemType Directory -Path (Split-Path $entTgz) -Force | Out-Null
 $fromGw = $false
-try { Invoke-WebRequest "$GatewayUrl/plugin-packages/dsh-enterprise" -OutFile $entTgz -TimeoutSec 120 -UserAgent 'dsh-setup'; $fromGw = $true } catch {}
+try { Get-RemoteFile "$GatewayUrl/plugin-packages/dsh-enterprise" $entTgz; $fromGw = $true } catch {}
 if ($fromGw) {
   Log '  从企业网关插件仓库安装'
   & pnpm.cmd add "file:$entTgz"
