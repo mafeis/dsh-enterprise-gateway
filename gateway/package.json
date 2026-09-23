@@ -1,6 +1,6 @@
 {
   "name": "dsh-enterprise-gateway",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "type": "module",
   "description": "企业版-网关：OpenAI 兼容转发 + JWT 鉴权 + DLP + 留痕防篡改",
   "license": "SEE LICENSE IN LICENSE",
