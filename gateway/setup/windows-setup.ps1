@@ -371,68 +371,74 @@ if ($fromGw) {
   Log "  网关仓库不可达，回退官方 npm 源: dsh-enterprise@$PluginVersion"
   $addArgs = @("dsh-enterprise@$PluginVersion", "--registry=$Registry")
 }
-# 机器上若有别的 pnpm 大版本装过这个 node_modules（store 路径记在 .modules.yaml 里），
-# pnpm 会拒装 ERR_PNPM_UNEXPECTED_STORE —— 按其官方指引清掉重装即可，一次自愈
 # 与桌面应用统一 pnpm：应用启动迁移用它自带的 pnpm（resources\app\node_modules\pnpm，
-# 经 ELECTRON_RUN_AS_NODE 跑在内嵌 node 上，要求 node>=22.13），store 用 LOCALAPPDATA 默认位。
-# 脚本若用其它大版本/其它 store，两边会把 profile 的 node_modules 踩出
-# ERR_PNPM_UNEXPECTED_STORE（真机复现过）。优先级：应用 exe 内嵌 node > 系统 node>=22.13 > 系统 pnpm。
-# 注意：脚本开头 EA=Stop，pnpm 任何 stderr（进度、警告）经 2>&1 都会被 PS5.1 变成
-# 终止性错误直接掀掉脚本 —— 每个调用块内必须局部降为 Continue。
-$appPnpmMjs = Join-Path (Split-Path $Exe) 'resources\app\node_modules\pnpm\bin\pnpm.mjs'
+# 正常经 ELECTRON_RUN_AS_NODE 跑在内嵌 node 上；要求 node>=22.13），store 用 LOCALAPPDATA 默认位。
+# 脚本用其它大版本/其它 store 会把 profile 的 node_modules 踩出 ERR_PNPM_UNEXPECTED_STORE（真机复现）。
+# 但 Windows 打包可能禁用 RunAsNode 熔丝：届时 & app.exe 是「又启动一个应用实例」（rc=0、
+# 静默、啥也不装，真机出现过），所以不能信退出码 —— 三级阶梯逐一试装，
+# 以 node_modules\dsh-enterprise\package.json 真实存在为唯一成功标准。
+# 另注：脚本开头 EA=Stop，pnpm 任何 stderr 经 2>&1 都会变终止性错误掀掉脚本，调用处局部降 Continue。
+$appPnpmMjs  = Join-Path (Split-Path $Exe) 'resources\app\node_modules\pnpm\bin\pnpm.mjs'
 $appPnpmStore = Join-Path $env:LOCALAPPDATA 'pnpm\store'
-$pnpmMode = 'sys'
+$pluginPkgPath = Join-Path $ProfileD 'node_modules\dsh-enterprise\package.json'
+
+function Invoke-PnpmAdd([string]$mode, [string[]]$a) {
+  $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  $out = ''
+  $rc = 1
+  try {
+    if ($mode -eq 'runasnode') {
+      $env:ELECTRON_RUN_AS_NODE = '1'
+      try { $out = & $Exe $appPnpmMjs add @a --store-dir $appPnpmStore 2>&1; $rc = $LASTEXITCODE }
+      finally { Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue }
+    } elseif ($mode -eq 'node') {
+      $out = & node $appPnpmMjs add @a --store-dir $appPnpmStore 2>&1; $rc = $LASTEXITCODE
+    } else {
+      $out = & pnpm.cmd add @a 2>&1; $rc = $LASTEXITCODE
+    }
+  } finally { $ErrorActionPreference = $eapS }
+  [pscustomobject]@{ Rc = $rc; Text = (($out | ForEach-Object { "$_" }) -join "`n") }
+}
+
+$modes = @()
 if ((Test-Path $Exe) -and (Test-Path $appPnpmMjs)) {
+  # RunAsNode 冒烟：必须看到版本号回显才算通（熔丝被禁时静默且 rc 不可信）
+  $vraw = ''
   $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
   $env:ELECTRON_RUN_AS_NODE = '1'
-  & $Exe -p "process.versions.node" *> $null
-  $ranOk = ($LASTEXITCODE -eq 0)
+  try { $vraw = ((& $Exe -p "process.versions.node" 2>&1) | ForEach-Object { "$_" }) -join ' ' }
+  catch {}
   Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
   $ErrorActionPreference = $eapS
-  if ($ranOk) { $pnpmMode = 'runasnode' }
-  else {
-    $nv = '0.0'; $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-    try { $nv = & node -p "process.versions.node" 2>$null; if ($LASTEXITCODE -ne 0) { $nv = '0.0' } } catch {}
-    $ErrorActionPreference = $eapS
-    $parts = $nv -split '\.'
-    if ([int]$parts[0] -gt 22 -or ([int]$parts[0] -eq 22 -and [int]$parts[1] -ge 13)) { $pnpmMode = 'node' }
-  }
+  if ($vraw -match '\d+\.\d+\.\d+') { $modes += 'runasnode' }
+  $nv = '0.0'
+  $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  try { $nv = & node -p "process.versions.node" 2>$null; if ($LASTEXITCODE -ne 0) { $nv = '0.0' } } catch {}
+  $ErrorActionPreference = $eapS
+  $parts = $nv -split '\.'
+  if (([int]$parts[0] -gt 22) -or (([int]$parts[0] -eq 22) -and ([int]$parts[1] -ge 13))) { $modes += 'node' }
 }
-if ($pnpmMode -eq 'runasnode') {
-  Log '  使用桌面应用自带 pnpm（应用内嵌 node，与应用启动迁移同版本同 store，杜绝互踩）'
-  $pnpmAdd = { param($a)
-    $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-    $env:ELECTRON_RUN_AS_NODE = '1'
-    try { & $Exe $appPnpmMjs add @a --store-dir $appPnpmStore 2>&1 }
-    finally { Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; $ErrorActionPreference = $eapS }
+$modes += 'sys'
+
+$installed = $false
+foreach ($m in $modes) {
+  if ($m -eq 'runasnode') { Log '  尝试：应用自带 pnpm（内嵌 node）' }
+  elseif ($m -eq 'node')  { Log '  尝试：应用自带 pnpm（系统 node）' }
+  else                    { Log '  尝试：系统 pnpm' }
+  $r = Invoke-PnpmAdd $m $addArgs
+  if ($r.Text) { $r.Text -split "`n" | ForEach-Object { Write-Host $_ } }
+  if ($r.Rc -ne 0 -and ($r.Text -match 'ERR_PNPM_UNEXPECTED_STORE')) {
+    Log '  node_modules 与 pnpm store 不一致（机器切换过 pnpm 大版本），清空重装'
+    Remove-Item (Join-Path $ProfileD 'node_modules') -Recurse -Force -ErrorAction SilentlyContinue
+    $r = Invoke-PnpmAdd $m $addArgs
+    if ($r.Text) { $r.Text -split "`n" | ForEach-Object { Write-Host $_ } }
   }
-} elseif ($pnpmMode -eq 'node') {
-  Log '  使用桌面应用自带 pnpm（系统 node 运行，同版本同 store）'
-  $pnpmAdd = { param($a)
-    $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-    try { & node $appPnpmMjs add @a --store-dir $appPnpmStore 2>&1 }
-    finally { $ErrorActionPreference = $eapS }
-  }
-} else {
-  $pnpmAdd = { param($a)
-    $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-    try { & pnpm.cmd add @a 2>&1 }
-    finally { $ErrorActionPreference = $eapS }
-  }
-}
-$out = & $pnpmAdd $addArgs
-$rc = $LASTEXITCODE
-$out | ForEach-Object { "$_" } | ForEach-Object { Write-Host $_ }
-if ($rc -ne 0 -and (($out | Out-String) -match 'ERR_PNPM_UNEXPECTED_STORE')) {
-  Log '  检测到 node_modules 与当前 pnpm 的 store 不一致（机器上切换过 pnpm 大版本），清空重装'
-  Remove-Item (Join-Path $ProfileD 'node_modules') -Recurse -Force -ErrorAction SilentlyContinue
-  $out = & $pnpmAdd $addArgs
-  $rc = $LASTEXITCODE
-  $out | ForEach-Object { "$_" } | ForEach-Object { Write-Host $_ }
+  if (Test-Path $pluginPkgPath) { $installed = $true; break }
+  Log "  该途径未能装上插件（rc=$($r.Rc)），降级下一个"
 }
 Remove-Item Env:CI -ErrorAction SilentlyContinue
 Pop-Location
-if ($rc -ne 0) { Die "插件安装失败（pnpm add 退出码 $rc），请检查网络后重跑" }
+if (-not $installed) { Die '插件安装失败（已尝试全部 pnpm 途径），请把上方输出发给 IT' }
 $pluginPkg = Join-Path $ProfileD 'node_modules\dsh-enterprise\package.json'
 if (-not (Test-Path $pluginPkg)) { Die '插件安装后未找到实体' }
 & node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(!p.dsh.profile.bundles.includes('dsh-enterprise'))p.dsh.profile.bundles.push('dsh-enterprise');fs.writeFileSync(process.argv[1],JSON.stringify(p,null,2)+'\n')" $pkgPath
