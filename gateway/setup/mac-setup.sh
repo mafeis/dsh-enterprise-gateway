@@ -485,5 +485,7 @@ PYEOF
 # ===== [6/6] 启动 =====
 log '[6/6] 启动 DSH Desktop'
 open -a 'DSH Desktop'
-log '完成！应用已打开，输入企业账号密码即可使用。'
+log '完成！正在启动 DSH Desktop —— 首次启动要加载企业插件，可能需要十几到半分钟，'
+log '窗口稍后自动出现，出现后用企业账号密码登录即可；超过 1 分钟没见到窗口，'
+log '从启动台或 /Applications 再打开一次 DSH Desktop（重复打开无副作用）。'
 [ -x "$BIN_DIR/node" ] && log "提示：Node 装在本机用户目录，若新终端找不到 node，请在 ~/.zshrc 加：export PATH=\"$BIN_DIR:\$PATH\""

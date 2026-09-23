@@ -198,7 +198,7 @@ footer { color:var(--dim); font-size:12.5px; margin-top:26px; text-align:center 
       <p data-zh="在蓝窗口里<b>点右键</b>（即粘贴），再按<b>回车</b>" data-en="<b>Right-click</b> in the blue window (this pastes), then press <b>Enter</b>">在蓝窗口里<b>点右键</b>（即粘贴），再按<b>回车</b></p>
     </li>
     <li>
-      <p data-zh="等窗口出现「完成！」——装好后应用自动打开，输入企业账号密码即可" data-en="Wait for &quot;Done!&quot; — the app opens automatically, then sign in with your company account">等窗口出现「完成！」——装好后应用自动打开，输入企业账号密码即可</p>
+      <p data-zh="等窗口出现「完成！」即装好——应用会自动启动，首次启动加载企业插件约需 10~30 秒，窗口出现后用企业账号密码登录" data-en="Wait for &quot;Done!&quot; — the app then launches automatically; first launch may take 10–30s to load the enterprise plugin, then sign in with your company account">等窗口出现「完成！」即装好——应用会自动启动，首次启动加载企业插件约需 10~30 秒，窗口出现后用企业账号密码登录</p>
       <p class="dim" data-zh="过程中窗口滚动大量文字、中途闪一下黑框，都是正常安装动作" data-en="Scrolling text and a brief black window during install are normal">过程中窗口滚动大量文字、中途闪一下黑框，都是正常安装动作</p>
     </li>
   </ol>
@@ -242,7 +242,7 @@ footer { color:var(--dim); font-size:12.5px; margin-top:26px; text-align:center 
       <p data-zh="按 <span class='key'>Cmd</span> + <span class='key'>V</span> 粘贴，再按<b>回车</b>" data-en="Paste with <span class='key'>Cmd</span> + <span class='key'>V</span>, then press <b>Enter</b>">按 <span class='key'>Cmd</span> + <span class='key'>V</span> 粘贴，再按<b>回车</b></p>
     </li>
     <li>
-      <p data-zh="等窗口出现「完成！」——装好后应用自动打开，输入企业账号密码即可" data-en="Wait for &quot;Done!&quot; — the app opens automatically, then sign in with your company account">等窗口出现「完成！」——装好后应用自动打开，输入企业账号密码即可</p>
+      <p data-zh="等窗口出现「完成！」即装好——应用会自动启动，首次启动加载企业插件约需 10~30 秒，窗口出现后用企业账号密码登录" data-en="Wait for &quot;Done!&quot; — the app then launches automatically; first launch may take 10–30s to load the enterprise plugin, then sign in with your company account">等窗口出现「完成！」即装好——应用会自动启动，首次启动加载企业插件约需 10~30 秒，窗口出现后用企业账号密码登录</p>
       <p class="dim" data-zh="过程中要求输入密码或回车确认，直接回车即可" data-en="If asked for a password or confirmation, just press Enter">过程中要求输入密码或回车确认，直接回车即可</p>
     </li>
   </ol>
