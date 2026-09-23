@@ -373,17 +373,52 @@ if ($fromGw) {
 }
 # 机器上若有别的 pnpm 大版本装过这个 node_modules（store 路径记在 .modules.yaml 里），
 # pnpm 会拒装 ERR_PNPM_UNEXPECTED_STORE —— 按其官方指引清掉重装即可，一次自愈
-# 与桌面应用统一 pnpm：应用在启动迁移时用它自带的 pnpm（resources\app\node_modules\pnpm，
-# store 用 %LOCALAPPDATA%\pnpm\store 默认位）。脚本若用其它大版本/其它 store，两边会把
-# profile 的 node_modules 来回踩出 ERR_PNPM_UNEXPECTED_STORE（真机复现过）。应用在场时
-# 直接用应用自带 pnpm + 同一 store；不在场退回系统 pnpm，store 不一致仍由下方自愈兜底。
+# 与桌面应用统一 pnpm：应用启动迁移用它自带的 pnpm（resources\app\node_modules\pnpm，
+# 经 ELECTRON_RUN_AS_NODE 跑在内嵌 node 上，要求 node>=22.13），store 用 LOCALAPPDATA 默认位。
+# 脚本若用其它大版本/其它 store，两边会把 profile 的 node_modules 踩出
+# ERR_PNPM_UNEXPECTED_STORE（真机复现过）。优先级：应用 exe 内嵌 node > 系统 node>=22.13 > 系统 pnpm。
+# 注意：脚本开头 EA=Stop，pnpm 任何 stderr（进度、警告）经 2>&1 都会被 PS5.1 变成
+# 终止性错误直接掀掉脚本 —— 每个调用块内必须局部降为 Continue。
 $appPnpmMjs = Join-Path (Split-Path $Exe) 'resources\app\node_modules\pnpm\bin\pnpm.mjs'
-if (Test-Path $appPnpmMjs) {
-  Log '  使用桌面应用自带 pnpm（与应用启动迁移同版本同 store，杜绝互踩）'
-  $appPnpmStore = Join-Path $env:LOCALAPPDATA 'pnpm\store'
-  $pnpmAdd = { param($a) & node $appPnpmMjs add @a --store-dir $appPnpmStore 2>&1 }
+$appPnpmStore = Join-Path $env:LOCALAPPDATA 'pnpm\store'
+$pnpmMode = 'sys'
+if ((Test-Path $Exe) -and (Test-Path $appPnpmMjs)) {
+  $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  $env:ELECTRON_RUN_AS_NODE = '1'
+  & $Exe -p "process.versions.node" *> $null
+  $ranOk = ($LASTEXITCODE -eq 0)
+  Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+  $ErrorActionPreference = $eapS
+  if ($ranOk) { $pnpmMode = 'runasnode' }
+  else {
+    $nv = '0.0'; $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { $nv = & node -p "process.versions.node" 2>$null; if ($LASTEXITCODE -ne 0) { $nv = '0.0' } } catch {}
+    $ErrorActionPreference = $eapS
+    $parts = $nv -split '\.'
+    if ([int]$parts[0] -gt 22 -or ([int]$parts[0] -eq 22 -and [int]$parts[1] -ge 13)) { $pnpmMode = 'node' }
+  }
+}
+if ($pnpmMode -eq 'runasnode') {
+  Log '  使用桌面应用自带 pnpm（应用内嵌 node，与应用启动迁移同版本同 store，杜绝互踩）'
+  $pnpmAdd = { param($a)
+    $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    $env:ELECTRON_RUN_AS_NODE = '1'
+    try { & $Exe $appPnpmMjs add @a --store-dir $appPnpmStore 2>&1 }
+    finally { Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue; $ErrorActionPreference = $eapS }
+  }
+} elseif ($pnpmMode -eq 'node') {
+  Log '  使用桌面应用自带 pnpm（系统 node 运行，同版本同 store）'
+  $pnpmAdd = { param($a)
+    $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { & node $appPnpmMjs add @a --store-dir $appPnpmStore 2>&1 }
+    finally { $ErrorActionPreference = $eapS }
+  }
 } else {
-  $pnpmAdd = { param($a) & pnpm.cmd add @a 2>&1 }
+  $pnpmAdd = { param($a)
+    $eapS = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { & pnpm.cmd add @a 2>&1 }
+    finally { $ErrorActionPreference = $eapS }
+  }
 }
 $out = & $pnpmAdd $addArgs
 $rc = $LASTEXITCODE

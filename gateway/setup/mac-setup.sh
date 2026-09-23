@@ -361,11 +361,16 @@ cd "$P"
 ENT_TGZ="$HOME/.dsh/enterprise/dsh-enterprise.tgz"
 ENT_SPEC="dsh-enterprise${PLUGIN_VER:+@$PLUGIN_VER}"
 mkdir -p "$HOME/.dsh/enterprise"
-# 与桌面应用统一 pnpm：应用启动迁移用它自带的 pnpm（app 包内 node_modules/pnpm），
+# 与桌面应用统一 pnpm：应用启动迁移用它自带的 pnpm（app 包内 node_modules/pnpm，
+# 经 ELECTRON_RUN_AS_NODE 跑在内嵌 node 上，要求 node>=22.13，系统 node 可能不够老）。
 # 脚本用其它大版本会把 profile 的 node_modules store 踩出 ERR_PNPM_UNEXPECTED_STORE。
-# 应用在场直接用自带 pnpm；不在场退回系统 pnpm，store 不一致仍由下方自愈兜底
+# 优先级：应用 exe 内嵌 node > 系统 node>=22.13 > 系统 pnpm（store 不一致仍由自愈兜底）
+APP_BIN="$APP/Contents/MacOS/DSH Desktop"
 APP_PNPM="$APP/Contents/Resources/app/node_modules/pnpm/bin/pnpm.mjs"
-if [ -f "$APP_PNPM" ]; then
+if [ -x "$APP_BIN" ] && [ -f "$APP_PNPM" ] && ELECTRON_RUN_AS_NODE=1 "$APP_BIN" -p "process.versions.node" >/dev/null 2>&1; then
+  log '  使用桌面应用自带 pnpm（应用内嵌 node，与应用启动迁移同版本同 store，杜绝互踩）'
+  PNPM_CMD=(env ELECTRON_RUN_AS_NODE=1 "$APP_BIN" "$APP_PNPM")
+elif [ -f "$APP_PNPM" ] && node -e 'const p=process.versions.node.split(".");process.exit(+p[0]>22||(+p[0]===22&&+p[1]>=13)?0:1)' 2>/dev/null; then
   PNPM_CMD=(node "$APP_PNPM")
 else
   PNPM_CMD=(pnpm)
