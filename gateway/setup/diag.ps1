@@ -1,35 +1,48 @@
-# DSH Desktop launch diagnostic collector (IT use)
+# DSH Desktop launch diagnostic collector v2 (IT use)
 # Usage:  irm http://<gateway>/setup/diag.ps1 | iex
 # ASCII only on purpose: avoids console codepage mangling.
 $ErrorActionPreference = 'SilentlyContinue'
 $exe = Join-Path $env:LOCALAPPDATA 'Programs\DSH Desktop\DSH Desktop.exe'
-"EXE=$exe"
-"EXISTS=$(Test-Path $exe)"
+"EXE=$exe  EXISTS=$(Test-Path $exe)"
 
-"=== 1) run in foreground (blocks until exit) ==="
-if (Test-Path $exe) {
-  & $exe
-  "EXIT_CODE=$LASTEXITCODE"
-} else {
-  "APP EXE MISSING - likely quarantined by antivirus, check AV quarantine/deny list NOW"
+"=== 0) clean slate: stop leftovers ==="
+Get-Process | Where-Object { $_.ProcessName -like 'DSH*' } | ForEach-Object { "killing $($_.ProcessName) pid=$($_.Id)"; Stop-Process -Id $_.Id -Force }
+Start-Sleep 2
+
+"=== 1) start + life sampling (15s) ==="
+$t0 = Get-Date
+$p = Start-Process $exe -PassThru
+"pid=$($p.Id) start=$($t0.ToString('HH:mm:ss'))"
+for ($i = 1; $i -le 15; $i++) {
+  Start-Sleep 1
+  $g = Get-Process -Id $p.Id -EA 0
+  if (-not $g) {
+    $kids = Get-Process | Where-Object { $_.ProcessName -like 'DSH*' } | ForEach-Object { $_.ProcessName + ':' + $_.Id }
+    "t=${i}s MAIN EXITED  other DSH procs: $($kids -join ', ')"
+    break
+  }
+  $wt = ''
+  try { $wt = ' win=' + [bool]$g.MainWindowHandle } catch {}
+  "t=${i}s alive ram=$([int]($g.WorkingSet64/1MB))MB$wt"
 }
+$p.WaitForExit(3000) | Out-Null
+if ($p.HasExited) { "EXITED code=$($p.ExitCode)" } else { "STILL RUNNING after 18s" }
 
-"`n=== 2) app log tail 80 ==="
-$f = Get-ChildItem (Join-Path $env:APPDATA 'DSH Desktop\logs') -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if ($f) { "[$($f.Name)  $($f.LastWriteTime)]"; Get-Content $f.FullName -Tail 80 } else { "NO LOG FILES" }
+"=== 2) app log files ==="
+$logDir = Join-Path $env:APPDATA 'DSH Desktop\logs'
+Get-ChildItem $logDir -File | Sort-Object LastWriteTime -Descending | Select-Object -First 4 Name, LastWriteTime, Length | Format-Table -AutoSize
 
-"`n=== 3) registered antivirus products (SecurityCenter2, works without Defender module) ==="
-Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct |
-  Select-Object displayName, productState | Format-List
+"=== 3) MAIN log tail 90 (not error-only) ==="
+$main = Get-ChildItem $logDir -File | Where-Object { $_.Name -notlike '*error*' } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($main) { "[$($main.Name)  $($main.LastWriteTime)]"; Get-Content $main.FullName -Tail 90 } else { 'no main log' }
 
-"=== 4) crash dumps (last 3h) ==="
-Get-ChildItem (Join-Path $env:LOCALAPPDATA 'CrashDumps') -File |
-  Where-Object { $_.LastWriteTime -gt (Get-Date).AddHours(-3) } |
-  Select-Object Name, LastWriteTime, Length | Format-Table -AutoSize
+"=== 4) ERROR log tail 40 ==="
+$err = Get-ChildItem $logDir -File | Where-Object { $_.Name -like '*error*' } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($err) { "[$($err.Name)]"; Get-Content $err.FullName -Tail 40 } else { 'no error log' }
 
-"=== 5) profile selection + profile dir sanity ==="
-"selection: " + (Get-Content (Join-Path $env:APPDATA 'DSH Desktop\profile-selection\state.json') -Raw)
-"profile desktop exists: " + (Test-Path (Join-Path $env:USERPROFILE '.dsh\profiles\desktop\package.json'))
-"plugin dir exists: " + (Test-Path (Join-Path $env:USERPROFILE '.dsh\profiles\desktop\node_modules\dsh-enterprise'))
+"=== 5) harness home logs ==="
+Get-ChildItem (Join-Path $env:USERPROFILE '.dsh\logs') -File -EA 0 | Sort-Object LastWriteTime -Descending | Select-Object -First 3 Name, LastWriteTime
+$hl = Get-ChildItem (Join-Path $env:USERPROFILE '.dsh\logs') -File -EA 0 | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($hl) { Get-Content $hl.FullName -Tail 40 }
 
 Read-Host "press ENTER to close"
