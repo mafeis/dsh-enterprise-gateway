@@ -22,7 +22,7 @@ export const manifest = {
 
 /** 自带页面：通知告警事件流（页面资源在本插件 ent-notify.web/）；icon 为 lucide 图标名 */
 export const admin = {
-  nav: { id: 'notify', title: '通知告警', titleEn: 'Alerts', icon: 'bell' },
+  nav: { id: 'notify', title: '通知告警', titleEn: 'Alerts', icon: 'bell', order: 450 },
   entry: 'index.mjs',
 }
 

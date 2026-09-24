@@ -93,7 +93,7 @@ export default {
       <div class="lic-vs-head">
         <span></span>
         <span>${T('社区版','Community')}<span class="badge dim" style="margin-left:6px">${T('免费','Free')}</span></span>
-        <span class="lic-vs-hit">${T('商业版','Commercial')}<span class="badge" style="margin-left:6px">${T('按席位','Per-seat')}</span></span>
+        <span class="lic-vs-c hit">${T('商业版','Commercial')}<span class="badge" style="margin-left:6px">${T('按席位','Per-seat')}</span></span>
       </div>
       <div class="lic-vs-row">
         <span class="lic-vs-k">${T('支持通道','Support')}</span>

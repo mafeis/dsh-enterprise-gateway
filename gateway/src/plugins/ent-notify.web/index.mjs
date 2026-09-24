@@ -24,7 +24,7 @@ export default {
     <h2><span class="bar"></span>${T('最近事件', 'Recent events')} <span class="badge" id="ntfyCount"></span></h2>
     <div class="tablewrap"><table>
       <thead><tr><th>${T('时间', 'Time')}</th><th>${T('类型', 'Type')}</th><th>${T('详情', 'Detail')}</th></tr></thead>
-      <tbody id="ntfyBody"><tr><td colspan="3" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
+      <tbody id="ntfyBody"><tr><td colspan="3" class="empty-state">${icon('bell', { size: 32 })}<div class="es-title">${T('暂无事件', 'No events')}</div><div class="es-desc">${T('加载中…', 'Loading…')}</div></td></tr></tbody>
     </table></div>
   </div>`,
 
@@ -42,6 +42,6 @@ export default {
         <td><span class="layer ${cls}">${ic ? icon(ic, { size: 13 }) : ''}${label}</span></td>
         <td class="mono crumb" style="white-space:normal">${esc(JSON.stringify(detail))}</td>
       </tr>`;
-    }).join('') || `<tr><td colspan="3" class="empty">${T('暂无事件', 'No events')}</td></tr>`;
+    }).join('') || `<tr><td colspan="3" class="empty-state">${icon('bell', { size: 32 })}<div class="es-title">${T('暂无事件', 'No events')}</div><div class="es-desc">${T('暂无事件', 'No events')}</div></td></tr>`;
   },
 };

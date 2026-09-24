@@ -14,7 +14,7 @@ export const inject = ['config', 'store', 'auth', 'router']
 /** 自带页面：用户分组（分组 CRUD + 成员归属，一人一组；额度/模型在「额度管理」「模型管理」页配置） */
 export const admin = {
   nav: {
-    id: 'groups', title: '用户分组', titleEn: 'Groups', icon: 'users', order: 45,
+    id: 'groups', title: '用户分组', titleEn: 'Groups', icon: 'users', order: 120,
     section: { id: 'usermgmt', title: '用户管理', titleEn: 'User Management', icon: 'users', order: 40 },
   },
   entry: 'index.mjs',

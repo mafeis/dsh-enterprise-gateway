@@ -110,8 +110,8 @@ function renderProviders() {
       </div>
     </div>`;
   }).join('') || (providers.length
-    ? `<div class="empty">${T('无匹配结果', 'No matches')}</div>`
-    : `<div class="empty">${T('暂无供应商 —— 点右上角「＋ 新增供应商」', 'No providers yet — add one at top right')}</div>`);
+    ? `<div class="empty-state">${icon('server', { size: 32 })}<div class="es-title">${T('暂无供应商', 'No providers')}</div><div class="es-desc">${T('无匹配结果', 'No matches')}</div></div>`
+    : `<div class="empty-state">${icon('server', { size: 32 })}<div class="es-title">${T('暂无供应商', 'No providers')}</div><div class="es-desc">${T('暂无供应商 —— 点右上角「＋ 新增供应商」', 'No providers yet — add one at top right')}</div></div>`);
 }
 
 /** 思考档位徽章（模型表与模型设置弹窗共用）——表达的是配置：可选/强制 + 默认档位 */
@@ -180,8 +180,8 @@ function renderModels() {
       </td>
     </tr>`;
   }).join('') || (models.length
-    ? `<tr><td colspan="7" class="empty">${T('无匹配结果', 'No matches')}</td></tr>`
-    : `<tr><td colspan="7" class="empty">${T('暂无模型 —— 先新增供应商', 'No models yet — add a provider first')}</td></tr>`);
+    ? `<tr><td colspan="7" class="empty-state">${icon('database', { size: 32 })}<div class="es-title">${T('暂无模型', 'No models')}</div><div class="es-desc">${T('无匹配结果', 'No matches')}</div></td></tr>`
+    : `<tr><td colspan="7" class="empty-state">${icon('database', { size: 32 })}<div class="es-title">${T('暂无模型', 'No models')}</div><div class="es-desc">${T('暂无模型 —— 先新增供应商', 'No models yet — add a provider first')}</div></td></tr>`);
 }
 
 /** 131072 → 128k（K=1024，与官方上下文口径一致）· 1536 → 1.5k · 999 → 999 */
@@ -772,7 +772,7 @@ function showProbeModal(pid, r) {
         <button class="btn sm primary" data-apply="${esc(pid)}" data-model="${esc(m.id)}" ${m.ok === false ? `disabled title="${T('模型不可用，无法应用', 'Model unavailable; cannot apply')}"` : ''}>${T('应用', 'Apply')}</button>
       </div>
     </div>`;
-  }).join('') || '<div class="empty" style="padding:40px 0">' + T('上游 /models 返回空列表', 'Upstream /models returned an empty list') + '</div>';
+  }).join('') || `<div style="padding:40px 0" class="empty-state">${icon('database', { size: 32 })}<div class="es-title">${T('暂无上游模型', 'No upstream models')}</div><div class="es-desc">${T('上游 /models 返回空列表', 'Upstream /models returned an empty list')}</div></div>`;
   // 筛选条：全部 / 支持思考 / 问题项
   const flt = $('probeFilter');
   if (flt) {
@@ -1087,7 +1087,7 @@ export default {
   <!-- 供应商列表 -->
   <div class="card">
     <h2><span class="bar"></span>${T('供应商', 'Providers')} <span class="badge" id="provCount"></span></h2>
-    <div id="provList"><div class="empty">${T('加载中…', 'Loading…')}</div></div>
+    <div id="provList"><div class="empty-state">${icon('server', { size: 32 })}<div class="es-title">${T('暂无供应商', 'No providers')}</div><div class="es-desc">${T('加载中…', 'Loading…')}</div></div></div>
   </div>
 
   <!-- 模型目录 -->
@@ -1096,7 +1096,7 @@ export default {
     <div class="tablewrap">
       <table>
         <thead><tr><th>${T('模型', 'Model')}</th><th>${T('供应商 → 上游模型', 'Provider → upstream model')}</th><th class="num">${T('上下文 / 输出', 'Context / output')}</th><th>${T('思考', 'Thinking')}</th><th class="num">${T('单价 入/出/缓存', 'Price in/out/cache')}</th><th>${T('状态', 'Status')}</th><th></th></tr></thead>
-        <tbody id="modelBody"><tr><td colspan="7" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
+        <tbody id="modelBody"><tr><td colspan="7" class="empty-state">${icon('database', { size: 32 })}<div class="es-title">${T('暂无模型', 'No models')}</div><div class="es-desc">${T('加载中…', 'Loading…')}</div></td></tr></tbody>
       </table>
     </div>
   </div>

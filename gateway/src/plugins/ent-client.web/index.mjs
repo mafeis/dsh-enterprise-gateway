@@ -8,7 +8,7 @@
  * 兼容：老壳不识别 nav.children 时回退 html/load/bind（= 第一个子页）。
  * 数据源：/admin/policy* /admin/policy-detail（ent-console 聚合提供）
  */
-import { api, $, toast, esc, openDlg, closeDlg, confirmDlg } from '/admin/static/contract.mjs'
+import { api, $, toast, esc, openDlg, closeDlg, confirmDlg, icon } from '/admin/static/contract.mjs'
 import { T } from '/admin/static/js/i18n.mjs'
 
 /* ---------- 公共片段 ---------- */
@@ -116,18 +116,16 @@ const pluginsHtml = `
   <!-- ============ 页签 A · 企业插件仓库 ============ -->
   <div class="pane on" id="pane-repo">
   <div class="card">
-    <h2><span class="bar"></span>${T('企业插件仓库', 'Enterprise plugin repo')} <span class="badge dim" id="repoCount">${T('0 个', '0')}</span><span class="badge warn" id="repoUpdCount" style="display:none"></span>
+    <h2><span class="bar"></span>${T('企业插件仓库', 'Enterprise plugin repo')} <span class="badge dim" id="repoCount">${T('0 个', '0')}</span><span class="badge warn" id="repoUpdCount" style="display:none"></span><span class="badge ok" id="repoAllowCount" style="display:none"></span>
       <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
         <input id="repoSearch" class="input" placeholder="${T('搜插件名 / 描述…', 'Search plugins…')}" style="width:200px;font-size:12px;height:28px">
         <button class="btn sm" id="repoCheckBtn" title="${T('从 npm 源检查各插件最新版本', 'Check npm registries for newer versions')}">⟳ ${T('检查更新', 'Check updates')}</button>
       </span>
     </h2>
-    <div class="tablewrap">
-      <table>
-        <thead><tr><th>${T('插件', 'Plugin')}</th></tr></thead>
-        <tbody id="repoBody"><tr><td class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
-      </table>
+    <div id="repoBody" class="plugin-list">
+      <div class="empty-state">${icon('puzzle', { size: 32 })}<div class="es-title">${T('加载中…', 'Loading…')}</div><div class="es-desc">${T('正在获取企业插件仓库', 'Fetching the enterprise plugin repo')}</div></div>
     </div>
+    <div id="repoPage" class="list-page"></div>
   </div>
   </div>
 
@@ -438,7 +436,7 @@ const acksHtml = `
     <div class="tablewrap" style="max-height:340px;overflow:auto">
       <table>
         <thead><tr><th>${T('版本', 'Version')}</th><th>${T('时间', 'Time')}</th><th>${T('说明', 'Note')}</th><th>${T('变更内容', 'Changes')}</th><th style="width:150px">${T('操作', 'Actions')}</th></tr></thead>
-        <tbody id="verBody"><tr><td colspan="5" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
+        <tbody id="verBody"><tr><td colspan="5" class="empty-state">${icon('download', { size: 32 })}<div class="es-title">${T('暂无版本', 'No versions')}</div><div class="es-desc">${T('加载中…', 'Loading…')}</div></td></tr></tbody>
       </table>
     </div>
     <div class="notebox" style="margin-top:10px">${T('按设备指纹比例分流灰度版本；同一设备恒定同侧。转正 = 全员生效；回滚 = 恢复历史版本内容', 'Gray versions split by device fingerprint; a device always stays on the same side. Promote = all users; rollback = restore a historical version')}</div>
@@ -458,8 +456,8 @@ const acksHtml = `
     <div class="sub">${T('近 24h 在线但未回执当前版本的设备', 'Devices online in 24h that have not receipted the current version')}</div>
     <div class="tablewrap" style="max-height:300px;overflow:auto">
       <table>
-        <thead><tr><th>${T('账号', 'Account')}</th><th>Profile</th><th>${T('心跳上报版本', 'Heartbeat version')}</th><th>${T('判定', 'Status')}</th><th>${T('环境', 'Env')}</th><th>Node</th><th>${T('最后心跳', 'Last heartbeat')}</th><th>${T('设备指纹', 'Device fingerprint')}</th></tr></thead>
-        <tbody id="ackPendingBody"><tr><td colspan="8" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
+        <thead><tr><th>${T('账号', 'Account')}</th><th>Profile</th><th>${T('心跳上报版本', 'Heartbeat version')}</th><th>${T('判定', 'Status')}</th><th class="num">${T('操作', 'Actions')}</th></tr></thead>
+        <tbody id="ackPendingBody"><tr><td colspan="5" class="empty-state">${icon('receipt', { size: 32 })}<div class="es-title">${T('暂无回执', 'No receipts')}</div><div class="es-desc">${T('加载中…', 'Loading…')}</div></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -474,8 +472,8 @@ const acksHtml = `
     </div>
     <div class="tablewrap" style="max-height:420px;overflow:auto">
       <table>
-        <thead><tr><th>${T('回执时间', 'Receipt time')}</th><th>${T('账号', 'Account')}</th><th>Profile</th><th>${T('策略版本', 'Policy version')}</th><th>${T('环境', 'Env')}</th><th>Node</th><th>${T('设备指纹', 'Device fingerprint')}</th><th>${T('该设备最后心跳', 'Last heartbeat')}</th></tr></thead>
-        <tbody id="ackBody"><tr><td colspan="8" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
+        <thead><tr><th>${T('回执时间', 'Receipt time')}</th><th>${T('账号', 'Account')}</th><th>Profile</th><th>${T('策略版本', 'Policy version')}</th><th class="num">${T('操作', 'Actions')}</th></tr></thead>
+        <tbody id="ackBody"><tr><td colspan="5" class="empty-state">${icon('receipt', { size: 32 })}<div class="es-title">${T('暂无回执', 'No receipts')}</div><div class="es-desc">${T('加载中…', 'Loading…')}</div></td></tr></tbody>
       </table>
     </div>
   </div>`
@@ -661,6 +659,7 @@ let repoData = []        // /admin/plugin-repo 返回的插件清单（含 versi
 let repoVerCur = ''      // 版本管理弹窗当前插件名
 let repoDescCur = ''     // 描述弹窗当前插件名
 let repoSrc = 'npm'      // 添加弹窗当前来源：npm | upload
+let repoExpanded = new Set()  // 仓库行内描述展开状态（点行内介绍/「详情」切换）
 
 const fmtSize = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? (n / 1024).toFixed(0) + ' KB' : (n ?? 0) + ' B'
 const verCmpJs = (a, b) => {
@@ -685,41 +684,58 @@ function renderRepo() {
   const q = ($('repoSearch')?.value ?? '').trim().toLowerCase()
   const rows = repoData.filter((p) => !q || p.name.toLowerCase().includes(q) || String(p.description ?? '').toLowerCase().includes(q))
   if ($('repoCount')) $('repoCount').textContent = T('{n} 个', '{n}', { n: repoData.length })
-  tbody.innerHTML = rows.map((p) => {
-    const inAllow = allowItems.includes(p.name)
-    const hasUpdate = p.npmLatest && verCmpJs(p.npmLatest, p.defaultVersion ?? '0') > 0
-    return `
-    <tr>
-      <td colspan="7" style="padding:0;border-bottom:none">
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line)">
-          <div style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <span class="mono" style="font-size:12px;font-weight:600;color:var(--txt)">${esc(p.name)}</span>
-              <span class="badge dim" style="font-size:10px">${T('默认 v{v}', 'default v{v}', { v: esc(p.defaultVersion ?? '—') })}</span>
-              ${hasUpdate ? `<span class="badge warn" style="font-size:10px">${T('npm 有新版 v{v}', 'npm has v{v}', { v: esc(p.npmLatest) })}</span>` : ''}
-              ${!hasUpdate && p.npmError ? `<span class="badge dim" style="font-size:10px" title="${esc(p.npmError)}">${T('源检查失败', 'npm check failed')}</span>` : ''}
-              <span class="badge dim" style="font-size:10px">${T('{n} 个版本 · {s}', '{n} versions · {s}', { n: p.versionCount, s: fmtSize(p.totalSize) })}</span>
-              ${inAllow ? `<span class="badge ok" style="font-size:10px">${T('已入清单', 'In allowlist')}</span>` : ''}
-            </div>
-            <div style="font-size:11.5px;color:var(--dim);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.description)}">${esc(p.description) || `<span style="color:var(--line)">${T('无描述 · 点「描述」补充（用户端市场显示）', 'No description · use "Description" to add (shown in client market)')}</span>`}</div>
-          </div>
-          <span class="mono" style="font-size:11px;color:var(--dim);flex-shrink:0">${esc(p.updatedAt ?? '')}</span>
-          <span style="white-space:nowrap;flex-shrink:0">
-            ${hasUpdate ? `<button class="btn sm primary" data-repo-upd="${esc(p.name)}">${T('更新到 v{v}', 'Update to v{v}', { v: esc(p.npmLatest) })}</button>` : ''}
-            <button class="btn sm" data-repo-ver="${esc(p.name)}">${T('版本', 'Versions')}</button>
-            <button class="btn sm" data-repo-allow="${esc(p.name)}" ${inAllow ? `disabled title="${T('已在允许清单', 'Already in allowlist')}"` : `title="${T('加入允许清单', 'Add to allowlist')}"`}>${T('＋清单', '＋Allow')}</button>
-            <button class="btn sm" data-repo-desc="${esc(p.name)}">${T('描述', 'Description')}</button>
-            <button class="btn sm danger" data-repo-del="${esc(p.name)}">${T('删', 'Delete')}</button>
-          </span>
-        </div>
-      </td>
-    </tr>`
-  }).join('') || `<tr><td colspan="7" class="empty">${T('仓库为空 —— 点右上「＋ 添加插件」，输入 npm 地址或上传 .tgz', 'Repo is empty — use "Add plugin" above to add an npm URL or upload a .tgz')}</td></tr>`
-  // 顶部汇总角标：可更新插件数
   const updCount = repoData.filter((p) => p.npmLatest && verCmpJs(p.npmLatest, p.defaultVersion ?? '0') > 0).length
+  const allowCount = repoData.filter((p) => allowItems.includes(p.name)).length
   if ($('repoUpdCount')) {
     $('repoUpdCount').style.display = updCount ? '' : 'none'
     if (updCount) $('repoUpdCount').textContent = T('{n} 个可更新', '{n} updates', { n: updCount })
+  }
+  if ($('repoAllowCount')) {
+    $('repoAllowCount').style.display = allowCount ? '' : 'none'
+    if (allowCount) $('repoAllowCount').textContent = T('{n} 个已入清单', '{n} in allowlist', { n: allowCount })
+  }
+  const repoPages = Math.max(1, Math.ceil(rows.length / REPO_PAGE_SIZE))
+  repoPageCur = Math.min(repoPageCur, repoPages)
+  const repoView = rows.slice((repoPageCur - 1) * REPO_PAGE_SIZE, repoPageCur * REPO_PAGE_SIZE)
+  tbody.innerHTML = repoView.map((p) => {
+    const inAllow = allowItems.includes(p.name)
+    const hasUpdate = p.npmLatest && verCmpJs(p.npmLatest, p.defaultVersion ?? '0') > 0
+    const open = repoExpanded.has(p.name)
+    return `
+    <div class="repo-item">
+      <div class="repo-head">
+        <div class="repo-main">
+          <div class="repo-title">
+            <span class="mono">${esc(p.name)}</span>
+            <span class="badge dim">${T('默认 v{v}', 'default v{v}', { v: esc(p.defaultVersion ?? '—') })}</span>
+            ${hasUpdate ? `<span class="badge warn">${T('npm 有新版 v{v}', 'npm has v{v}', { v: esc(p.npmLatest) })}</span>` : ''}
+            ${!hasUpdate && p.npmError ? `<span class="badge dim" title="${esc(p.npmError)}">${T('源检查失败', 'npm check failed')}</span>` : ''}
+            <span class="badge dim">${T('{n} 个版本 · {s}', '{n} versions · {s}', { n: p.versionCount, s: fmtSize(p.totalSize) })}</span>
+            ${inAllow ? `<span class="badge ok">${T('已入清单', 'In allowlist')}</span>` : ''}
+          </div>
+          <div data-repo-exp="${esc(p.name)}" class="repo-desc${open ? ' open' : ''}${p.description ? ' clickable' : ''}" title="${esc(p.description)}">${esc(p.description) || `<span class="repo-desc-empty">${T('无描述 · 点「描述」补充（用户端市场显示）', 'No description · use "Description" to add (shown in client market)')}</span>`}</div>
+        </div>
+        <div class="repo-side">
+          <span class="mono repo-time">${esc(p.updatedAt ?? '')}</span>
+          <div class="repo-actions">
+            ${hasUpdate ? `<button class="btn sm primary" data-repo-upd="${esc(p.name)}">${T('更新到 v{v}', 'Update to v{v}', { v: esc(p.npmLatest) })}</button>` : ''}
+            <button class="btn sm" data-repo-ver="${esc(p.name)}">${T('版本', 'Versions')}</button>
+            <button class="btn sm ${inAllow ? '' : 'primary'}" data-repo-allow="${esc(p.name)}" ${inAllow ? `disabled title="${T('已在允许清单', 'Already in allowlist')}"` : `title="${T('加入允许清单', 'Add to allowlist')}"`}>${inAllow ? T('已入清单', 'In allowlist') : T('＋清单', '＋Allow')}</button>
+            <button class="btn sm" data-repo-desc="${esc(p.name)}">${T('描述', 'Description')}</button>
+            <button class="btn sm danger" data-repo-del="${esc(p.name)}">${T('删', 'Delete')}</button>
+          </div>
+        </div>
+      </div>
+    </div>`
+  }).join('') || `<div class="empty-state repo-empty">${icon('puzzle', { size: 32 })}<div class="es-title">${T('暂无插件', 'No plugins')}</div><div class="es-desc">${T('先添加插件包，再加入允许清单后统一下发。', 'Add a plugin package first, then include it in the allowlist and deploy.')}</div><div class="empty-actions"><button class="btn primary" id="repoEmptyAdd">＋ ${T('添加插件', 'Add plugin')}</button></div></div>`
+  const rpg = $('repoPage')
+  if (rpg) {
+    rpg.innerHTML = repoPages > 1
+      ? `<span>${(repoPageCur - 1) * REPO_PAGE_SIZE + 1}-${Math.min(repoPageCur * REPO_PAGE_SIZE, rows.length)} / ${rows.length}</span>
+         <button class="btn sm" data-repo-page="prev" ${repoPageCur <= 1 ? 'disabled' : ''}>‹</button>
+         <span class="mono">${repoPageCur} / ${repoPages}</span>
+         <button class="btn sm" data-repo-page="next" ${repoPageCur >= repoPages ? 'disabled' : ''}>›</button>`
+      : ''
   }
 }
 
@@ -814,7 +830,7 @@ function fillRepoVerDlg() {
         ${v === p.defaultVersion ? '' : `<button class="btn sm" data-rv-default="${esc(v)}">${T('设默认', 'Set default')}</button>`}
         <button class="btn sm danger" data-rv-del="${esc(v)}">${T('删', 'Delete')}</button>
       </td>
-    </tr>`).join('') || `<tr><td colspan="5" class="empty">${T('无版本', 'No versions')}</td></tr>`
+    </tr>`).join('') || `<tr><td colspan="5" class="empty-state">${icon('download', { size: 32 })}<div class="es-title">${T('暂无版本', 'No versions')}</div><div class="es-desc">${T('无版本', 'No versions')}</div></td></tr>`
 }
 
 async function repoVerAction(act, arg) {
@@ -865,6 +881,8 @@ async function submitRepoDesc() {
 let allowItems = []   // ['dsh-enterprise', ...]
 const ALLOW_PAGE_SIZE = 8
 let allowPageCur = 1
+const REPO_PAGE_SIZE = 8
+let repoPageCur = 1
 let allowQuery = ''
 
 const NAME_HINT = T('插件名限 2-64 位字母数字_-，可带 @组织/', 'Name must be 2-64 chars of letters, digits, _ or -, optional @org/')
@@ -1062,7 +1080,7 @@ function renderRulesTable() {
         <button class="btn sm danger" data-rule-del="${i}" title="${T('删除', 'Delete')}">${T('删', 'Delete')}</button>
       </td>
     </tr>`
-  }).join('') || `<tr><td colspan="6" class="empty">${T('暂无本地规则 —— 点「新增规则」创建第一条', 'No local rules — use "Add rule" to create the first one')}</td></tr>`
+  }).join('') || `<tr><td colspan="6" class="empty-state">${icon('scroll-text', { size: 32 })}<div class="es-title">${T('暂无规则', 'No rules')}</div><div class="es-desc">${T('暂无本地规则 —— 点「新增规则」创建第一条', 'No local rules — use "Add rule" to create the first one')}</div></td></tr>`
   updateRuleCount()
   applyRuleFilter()
 }
@@ -1146,7 +1164,7 @@ async function renderVersions() {
           <button class="btn sm" data-ver-rollback="${v.version}" title="${T('把该版本内容写回当前策略', 'Write this version back to the current policy')}">${T('回滚到此', 'Rollback')}</button>
         </td>
       </tr>`
-    }).join('') || `<tr><td colspan="5" class="empty">${T('暂无版本历史 —— 保存一次策略即产生', 'No version history yet — save a policy once to create one')}</td></tr>`
+    }).join('') || `<tr><td colspan="5" class="empty-state">${icon('download', { size: 32 })}<div class="es-title">${T('暂无版本', 'No versions')}</div><div class="es-desc">${T('暂无版本历史 —— 保存一次策略即产生', 'No version history yet — save a policy once to create one')}</div></td></tr>`
   } catch (e) { if (e.message !== '401') toast(T('版本历史加载失败：{m}', 'Failed to load version history: {m}', { m: e.message }), 'bad') }
 }
 
@@ -1229,26 +1247,30 @@ function renderAcks(d) {
       <span class="mono" style="white-space:nowrap;flex-shrink:0">${T('{d} 台 / {a} 条 · {p}%', '{d} devices / {a} receipts · {p}%', { d: v.devices, a: v.acks, p: vp })}</span>
       <span class="crumb" style="margin:0;white-space:nowrap;flex-shrink:0" title="${T('最早 {t}', 'First {t}', { t: esc(v.first_local ?? '') })}">${T('最近 {t}', 'Last {t}', { t: ago(v.last_local) })}</span>
     </div>`
-  }).join('') || `<div class="empty">${T('暂无任何回执 —— 用户端拉取到新版策略并本地生效后会自动上报', 'No receipts yet — clients report automatically after pulling and applying a new policy')}</div>`
+  }).join('') || `<div class="empty-state">${icon('receipt', { size: 32 })}<div class="es-title">${T('暂无回执', 'No receipts')}</div><div class="es-desc">${T('暂无任何回执 —— 用户端拉取到新版策略并本地生效后会自动上报', 'No receipts yet — clients report automatically after pulling and applying a new policy')}</div></div>`
 
   /* 待回执设备 */
   const pending = d.pendingAcks ?? []
   const pc = $('ackPendingCount')
   pc.textContent = pending.length ? T('{n} 台待回执', '{n} pending', { n: pending.length }) : T('当前版本已全部覆盖', 'All covered for the current version')
   pc.className = 'badge ' + (pending.length ? 'warn' : 'ok')
-  $('ackPendingBody').innerHTML = pending.map((x) => {
+  $('ackPendingBody').innerHTML = pending.map((x, idx) => {
     const got = x.hb_version === ackCurVer
+    const drawerId = `ack-pending-${idx}`
     return `<tr>
       <td>${esc(x.account || '-')}</td>
       <td class="mono">${esc(x.profile || '-')}</td>
       <td class="mono">${esc(x.hb_version || '-')}</td>
       <td>${got ? `<span class="badge warn">${T('已拉到新版 · 回执未达', 'New version pulled · receipt missing')}</span>` : `<span class="badge dim">${T('未拉到新版', 'New version not pulled')}</span>`}</td>
-      <td class="mono">${esc(x.env || '-')}</td>
-      <td class="mono">${esc(x.node_version || '-')}</td>
-      <td class="mono" title="${esc(x.last_seen_local ?? '')}">${esc(x.last_seen_local ?? '-')}<span class="crumb" style="margin:0;display:block">${ago(x.last_seen_local)}</span></td>
-      <td class="mono" title="${esc(x.device_hash ?? '')}">${esc(shortDev(x.device_hash))}</td>
-    </tr>`
-  }).join('') || `<tr><td colspan="8" class="empty">${T('近 24 小时在线的终端都已对当前版本回执 ✓', 'All devices online in 24h have receipted the current version ✓')}</td></tr>`
+      <td class="num"><button class="btn sm" data-ack-detail="${drawerId}" aria-expanded="false">${T('详情', 'Details')}</button></td>
+    </tr>
+    <tr id="${drawerId}" class="detail-drawer-row" hidden><td colspan="5"><div class="detail-drawer"><dl>
+      <dt>${T('环境', 'Env')}</dt><dd>${esc(x.env || '-')}</dd>
+      <dt>Node</dt><dd>${esc(x.node_version || '-')}</dd>
+      <dt>${T('最后心跳', 'Last heartbeat')}</dt><dd>${esc(x.last_seen_local ?? '-')} · ${esc(ago(x.last_seen_local))}</dd>
+      <dt>${T('设备指纹', 'Device fingerprint')}</dt><dd>${esc(x.device_hash || '-')}</dd>
+    </dl></div></td></tr>`
+  }).join('') || `<tr><td colspan="5" class="empty-state">${icon('receipt', { size: 32 })}<div class="es-title">${T('暂无回执', 'No receipts')}</div><div class="es-desc">${T('近 24 小时在线的终端都已对当前版本回执 ✓', 'All devices online in 24h have receipted the current version ✓')}</div></td></tr>`
 
   renderAckRows()
 }
@@ -1266,24 +1288,37 @@ function renderAckRows() {
     (!vf || a.policy_version === vf) &&
     (!q || [a.account, a.profile, a.device_hash, a.policy_version].some((x) => String(x ?? '').toLowerCase().includes(q))))
   $('ackCount').textContent = ackRows.length ? (rows.length === ackRows.length ? T('最近 {n} 条', 'Last {n}', { n: rows.length }) : T('{a} / {b} 条', '{a} / {b}', { a: rows.length, b: ackRows.length })) : ''
-  $('ackBody').innerHTML = rows.map((a) => {
+  $('ackBody').innerHTML = rows.map((a, idx) => {
     const isCur = a.policy_version === ackCurVer
+    const drawerId = `ack-detail-${idx}`
     return `<tr>
       <td class="mono" title="${esc(a.ts_local ?? '')}">${esc(a.ts_local ?? '-')}<span class="crumb" style="margin:0;display:block">${ago(a.ts_local)}</span></td>
       <td>${esc(a.account || '-')}</td>
       <td class="mono">${esc(a.profile || '-')}</td>
       <td><span class="mono">${esc(a.policy_version || '-')}</span> ${isCur ? `<span class="badge ok">${T('当前', 'Current')}</span>` : ''}</td>
-      <td class="mono">${esc(a.env || '-')}</td>
-      <td class="mono">${esc(a.node_version || '-')}</td>
-      <td class="mono" title="${esc(a.device_hash ?? '')}">${esc(shortDev(a.device_hash))}</td>
-      <td class="mono" title="${esc(a.last_seen_local ?? '')}">${esc(a.last_seen_local ?? '-')}</td>
-    </tr>`
-  }).join('') || `<tr><td colspan="8" class="empty">${ackRows.length ? T('没有匹配筛选条件的回执', 'No receipts match the filter') : T('暂无回执 —— 等用户端生效新版策略后自动上报', 'No receipts yet — clients report automatically after applying a new policy')}</td></tr>`
+      <td class="num"><button class="btn sm" data-ack-detail="${drawerId}" aria-expanded="false">${T('详情', 'Details')}</button></td>
+    </tr>
+    <tr id="${drawerId}" class="detail-drawer-row" hidden><td colspan="5"><div class="detail-drawer"><dl>
+      <dt>${T('环境', 'Env')}</dt><dd>${esc(a.env || '-')}</dd>
+      <dt>Node</dt><dd>${esc(a.node_version || '-')}</dd>
+      <dt>${T('设备指纹', 'Device fingerprint')}</dt><dd>${esc(a.device_hash || '-')}</dd>
+      <dt>${T('该设备最后心跳', 'Last heartbeat')}</dt><dd>${esc(a.last_seen_local ?? '-')}</dd>
+    </dl></div></td></tr>`
+  }).join('') || `<tr><td colspan="5" class="empty-state">${icon('receipt', { size: 32 })}<div class="es-title">${T('暂无回执', 'No receipts')}</div><div class="es-desc">${ackRows.length ? T('没有匹配筛选条件的回执', 'No receipts match the filter') : T('暂无回执 —— 等用户端生效新版策略后自动上报', 'No receipts yet — clients report automatically after applying a new policy')}</div></td></tr>`
 }
 
 function bindAcks() {
   if (!$('ackBody')) return
   $('ackRefreshBtn')?.addEventListener('click', () => { loadAll() })
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-ack-detail]')
+    if (!btn) return
+    const drawer = document.getElementById(btn.dataset.ackDetail)
+    if (!drawer) return
+    const next = drawer.hidden
+    drawer.hidden = !next
+    btn.setAttribute('aria-expanded', String(next))
+  })
   $('ackSearch')?.addEventListener('input', renderAckRows)
   $('ackVerFilter')?.addEventListener('change', renderAckRows)
   clearInterval(ackTimer) // 壳重复 bind 时防叠加
@@ -1407,11 +1442,19 @@ function bindPlugins() {
   /* ---- 仓库卡片 + 三个弹窗 ---- */
   if ($('repoAddBtn')) {
     $('repoAddBtn').addEventListener('click', openRepoAdd)
+    $('repoEmptyAdd')?.addEventListener('click', openRepoAdd)
     $('repoAddOk').addEventListener('click', submitRepoAdd)
     $('repoSrcNpm').addEventListener('click', () => setRepoSrc('npm'))
     $('repoSrcUp').addEventListener('click', () => setRepoSrc('upload'))
-    $('repoSearch').addEventListener('input', renderRepo)
+    $('repoSearch').addEventListener('input', () => { repoPageCur = 1; renderRepo() })
     if ($('repoCheckBtn')) $('repoCheckBtn').addEventListener('click', (e) => repoCheckUpdates(e.currentTarget))
+    $('repoPage').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-repo-page]')
+      if (!b) return
+      if (b.dataset.repoPage === 'prev') repoPageCur = Math.max(1, repoPageCur - 1)
+      else repoPageCur = repoPageCur + 1
+      renderRepo()
+    })
     $('repoBody').addEventListener('click', (e) => {
       let el
       if ((el = e.target.closest('[data-repo-ver]'))) openRepoVer(el.dataset.repoVer)
@@ -1419,6 +1462,12 @@ function bindPlugins() {
       else if ((el = e.target.closest('[data-repo-allow]'))) allowFromRepo(el.dataset.repoAllow)
       else if ((el = e.target.closest('[data-repo-desc]'))) openRepoDesc(el.dataset.repoDesc)
       else if ((el = e.target.closest('[data-repo-del]'))) repoVerAction('delPlugin', el.dataset.repoDel)
+      // 点行内介绍 = 展开/收起完整描述（不与其他按钮冲突）
+      else if ((el = e.target.closest('[data-repo-exp]'))) {
+        const name = el.dataset.repoExp
+        repoExpanded.has(name) ? repoExpanded.delete(name) : repoExpanded.add(name)
+        renderRepo()
+      }
     })
     $('rvBody').addEventListener('click', (e) => {
       const d = e.target.closest('[data-rv-default]')
@@ -1613,7 +1662,7 @@ function applyRuleFilter() {
   const list = $('rulesList')
   if (list) {
     list.querySelector('.rule-filter-empty')?.remove()
-    if (!visible && rulesData.length) list.insertAdjacentHTML('beforeend', `<tr class="rule-filter-empty"><td colspan="6" class="empty">${T('没有匹配的规则', 'No matching rules')}</td></tr>`)
+    if (!visible && rulesData.length) list.insertAdjacentHTML('beforeend', `<tr class="rule-filter-empty"><td colspan="6" class="empty-state">${icon('scroll-text', { size: 32 })}<div class="es-title">${T('暂无规则', 'No rules')}</div><div class="es-desc">${T('没有匹配的规则', 'No matching rules')}</div></td></tr>`)
   }
   updateRuleCount()
 }

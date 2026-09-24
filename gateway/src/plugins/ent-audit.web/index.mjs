@@ -109,7 +109,7 @@ function renderRows(logs) {
   const host = $('auditTableHost');
   if (!logs.length) {
     const filtered = filterParams().u || filterParams().m || filterParams().flag;
-    host.innerHTML = `<div class="tablewrap"><table>${head}<tbody><tr><td colspan="${colSpan() + 1}" class="empty">${filtered ? T('无匹配留痕','No matching records') : T('暂无留痕','No audit records')}</td></tr></tbody></table></div>`;
+    host.innerHTML = `<div class="tablewrap"><table>${head}<tbody><tr><td colspan="${colSpan() + 1}" class="empty-state">${icon('scroll-text', { size: 32 })}<div class="es-title">${T('暂无留痕', 'No audit trail')}</div><div class="es-desc">${filtered ? T('无匹配留痕','No matching records') : T('暂无留痕','No audit records')}</div></td></tr></tbody></table></div>`;
     return;
   }
   const rows = logs.map((l) => {

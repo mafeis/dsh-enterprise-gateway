@@ -49,7 +49,7 @@ export default {
       <input class="input" id="userSearch" placeholder="${T('搜索用户名 / 展示名…（Esc 清空）','Search username / display name… (Esc clears)')}" style="width:240px" autocomplete="off">
       <span class="dim2" id="userFilterHint" style="font-size:12px"></span>
     </div>
-    <div id="userList"><div class="empty">${T('加载中…','Loading…')}</div></div>
+    <div id="userList"><div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('暂无用户', 'No users')}</div><div class="es-desc">${T('加载中…','Loading…')}</div></div></div>
   </div>
 
   <!-- 新增账号弹窗（dlg lg 档） -->
@@ -166,7 +166,7 @@ function renderUsers() {
   $('userCount').textContent = T('共 {n} 个账号', '{n} accounts', { n: cachedUsers.length })
   $('userFilterHint').textContent = q ? T('匹配 {a}/{b} 个', '{a}/{b} matched', { a: shown.length, b: cachedUsers.length }) : ''
   if (!shown.length) {
-    $('userList').innerHTML = `<div class="empty">${q ? T('没有匹配的用户','No matching users') : T('暂无账号，用上方表单创建第一个','No accounts yet — create one above')}</div>`
+    $('userList').innerHTML = `<div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('暂无用户', 'No users')}</div><div class="es-desc">${q ? T('没有匹配的用户','No matching users') : T('暂无账号，用上方表单创建第一个','No accounts yet — create one above')}</div></div>`
     return
   }
   $('userList').innerHTML = shown.map((u) => {
@@ -247,13 +247,13 @@ async function openUserModal(username) {
     const s = a.stats ?? {}
     const loginRows = (a.logins ?? []).map((l) =>
       `<tr><td class="mono">${esc(l.ts_local)}</td><td>${l.ok ? `<span class="badge ok">${T('成功','Success')}</span>` : `<span class="badge bad">${T('失败','Failed')}</span>`}</td><td class="mono">${esc(l.ip ?? '-')}</td></tr>`
-    ).join('') || `<tr><td colspan="3" class="empty">${T('暂无登录记录','No sign-in records')}</td></tr>`
+    ).join('') || `<tr><td colspan="3" class="empty-state">${icon('activity', { size: 32 })}<div class="es-title">${T('暂无登录记录', 'No sign-in records')}</div><div class="es-desc">${T('暂无登录记录','No sign-in records')}</div></td></tr>`
     const devRows = (a.devices ?? []).map((d) =>
       `<tr><td class="mono">${esc(d.device_hash?.slice(0, 10))}…</td><td>${esc(d.device?.hostname || '-')}</td><td>${esc(deviceLine(d))}</td><td>${esc(d.device?.ips?.join('、') ?? '-')}</td><td class="mono">${esc(d.ts_local)}</td></tr>`
-    ).join('') || `<tr><td colspan="5" class="empty">${T('近 7 日无设备心跳','No device heartbeat in 7 days')}</td></tr>`
+    ).join('') || `<tr><td colspan="5" class="empty-state">${icon('monitor', { size: 32 })}<div class="es-title">${T('暂无设备心跳', 'No device heartbeats')}</div><div class="es-desc">${T('近 7 日无设备心跳','No device heartbeat in 7 days')}</div></td></tr>`
     const usageRows = (a.usage ?? []).map((u) =>
       `<tr><td>${esc(u.model)}</td><td class="num">${u.requests}</td><td class="num">${fmtBytes(u.tokens_in + u.tokens_out)}</td><td class="mono">${esc(u.last_use)}</td></tr>`
-    ).join('') || `<tr><td colspan="4" class="empty">${T('近 7 日无调用记录','No usage records in 7 days')}</td></tr>`
+    ).join('') || `<tr><td colspan="4" class="empty-state">${icon('activity', { size: 32 })}<div class="es-title">${T('暂无调用记录', 'No usage records')}</div><div class="es-desc">${T('近 7 日无调用记录','No usage records in 7 days')}</div></td></tr>`
     m.innerHTML = `
       <div class="dlg wide" role="dialog" aria-modal="true">
         <div class="dlg-head">

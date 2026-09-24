@@ -3,7 +3,7 @@
  * 主表：每行 = 设备 × 插件（当前在装）。清单外历史：概览口径，每行 = 插件 × 影响台数；
  * 具体到人/机的明细点「详情」在弹窗里看。仅被本插件页面包 ./index.mjs 引用。
  */
-import { esc, openDlg } from '/admin/static/contract.mjs';
+import { esc, openDlg, icon } from '/admin/static/contract.mjs';
 import { T } from '/admin/static/js/i18n.mjs';
 
 let lastData = { installs: [], allowedCount: 0 };
@@ -46,25 +46,25 @@ function instSummary(installs, q) {
     || b.devices - a.devices || a.plugin.localeCompare(b.plugin));
 }
 
-/** 表格渲染（返回 HTML；由 index.mjs 装进区块容器） */
-export function renderInstalls(data, violations = []) {
+/** 插件安装 tab 渲染（只显示在装概览；清单外历史由独立 tab 显示） */
+export function renderInstallsTab(data, violations = []) {
   lastData = data;
   lastViolations = violations;
   const { installs = [], allowedCount = 0 } = data;
   const q = query.trim().toLowerCase();
   const summary = instSummary(installs, q);
   const body = summary.map((e) => `
-    <tr${e.violation ? ' style="background:#fef2f2"' : ''}>
+    <tr${e.violation ? ' style="background:var(--bad-tint)"' : ''}>
       <td class="mono" style="font-size:12px;font-weight:600">${esc(e.plugin)}${e.violation ? ' <span class="badge bad">' + T('清单外','off-list') + '</span>' : ''}</td>
       <td><span class="badge dim">${e.devices} ${T('台','devices')}</span></td>
       <td class="mono" style="font-size:11.5px">${esc(e.first ?? '-')}</td>
       <td class="mono" style="font-size:11.5px">${esc(e.last ?? '-')}</td>
       <td><button class="btn sm" data-inst-detail="${esc(e.plugin)}">${T('详情','Details')}</button></td>
     </tr>`).join('')
-    || `<tr><td colspan="5" class="empty">${q ? T('没有匹配项','No matches') : T('暂无插件上报（用户端插件 ≥0.9.5 且已登录后开始采集）','No plugin reports (client plugin ≥0.9.5, signed in)')}</td></tr>`;
+    || `<tr><td colspan="5" class="empty-state">${icon('puzzle', { size: 32 })}<div class="es-title">${T('暂无插件上报', 'No plugin reports')}</div><div class="es-desc">${q ? T('没有匹配项','No matches') : T('暂无插件上报（用户端插件 ≥0.9.5 且已登录后开始采集）','No plugin reports (client plugin ≥0.9.5, signed in)')}</div><a class="btn sm" href="#/plugreg">${T('查看插件安装', 'View plugin installs')}</a></td></tr>`;
   const violSummaryRows = violSummary(lastViolations, q);
   const violRows = violSummaryRows.map((e) => `
-    <tr style="background:#fef2f2">
+    <tr style="background:var(--bad-tint)">
       <td class="mono" style="font-size:12px;font-weight:600">${esc(e.plugin)}</td>
       <td><span class="badge bad">${e.devices} ${T('台','devices')}</span></td>
       <td>${e.active ? `<span class="badge bad">${e.active} ${T('在装','installed')}</span>` : `<span class="badge dim">${T('全部已清除','All cleared')}</span>`}</td>
@@ -72,26 +72,46 @@ export function renderInstalls(data, violations = []) {
       <td class="mono" style="font-size:11.5px">${esc(e.last ?? '-')}</td>
       <td><button class="btn sm" data-viol-detail="${esc(e.plugin)}">${T('详情','Details')}</button></td>
     </tr>`).join('')
-    || `<tr><td colspan="6" class="empty">${data.violErr ? T('✗ 历史加载失败：{e}','✗ Failed to load history: {e}',{ e: esc(data.violErr) }) : T('暂无清单外记录','No off-list records')}</td></tr>`;
+    || `<tr><td colspan="6" class="empty-state">${icon('shield-alert', { size: 32 })}<div class="es-title">${T('暂无清单外记录', 'No off-list records')}</div><div class="es-desc">${data.violErr ? T('✗ 历史加载失败：{e}','✗ Failed to load history: {e}',{ e: esc(data.violErr) }) : T('暂无清单外记录','No off-list records')}</div></td></tr>`;
   return `
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input class="input" id="instSearch" placeholder="${T('搜插件名 / 账号 / 主机名…','Search plugin / account / host…')}" value="${esc(query)}" style="width:220px;font-size:12px;height:28px">
+    <div class="ov-filter" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <input class="input" id="instSearch" placeholder="${T('搜插件名 / 账号 / 主机名…','Search plugin / account / host…')}" value="${esc(query)}" style="width:min(260px,100%);font-size:12px;height:36px">
       <span class="crumb" style="margin:0;align-self:center">${T('当前允许清单 {n} 项 · 红行 = 清单外','Allowlist {n} · red rows = off-list',{ n: allowedCount })}</span>
     </div>
-    <div class="tablewrap" style="max-height:420px;overflow:auto">
+    <div class="tablewrap">
       <table>
         <thead><tr><th>${T('插件','Plugin')}</th><th>${T('设备数','Devices')}</th><th>${T('首次发现','First seen')}</th><th>${T('最近心跳','Last heartbeat')}</th><th class="num">${T('操作','Actions')}</th></tr></thead>
         <tbody>${body}</tbody>
       </table>
     </div>
-    <div style="margin-top:16px;font-weight:600;font-size:13px">${T('清单外历史','Off-list history')} <span class="badge ${lastViolations.length ? 'bad' : 'dim'}">${lastViolations.length} ${T('台次','devices')}</span><span class="crumb" style="margin-left:8px">${T('含装过后已清除的 · 点「详情」看涉及设备','Includes uninstalled · Details shows devices')}</span></div>
-    <div class="tablewrap" style="max-height:300px;overflow:auto;margin-top:8px">
+    ${instDetailDlgHtml()}`;
+}
+
+/** 清单外历史 tab 渲染（保留详情弹窗和筛选说明） */
+export function renderOffListTab(data, violations = []) {
+  lastData = data;
+  lastViolations = violations;
+  const q = query.trim().toLowerCase();
+  const rows = violSummary(lastViolations, q);
+  const violRows = rows.map((e) => `
+    <tr style="background:var(--bad-tint)">
+      <td class="mono" style="font-size:12px;font-weight:600">${esc(e.plugin)}</td>
+      <td><span class="badge bad">${e.devices} ${T('台','devices')}</span></td>
+      <td>${e.active ? `<span class="badge bad">${e.active} ${T('在装','installed')}</span>` : `<span class="badge dim">${T('全部已清除','All cleared')}</span>`}</td>
+      <td class="mono" style="font-size:11.5px">${esc(e.first ?? '-')}</td>
+      <td class="mono" style="font-size:11.5px">${esc(e.last ?? '-')}</td>
+      <td><button class="btn sm" data-viol-detail="${esc(e.plugin)}">${T('详情','Details')}</button></td>
+    </tr>`).join('')
+    || `<tr><td colspan="6" class="empty-state">${icon('shield-alert', { size: 32 })}<div class="es-title">${T('暂无清单外记录', 'No off-list records')}</div><div class="es-desc">${data.violErr ? T('✗ 历史加载失败：{e}','✗ Failed to load history: {e}',{ e: esc(data.violErr) }) : T('暂无清单外记录','No off-list records')}</div></td></tr>`;
+  return `
+    <div class="crumb">${T('含装过后已清除的 · 点「详情」看涉及设备','Includes uninstalled · Details shows devices')}</div>
+    <div class="tablewrap">
       <table>
         <thead><tr><th>${T('插件','Plugin')}</th><th>${T('影响设备','Affected devices')}</th><th>${T('当前状态','Status')}</th><th>${T('首次出现','First seen')}</th><th>${T('最近出现','Last seen')}</th><th class="num">${T('操作','Actions')}</th></tr></thead>
         <tbody>${violRows}</tbody>
       </table>
     </div>
-    ${violDetailDlgHtml()}${instDetailDlgHtml()}`;
+    ${violDetailDlgHtml()}`;
 }
 
 /** 详情弹窗骨架（随区块渲染注入，单例） */

@@ -1,20 +1,25 @@
 <!-- ===== 应用外壳：顶栏 + 侧边导航 + 内容区 ===== -->
 <!-- 导航项与页面 section 全部由插件 admin 声明动态注入（router.mjs ensurePluginRoutes），壳零页面 -->
 <div class="topbar">
+  <button class="topbar-burger" id="navToggle" type="button" aria-controls="sidebarNav" aria-expanded="false" aria-label="切换导航" title="切换导航">
+    <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
   <div class="logo">
     <div class="logo-mark"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg></div>
     <div><b id="logoBrand">DSH 企业网关</b><small id="logoConsole">管理台</small></div>
   </div>
   <div class="sp"></div>
+  <button class="btn sm" id="themeToggle" data-theme-toggle aria-pressed="false" style="background:transparent;color:#cbd5e1;border-color:#334155;min-width:52px">深色</button>
   <div class="status-pill" id="healthPill"><span class="d"></span><span id="healthText">连接中…</span></div>
   <button class="btn sm" data-lang-toggle style="background:transparent;color:#cbd5e1;border-color:#334155;min-width:52px">EN</button>
   <button class="btn sm" id="logoutBtn" style="background:transparent;color:#cbd5e1;border-color:#334155">退出登录</button>
 </div>
 
 <div class="layout" id="mainWrap" style="display:none">
-  <aside class="sidebar">
-    <!-- 导航项由插件动态注入（order 排位）；语言切换在顶栏，页内刷新 F5 即可，侧栏底部不再放工具 -->
+  <aside class="sidebar" id="sidebarNav" aria-label="主导航">
+    <!-- 导航项由插件动态注入（order 分组）；语言切换在顶栏，页内刷新 F5 即可，侧栏底部不再放工具 -->
   </aside>
+  <div class="sidebar-mask" id="sidebarMask" hidden></div>
 
   <main class="content">
     <!-- 页面 section 由 router 按插件清单动态创建，壳不经 @include 维护任何页面 -->

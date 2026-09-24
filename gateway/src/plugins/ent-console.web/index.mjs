@@ -7,13 +7,14 @@
 import { api, $, fmtTok, esc, icon, toast, openDlg, closeDlg } from '/admin/static/contract.mjs';
 import { T, getLang, isEn } from '/admin/static/js/i18n.mjs';
 import { loadTerminals, bindTerminalsEvents, renderTerminals, renderTerminalsCards } from './terminals.mjs';
-import { renderInstalls, bindInstallsEvents } from './installs.mjs';
+import { renderInstallsTab, renderOffListTab, bindInstallsEvents } from './installs.mjs';
 
 let sections = {};
 let labels = {};
 let modes = {};
 let modeLabels = {};
 let lastStats = null;
+let deviceTab = 'terminals';
 
 /** 区块/展示方式标签：语言选择已在 loadAll 合并进 labels/modeLabels，这里直接取 */
 const secLabel = (k) => labels[k];
@@ -112,18 +113,9 @@ async function loadAll() {
       }
     }
   }
-  // —— 在线终端 ——
-  if (sections.terminals?.enabled !== false) {
-    const m = resolveMode('terminals');
-    parts.push(m === 'cards'
-      ? sectionCard('terminals', T('在线终端','Online devices'), `<span class="badge dim">${terminals.length} ${T('台','devices')}</span>`, renderTerminalsCards(terminals))
-      : sectionCard('terminals', T('在线终端','Online devices'), `<span class="badge dim" id="termCount">${terminals.length}</span>`, renderTerminals(terminals)));
-  }
-  // —— 插件安装总览 ——
-  if (sections.installs?.enabled !== false && installsData) {
-    if (violErr) installsData.violErr = violErr
-    parts.push(sectionCard('installs', T('插件安装总览','Plugin installs'), installsBadge(installsData, violData), renderInstalls(installsData, violData)));
-  }
+  // —— 在线终端 / 插件安装总览 / 清单外历史：合并为 1 卡 3 tab ——
+  if (violErr && installsData) installsData.violErr = violErr;
+  parts.push(devicePluginCard(terminals, installsData, violData));
   // —— 用户用量 TOP ——
   if (sections.usage?.enabled !== false) {
     const m = resolveMode('usage');
@@ -135,8 +127,13 @@ async function loadAll() {
   }
   host.innerHTML = parts.join('');
   bindTerminalsEvents();
-  // 插件安装总览：搜索输入 → 只重绘整页（数据已在本地，重绘开销可忽略；输入值经 renderInstalls 回填保焦点）
-  bindInstallsEvents(() => { if (installsData) { const el = document.querySelector('[data-sec="installs"]'); if (el) el.querySelector('.tablewrap')?.closest('.card') && (el.outerHTML = sectionCard('installs', T('插件安装总览','Plugin installs'), installsBadge(installsData, violData), renderInstalls(installsData, violData))); } });
+  bindDeviceTabs();
+  // 插件安装总览：搜索输入 → 只重绘合并卡（数据已在本地，输入值经 renderInstallsTab 回填保焦点）
+  bindInstallsEvents(() => {
+    if (!installsData) return;
+    const el = document.querySelector('[data-sec="devicePlugins"]');
+    if (el) el.outerHTML = devicePluginCard(terminals, installsData, violData);
+  });
 }
 
 /** 插件安装总览徽章（标题旁统计） */
@@ -145,6 +142,48 @@ function installsBadge(d, violations = []) {
   const plugins = new Set((d.installs ?? []).map((r) => r.plugin));
   const bad = new Set((d.installs ?? []).filter((r) => r.violation).map((r) => r.plugin)).size;
   return `<span class="badge dim">${plugins.size} ${T('种','types')}</span>${bad ? ` <span class="badge bad">${bad} ${T('清单外','off-list')}</span>` : ''}${violations.length ? ` <span class="badge dim">${T('历史 {n} 台次','{n} historical',{ n: violations.length })}</span>` : ''}`;
+}
+
+/** 设备/插件合并卡：在线终端、插件安装、清单外历史各占 1 tab；用户 TOP 独立 */
+function devicePluginCard(terminals = [], installsData = null, violations = []) {
+  const terminalsOn = sections.terminals?.enabled !== false;
+  const installsOn = sections.installs?.enabled !== false;
+  const termBody = terminalsOn
+    ? (resolveMode('terminals') === 'cards'
+      ? renderTerminalsCards(terminals)
+      : renderTerminals(terminals))
+    : `<div class="empty-state">${icon('monitor', { size: 32 })}<div class="es-title">${T('在线终端已隐藏', 'Online devices hidden')}</div><div class="es-desc">${T('可在总览设置中重新开启', 'Re-enable it in Overview settings')}</div></div>`;
+  const installsBody = installsOn
+    ? renderInstallsTab(installsData ?? { installs: [] }, violations)
+    : `<div class="empty-state">${icon('puzzle', { size: 32 })}<div class="es-title">${T('插件安装已隐藏', 'Plugin installs hidden')}</div><div class="es-desc">${T('可在总览设置中重新开启', 'Re-enable it in Overview settings')}</div></div>`;
+  const violationsBody = installsOn
+    ? renderOffListTab(installsData ?? { installs: [] }, violations)
+    : `<div class="empty-state">${icon('shield-alert', { size: 32 })}<div class="es-title">${T('清单外历史已隐藏', 'Off-list history hidden')}</div><div class="es-desc">${T('可在总览设置中重新开启', 'Re-enable it in Overview settings')}</div></div>`;
+  const badges = [
+    `<span class="badge dim">${terminals.length} ${T('在线','online')}</span>`,
+    installsData ? installsBadge(installsData, violations) : ''
+  ].filter(Boolean).join('');
+  return `<div class="card" data-sec="devicePlugins">
+    <h2><span class="bar"></span>${T('设备与插件', 'Devices & plugins')}${badges}</h2>
+    <div class="tabs" id="devicePluginTabs" role="tablist" aria-label="${T('设备与插件视图', 'Device and plugin views')}">
+      <span role="tab" data-ovtab="terminals" class="${deviceTab === 'terminals' ? 'on' : ''}">${T('在线终端', 'Online devices')}</span>
+      <span role="tab" data-ovtab="installs" class="${deviceTab === 'installs' ? 'on' : ''}">${T('插件安装', 'Plugin installs')}</span>
+      <span role="tab" data-ovtab="violations" class="${deviceTab === 'violations' ? 'on' : ''}">${T('清单外历史', 'Off-list history')}</span>
+    </div>
+    <div class="pane ${deviceTab === 'terminals' ? 'on' : ''}" data-ovpane="terminals" role="tabpanel">${termBody}</div>
+    <div class="pane ${deviceTab === 'installs' ? 'on' : ''}" data-ovpane="installs" role="tabpanel">${installsBody}</div>
+    <div class="pane ${deviceTab === 'violations' ? 'on' : ''}" data-ovpane="violations" role="tabpanel">${violationsBody}</div>
+  </div>`;
+}
+
+function bindDeviceTabs() {
+  document.querySelectorAll('#devicePluginTabs [data-ovtab]').forEach((t) => {
+    t.addEventListener('click', () => {
+      deviceTab = t.dataset.ovtab || 'terminals';
+      document.querySelectorAll('#devicePluginTabs [data-ovtab]').forEach((x) => x.classList.toggle('on', x === t));
+      document.querySelectorAll('[data-ovpane]').forEach((p) => p.classList.toggle('on', p.dataset.ovpane === deviceTab));
+    });
+  });
 }
 
 /* ---------- 区块渲染原语 ---------- */
@@ -227,10 +266,10 @@ function usageTable(rows) {
       const pct = Math.round(u.tokens / ((rows.reduce((a, b) => a + b.tokens, 0)) || 1) * 100);
       return `<tr><td><b>${esc(u.user_name)}</b></td><td class="num">${u.requests}</td><td class="num">${fmtTok(u.tokens)}</td>
         <td><div class="bar" style="margin:0"><i style="width:${pct}%;background:var(--accent)"></i></div></td></tr>`;
-    }).join('') : '<tr><td colspan="4" class="empty">' + T('近 7 日暂无用量','No usage in 7 days') + '</td></tr>'}</tbody></table></div>`;
+    }).join('') : `<tr><td colspan="4" class="empty-state">${icon('activity', { size: 32 })}<div class="es-title">${T('暂无用量', 'No usage')}</div><div class="es-desc">${T('近 7 日暂无用量','No usage in 7 days')}</div></td></tr>`}</tbody></table></div>`;
 }
 function usageBars(rows) {
-  if (!rows.length) return '<div class="empty">' + T('近 7 日暂无用量','No usage in 7 days') + '</div>';
+  if (!rows.length) return `<div class="empty-state">${icon('activity', { size: 32 })}<div class="es-title">${T('暂无用量', 'No usage')}</div><div class="es-desc">${T('近 7 日暂无用量','No usage in 7 days')}</div></div>`;
   const max = Math.max(...rows.map((u) => u.tokens), 1);
   return `<div style="padding:4px 0">${rows.map((u) => {
     const pct = Math.round(u.tokens / max * 100);
@@ -241,7 +280,7 @@ function usageBars(rows) {
   }).join('')}</div>`;
 }
 function usageCards(rows) {
-  if (!rows.length) return '<div class="empty">' + T('近 7 日暂无用量','No usage in 7 days') + '</div>';
+  if (!rows.length) return `<div class="empty-state">${icon('activity', { size: 32 })}<div class="es-title">${T('暂无用量', 'No usage')}</div><div class="es-desc">${T('近 7 日暂无用量','No usage in 7 days')}</div></div>`;
   return `<div class="grid4" style="margin-top:6px">${rows.map((u) => `
     <div class="kpi stat-card"><div class="lab">${icon('users', { size: 13 })} ${esc(u.user_name)}</div>
     <div class="val">${fmtTok(u.tokens)}</div><div class="sub2">${T('{n} 次请求','{n} requests',{ n: u.requests })}</div></div>`).join('')}</div>`;

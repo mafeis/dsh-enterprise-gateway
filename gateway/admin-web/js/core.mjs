@@ -18,6 +18,38 @@ export const session = {
   set jwt(v) { v ? localStorage.setItem('ent_jwt', v) : localStorage.removeItem('ent_jwt'); },
 };
 
+const THEME_KEY = 'ent_admin_theme';
+
+export function getTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch { /* localStorage unavailable: follow system */ }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function refreshThemeButton(btn, theme) {
+  if (!btn) return;
+  btn.textContent = theme === 'dark' ? T('浅色', 'Light') : T('深色', 'Dark');
+  btn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+}
+
+export function setTheme(theme, { persist = true } = {}) {
+  const next = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  if (persist) {
+    try { localStorage.setItem(THEME_KEY, next); } catch { /* ignore */ }
+  }
+  refreshThemeButton(document.getElementById('themeToggle'), next);
+}
+
+export function bindThemeToggle() {
+  const btn = document.getElementById('themeToggle');
+  setTheme(getTheme(), { persist: false });
+  btn?.addEventListener('click', () => setTheme(getTheme() === 'dark' ? 'light' : 'dark'));
+}
+
+
 export const $ = (id) => document.getElementById(id);
 
 export function toast(msg, type = 'ok') {

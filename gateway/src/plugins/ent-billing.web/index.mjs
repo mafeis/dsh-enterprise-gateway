@@ -3,7 +3,7 @@
  * 结构：周期选择 + KPI 摘要 → 每日金额趋势图 → Tabs（按日明细 / 按模型汇总 / 模型单价）→ CSV 导出
  * 数据源：/admin/usage（ent-billing 域插件聚合提供）——页面归本插件所有
  */
-import { api, $, fmtTok, esc } from '/admin/static/contract.mjs'
+import { api, $, fmtTok, esc, icon } from '/admin/static/contract.mjs'
 import { T } from '/admin/static/js/i18n.mjs'
 
 /* ---------- 格式化 ---------- */
@@ -97,7 +97,7 @@ function renderKpis(billed, daily, days) {
 
 function renderChart(billed) {
   const el = $('billChart')
-  if (!billed.length) { el.innerHTML = `<div class="empty" style="flex:1">${T('暂无计费数据', 'No billing data')}</div>`; return }
+  if (!billed.length) { el.innerHTML = `<div style="flex:1" class="empty-state">${icon('receipt', { size: 32 })}<div class="es-title">${T('暂无计费', 'No billing')}</div><div class="es-desc">${T('暂无计费数据', 'No billing data')}</div></div>`; return }
   const max = Math.max(...billed.map((d) => d.amount), 1e-9)
   // 日期标签：均匀抽样（首/尾必显示），标签脱离文档流避免撑宽个别柱
   const n = billed.length
@@ -125,7 +125,7 @@ function renderDaily(billed, daily) {
   const foot = $('billFoot')
   const today = todayStr()
   if (!billed.length) {
-    body.innerHTML = `<tr><td colspan="8" class="empty">${T('所选周期内暂无计费数据', 'No billing data in this period')}</td></tr>`
+    body.innerHTML = `<tr><td colspan="8" class="empty-state">${icon('receipt', { size: 32 })}<div class="es-title">${T('暂无计费', 'No billing')}</div><div class="es-desc">${T('所选周期内暂无计费数据', 'No billing data in this period')}</div></td></tr>`
     foot.innerHTML = ''
     return
   }
@@ -173,7 +173,7 @@ function renderModels(billed) {
     }
   }
   const list = [...agg.values()].sort((a, b) => b.amount - a.amount)
-  if (!list.length) { body.innerHTML = `<tr><td colspan="4" class="empty">${T('暂无模型数据', 'No model data')}</td></tr>`; return }
+  if (!list.length) { body.innerHTML = `<tr><td colspan="4" class="empty-state">${icon('database', { size: 32 })}<div class="es-title">${T('暂无模型', 'No models')}</div><div class="es-desc">${T('暂无模型数据', 'No model data')}</div></td></tr>`; return }
   const total = list.reduce((a, m) => a + m.amount, 0)
   body.innerHTML = list.map((m) => {
     const pct = total > 0 ? Math.round((m.amount / total) * 100) : 0
@@ -191,7 +191,7 @@ function renderModels(billed) {
 function renderPrices(prices) {
   const body = $('priceBody')
   const list = Object.entries(prices)
-  if (!list.length) { body.innerHTML = `<tr><td colspan="4" class="empty">${T('未配置模型单价', 'No model prices configured')}</td></tr>`; return }
+  if (!list.length) { body.innerHTML = `<tr><td colspan="4" class="empty-state">${icon('database', { size: 32 })}<div class="es-title">${T('未配置单价', 'No prices')}</div><div class="es-desc">${T('未配置模型单价', 'No model prices configured')}</div></td></tr>`; return }
   body.innerHTML = list.map(([id, p]) => `<tr>
       <td><span class="mname">${esc(p.displayName || id)}</span><div class="msub mono">${esc(id)}</div></td>
       <td class="num">¥${p.in}/${T('百万', 'M')}</td>
@@ -228,7 +228,7 @@ export default {
 
   <div class="card">
     <h2><span class="bar"></span>${T('每日应付金额', 'Daily amount due')} <span class="badge dim" id="billRange"></span></h2>
-      <div class="bill-chart" id="billChart"><div class="empty" style="flex:1">${T('加载中…', 'Loading…')}</div></div>
+      <div class="bill-chart" id="billChart"><div style="flex:1" class="empty-state">${icon('activity', { size: 32 })}<div class="es-title">${T('用量图表', 'Usage chart')}</div><div class="es-desc">${T('加载中…', 'Loading…')}</div></div></div>
   </div>
 
   <div class="card">
@@ -241,7 +241,7 @@ export default {
     <div class="pane on" data-pane="daily">
       <div class="tablewrap"><table>
         <thead><tr><th>${T('日期', 'Date')}</th><th class="num">${T('请求', 'Requests')}</th><th class="num">${T('入 Token', 'In tokens')}</th><th class="num">${T('缓存命中', 'Cache hits')}</th><th class="num">${T('出 Token', 'Out tokens')}</th><th class="num">${T('活跃用户', 'Active users')}</th><th>${T('分模型金额', 'By model')}</th><th class="num">${T('应付金额', 'Amount due')}</th></tr></thead>
-        <tbody id="billBody"><tr><td colspan="8" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
+        <tbody id="billBody"><tr><td colspan="8" class="empty-state">${icon('receipt', { size: 32 })}<div class="es-title">${T('按日明细', 'Daily detail')}</div><div class="es-desc">${T('加载中…', 'Loading…')}</div></td></tr></tbody>
         <tfoot id="billFoot"></tfoot>
       </table></div>
     </div>
@@ -249,14 +249,14 @@ export default {
     <div class="pane" data-pane="model">
           <div class="tablewrap"><table>
         <thead><tr><th>${T('模型', 'Model')}</th><th class="num">${T('请求数', 'Requests')}</th><th class="num">${T('应付金额', 'Amount due')}</th><th>${T('金额占比', 'Share')}</th></tr></thead>
-        <tbody id="billModelBody"><tr><td colspan="4" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
+        <tbody id="billModelBody"><tr><td colspan="4" class="empty-state">${icon('database', { size: 32 })}<div class="es-title">${T('按模型汇总', 'By model')}</div><div class="es-desc">${T('加载中…', 'Loading…')}</div></td></tr></tbody>
       </table></div>
     </div>
 
     <div class="pane" data-pane="price">
           <div class="tablewrap"><table>
         <thead><tr><th>${T('模型', 'Model')}</th><th class="num">${T('输入单价', 'Input price')}</th><th class="num">${T('输出单价', 'Output price')}</th><th class="num">${T('缓存单价', 'Cache price')}</th></tr></thead>
-        <tbody id="priceBody"><tr><td colspan="4" class="empty">${T('加载中…', 'Loading…')}</td></tr></tbody>
+        <tbody id="priceBody"><tr><td colspan="4" class="empty-state">${icon('database', { size: 32 })}<div class="es-title">${T('模型单价', 'Model prices')}</div><div class="es-desc">${T('加载中…', 'Loading…')}</div></td></tr></tbody>
       </table></div>
     </div>
   </div>`,

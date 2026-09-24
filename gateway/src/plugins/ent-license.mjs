@@ -13,7 +13,7 @@ export const inject = ['config', 'store', 'auth', 'router']
 
 /** 自带页面：商业授权（状态 / 授权码录入 / 授权详情） */
 export const admin = {
-  nav: { id: 'license', title: '商业授权', titleEn: 'License', icon: 'key-round', order: 72 },
+  nav: { id: 'license', title: '商业授权', titleEn: 'License', icon: 'key-round', order: 440 },
   entry: 'index.mjs',
 }
 

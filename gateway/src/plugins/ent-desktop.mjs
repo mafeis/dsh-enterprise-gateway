@@ -48,7 +48,7 @@ export const manifest = {
 /** 自带页面：桌面客户端（安装包 + 环境物料两个二级页）；icon 为 lucide 图标名（admin-web/icons.mjs 契约） */
 export const admin = {
   nav: {
-    id: 'desktop', title: '桌面客户端', titleEn: 'Desktop Releases', icon: 'download', order: 71,
+    id: 'desktop', title: '桌面客户端', titleEn: 'Desktop Releases', icon: 'download', order: 310,
     children: [
       { id: 'desktop-releases', title: '版本清单', titleEn: 'Releases' },
       { id: 'desktop-env', title: '环境物料', titleEn: 'Runtime Mirrors' },

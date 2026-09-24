@@ -47,7 +47,14 @@ let last = null
  * 回滚、删包、重下发都靠这一行，藏起来就等于把退路藏了。
  */
 const RECENT_VERSIONS = 3
-const expanded = new Set()   // 展开状态跨刷新保留：管理员点开后不该被下一次自动刷新收回去
+const expanded = new Set()
+function toggleDetailDrawer(btn) {
+  const drawer = document.getElementById(btn.dataset.detail)
+  if (!drawer) return
+  const next = drawer.hidden
+  drawer.hidden = !next
+  btn.setAttribute('aria-expanded', String(next))
+}   // 展开状态跨刷新保留：管理员点开后不该被下一次自动刷新收回去
 function recentRows(list, key) {
   const all = list ?? []
   if (expanded.has(key)) return { shown: all, hidden: 0 }
@@ -78,8 +85,7 @@ function platCell(v, p, kind = '') {
     const mark = a.verified
       ? `<span class="badge ok">${T('校验通过', 'Verified')}</span>`
       : `<span class="badge warn" title="${esc(T('校验值由网关实算（手工上传没有上游摘要可比）', 'Hash computed by the gateway (uploads have no upstream digest)'))}">${T('自算校验值', 'Self-hashed')}</span>`
-    return `<div style="white-space:nowrap">${esc(fmtMb(a.size))} ${mark}</div>
-      <div class="crumb mono" style="margin:2px 0 0" title="${esc(a.sha256)}">${esc(String(a.sha256).slice(0, 12))}… · ${esc(feedName(a.source))}</div>`
+    return `<div style="white-space:nowrap">${esc(fmtMb(a.size))} ${mark}</div>`
   }
   if (a.remote.length) {
     return `<button class="btn sm" data-sync="${esc(v.version)}" data-plat="${p}"${kind ? ` data-kind="${kind}"` : ''}>${icon('download', { size: 13 })} ${T('同步', 'Sync')}</button>`
@@ -92,12 +98,35 @@ const statusBadge = (v) => {
   return `<span class="badge ${st.cls}">${st.text()}</span>${v.lastError ? `<div class="crumb" style="max-width:260px;white-space:normal">${esc(v.lastError)}</div>` : ''}`
 }
 
+/** 抽屉行：展示完整哈希 / 来源 / 错误，避免挤爆表格列 */
+function detailDrawerRow(id, colspan, rows) {
+  return `<tr id="${esc(id)}" class="detail-drawer-row" hidden><td colspan="${colspan}">
+    <div class="detail-drawer"><dl>${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v ?? '—')}</dd>`).join('')}</dl></div>
+  </td></tr>`;
+}
+function platformDrawerRows(v) {
+  const mac = v.platforms?.mac
+  const win = v.platforms?.win
+  const row = (name, a) => a?.have ? [
+    [`${name} ${T('体积', 'Size')}`, fmtMb(a.size)],
+    [`${name} ${T('校验', 'Verified')}`, a.verified ? T('校验通过', 'Verified') : T('自算校验值', 'Self-hashed')],
+    [`${name} ${T('SHA256', 'SHA256')}`, a.sha256],
+    [`${name} ${T('来源', 'Source')}`, feedName(a.source)]
+  ] : [];
+  return [
+    [T('状态错误', 'Status error'), v.lastError],
+    ...row(T('macOS', 'macOS'), mac),
+    ...row(T('Windows', 'Windows'), win),
+  ];
+}
+
 /* ============ 子页 1 · 版本清单（安装包） ============ */
 
-function rowOf(v) {
+function rowOf(v, idx) {
   const pub = v.published
     ? `<span class="badge ok">${T('当前下发', 'Serving')}</span>`
     : `<button class="btn sm primary" data-pub="${esc(v.version)}" ${v.status === 'remote' ? 'disabled' : ''}>${T('设为下发版本', 'Publish')}</button>`
+  const drawerId = `pkg-detail-rel-${idx}`
   return `<tr>
     <td>
       <div class="mono"><b>${esc(v.version)}</b>${v.tag && v.tag !== 'v' + v.version ? ` <span class="crumb">${esc(v.tag)}</span>` : ''}</div>
@@ -107,11 +136,13 @@ function rowOf(v) {
     <td>${platCell(v, 'mac')}</td>
     <td>${platCell(v, 'win')}</td>
     <td class="num">
+      <button class="btn sm" data-detail="${drawerId}" aria-expanded="false">${T('详情', 'Details')}</button>
       ${pub}
       ${v.platforms.mac.have || v.platforms.win.have
         ? `<button class="btn sm danger" data-del="${esc(v.version)}" style="margin-left:6px">${T('删包', 'Delete')}</button>` : ''}
     </td>
-  </tr>`
+  </tr>
+  ${detailDrawerRow(drawerId, 5, platformDrawerRows(v))}`
 }
 
 const releasesHtml = `
@@ -158,11 +189,12 @@ const releasesHtml = `
 function envGroupOf(g) {
   const { shown, hidden } = recentRows(g.versions, `env:${g.kind}`)
   const rows = shown.length
-    ? shown.map((v) => {
+    ? shown.map((v, idx) => {
       const pub = v.published
         ? `<span class="badge ok">${T('当前下发', 'Serving')}</span>`
         : `<button class="btn sm primary" data-pub="${esc(v.version)}" data-kind="${g.kind}" ${v.status === 'remote' ? 'disabled' : ''}>${T('设为下发版本', 'Publish')}</button>`
       const del = v.bytes ? `<button class="btn sm danger" data-envdel="${esc(v.version)}" data-kind="${g.kind}" style="margin-left:6px">${T('删包', 'Delete')}</button>` : ''
+      const drawerId = `pkg-detail-env-${g.kind}-${idx}`
       return `<tr>
         <td>
           <div class="mono"><b>${esc(v.version)}</b>${v.ltsName ? ` <span class="crumb">${esc(v.ltsName)}</span>` : ''}</div>
@@ -170,10 +202,14 @@ function envGroupOf(g) {
         </td>
         <td>${statusBadge(v)}</td>
         ${g.platforms.map((p) => `<td>${platCell(v, p, g.kind)}</td>`).join('')}
-        <td class="num">${pub}${del}</td>
-      </tr>`
+        <td class="num">
+          <button class="btn sm" data-detail="${drawerId}" aria-expanded="false">${T('详情', 'Details')}</button>
+          ${pub}${del}
+        </td>
+      </tr>
+      ${detailDrawerRow(drawerId, g.platforms.length + 3, platformDrawerRows(v))}`
     }).join('')
-    : `<tr><td colspan="${g.platforms.length + 3}" class="empty">${T('还没检测到物料，点右上角「检测上游」', 'Nothing detected yet — hit Check upstream')}</td></tr>`
+    : `<tr><td colspan="${g.platforms.length + 3}" class="empty-state">${icon('download', { size: 32 })}<div class="es-title">${T('暂无版本', 'No versions')}</div><div class="es-desc">${T('还没检测到物料，点右上角「检测上游」', 'Nothing detected yet — hit Check upstream')}</div></td></tr>`
   // 展开条：全展开时也要留（否则收不回去）；但一行都没有时不用留
   const tail = shown.length ? expandRow(`env:${g.kind}`, hidden) : ''
   return `<h2 style="margin-top:18px"><span class="bar"></span>${esc(g.label)}
@@ -225,85 +261,119 @@ const envHtml = `
 const desk_settings = `
   <div class="card">
     <h2><span class="bar"></span>${T('安装包：检测与保留策略', 'Installer: feeds & retention')}</h2>
-    <div class="frm">
-      <div class="fld full"><label>${T('检测源', 'Feeds')}</label><div class="ctrl">
-        <span class="chk"><input type="checkbox" id="dskFeedGithub"> GitHub Releases</span>
-        <span class="chk"><input type="checkbox" id="dskFeedMirror">${T('ModelScope 镜像', 'ModelScope mirror')}</span>
-      </div></div>
-      <div class="fld"><label>${T('渠道', 'Channel')}</label><div class="ctrl">
-        <select id="dskBeta"><option value="stable">${T('仅正式版', 'Stable only')}</option><option value="beta">${T('含预发布', 'Include prerelease')}</option></select>
-      </div></div>
-      <div class="fld"><label>${T('检测间隔', 'Interval')}</label><div class="ctrl">
-        <input class="input" id="dskInterval" type="number" min="10" max="10080" style="width:110px"><span class="unit">${T('分钟', 'min')}</span>
-      </div></div>
-      <div class="fld"><label>${T('保留版本', 'Keep')}</label><div class="ctrl">
-        <input class="input" id="dskKeep" type="number" min="1" max="10" style="width:110px"><span class="unit">${T('个', '')}</span>
-      </div></div>
-      <div class="fld full"><label>${T('仓库', 'Repo')}</label><div class="ctrl">
-        <input class="input mono grow" id="dskRepo" placeholder="anywhere-labs/dsh-desktop">
-      </div></div>
-      <div class="fld full"><label>${T('镜像仓库', 'Mirror')}</label><div class="ctrl">
-        <input class="input mono grow" id="dskMirror" placeholder="${T('ModelScope 模型库，留空用默认', 'ModelScope repository; blank uses the default')}">
-      </div></div>
-      <div class="fld full"><label>${T('下载域名', 'Hosts')}</label><div class="ctrl">
-        <input class="input mono grow" id="dskHosts" placeholder="mirror.corp.com"><span class="unit">${T('逗号分隔', 'comma separated')}</span>
-      </div></div>
-      <div class="fld full"><label>${T('令牌', 'Token')}</label><div class="ctrl">
-        <input class="input" id="dskToken" type="password" autocomplete="off" placeholder="ghp_…" style="max-width:340px">
-        <span class="desc" id="dskTokenState">${T('可选，仅用于缓解 GitHub 限流', 'Optional; lifts the GitHub rate limit')}</span>
-      </div></div>
-      <div class="fld full"><label>${T('自动入库', 'Auto')}</label><div class="ctrl" style="flex-direction:column;align-items:flex-start;gap:7px">
-        <span class="chk"><input type="checkbox" id="dskAutoSync">${T('检测到新版本自动下载入库（发布仍需人工点，不静默改变全员版本）', 'Auto-mirror new versions into the gateway (publishing stays manual)')}</span>
-        <span class="chk"><input type="checkbox" id="dskFallback">${T('网关没有可用包时，允许安装脚本回退公网直下（纯内网环境请关闭）', 'Let setup scripts fall back to the internet when the gateway has no package (turn off for air-gapped networks)')}</span>
-      </div></div>
+
+    <div class="form-section">
+      <h3>${T('检测源', 'Detection source')}</h3>
+      <div class="frm">
+        <div class="fld full"><label>${T('检测源', 'Feeds')}</label><div class="ctrl">
+          <span class="chk"><input type="checkbox" id="dskFeedGithub"> GitHub Releases</span>
+          <span class="chk"><input type="checkbox" id="dskFeedMirror">${T('ModelScope 镜像', 'ModelScope mirror')}</span>
+        </div></div>
+        <div class="fld"><label>${T('渠道', 'Channel')}</label><div class="ctrl">
+          <select id="dskBeta"><option value="stable">${T('仅正式版', 'Stable only')}</option><option value="beta">${T('含预发布', 'Include prerelease')}</option></select>
+        </div></div>
+        <div class="fld"><label>${T('检测间隔', 'Interval')}</label><div class="ctrl">
+          <input class="input" id="dskInterval" type="number" min="10" max="10080" style="width:110px"><span class="unit">${T('分钟', 'min')}</span>
+        </div></div>
+      </div>
     </div>
-    <div class="notebox">${T('保留版本 = 本地留最新 N 个版本的包（当前下发那个另算），超出即删盘；检测间隔太短只是多打上游接口，包不会多下。', 'Keep = mirror the newest N versions locally (the served one is always kept); older ones are deleted from disk.')}</div>
-    <div style="margin-top:14px"><button class="btn primary" id="dskSaveBtn">${T('保存设置', 'Save settings')}</button></div>
+
+    <div class="form-section">
+      <h3>${T('保留策略', 'Retention')}</h3>
+      <div class="frm">
+        <div class="fld"><label>${T('保留版本', 'Keep')}</label><div class="ctrl">
+          <input class="input" id="dskKeep" type="number" min="1" max="10" style="width:110px"><span class="unit">${T('个', '')}</span>
+        </div></div>
+        <div class="fld full"><label>${T('自动入库', 'Auto')}</label><div class="ctrl" style="flex-direction:column;align-items:flex-start;gap:7px">
+          <span class="chk"><input type="checkbox" id="dskAutoSync">${T('检测到新版本自动下载入库（发布仍需人工点，不静默改变全员版本）', 'Auto-mirror new versions into the gateway (publishing stays manual)')}</span>
+          <span class="chk"><input type="checkbox" id="dskFallback">${T('网关没有可用包时，允许安装脚本回退公网直下（纯内网环境请关闭）', 'Let setup scripts fall back to the internet when the gateway has no package (turn off for air-gapped networks)')}</span>
+        </div></div>
+      </div>
+      <div class="notebox">${T('保留版本 = 本地留最新 N 个版本的包（当前下发那个另算），超出即删盘；检测间隔太短只是多打上游接口，包不会多下。', 'Keep = mirror the newest N versions locally (the served one is always kept); older ones are deleted from disk.')}</div>
+    </div>
+
+    <div class="form-section">
+      <h3>${T('镜像与令牌', 'Mirror & token')}</h3>
+      <div class="frm">
+        <div class="fld full"><label>${T('仓库', 'Repo')}</label><div class="ctrl">
+          <input class="input mono grow" id="dskRepo" placeholder="anywhere-labs/dsh-desktop">
+        </div></div>
+        <div class="fld full"><label>${T('镜像仓库', 'Mirror')}</label><div class="ctrl">
+          <input class="input mono grow" id="dskMirror" placeholder="${T('ModelScope 模型库，留空用默认', 'ModelScope repository; blank uses the default')}">
+        </div></div>
+        <div class="fld full"><label>${T('下载域名', 'Hosts')}</label><div class="ctrl">
+          <input class="input mono grow" id="dskHosts" placeholder="mirror.corp.com"><span class="unit">${T('逗号分隔', 'comma separated')}</span>
+        </div></div>
+        <div class="fld full"><label>${T('令牌', 'Token')}</label><div class="ctrl">
+          <input class="input" id="dskToken" type="password" autocomplete="off" placeholder="ghp_…">
+          <span class="desc" id="dskTokenState">${T('可选，仅用于缓解 GitHub 限流', 'Optional; lifts the GitHub rate limit')}</span>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="action-bar"><button class="btn primary" id="dskSaveBtn">${T('保存设置', 'Save settings')}</button></div>
   </div>
 `
 
 const env_settings = `
   <div class="card">
     <h2><span class="bar"></span>${T('环境物料：来源与保留策略', 'Runtime files: sources & retention')}</h2>
-    <div class="frm">
-      <div class="fld full"><label>${T('源顺序', 'Feeds')}</label><div class="ctrl">
-        <select id="envFeedOrder">
-          <option value="official,npmmirror">${T('Node：官方优先，阿里镜像兜底', 'Node: official first, npmmirror fallback')}</option>
-          <option value="npmmirror,official">${T('Node：镜像优先（国内机房推荐）', 'Node: mirror first (CN data centers)')}</option>
-          <option value="npmmirror">${T('Node：只用镜像（不回源官方）', 'Node: mirror only')}</option>
-        </select>
-      </div></div>
-      <div class="fld full"><label>${T('版本策略', 'Channel')}</label><div class="ctrl">
-        <select id="envNodeChannel"><option value="lts">${T('Node：仅 LTS（装机基线稳）', 'Node: LTS only (stable baseline)')}</option><option value="current">${T('Node：跟随 Current', 'Node: track Current')}</option></select>
-      </div></div>
-      <div class="fld"><label>${T('Node 保留', 'Node keep')}</label><div class="ctrl">
-        <input class="input" id="envNodeKeep" type="number" min="1" max="6" style="width:110px"><span class="unit">${T('个', '')}</span>
-      </div></div>
-      <div class="fld"><label>${T('pnpm 保留', 'pnpm keep')}</label><div class="ctrl">
-        <input class="input" id="envPnpmKeep" type="number" min="1" max="6" style="width:110px"><span class="unit">${T('个', '')}</span>
-      </div></div>
-      <div class="fld"><label>${T('单包上限', 'Max file')}</label><div class="ctrl">
-        <input class="input" id="envMaxMb" type="number" min="8" max="4096" style="width:110px"><span class="unit">MB</span>
-      </div></div>
-      <div class="fld full"><label>${T('官方目录', 'Dist base')}</label><div class="ctrl">
-        <input class="input mono grow" id="envDistBase" placeholder="https://nodejs.org/dist">
-      </div></div>
-      <div class="fld full"><label>${T('镜像目录', 'Mirror base')}</label><div class="ctrl">
-        <input class="input mono grow" id="envMirrorBase" placeholder="https://npmmirror.com/mirrors/node">
-      </div></div>
-      <div class="fld full"><label>npm registry</label><div class="ctrl">
-        <input class="input mono grow" id="envRegistry" placeholder="https://registry.npmjs.org">
-      </div></div>
-      <div class="fld full"><label>${T('镜像源', 'Mirror reg')}</label><div class="ctrl">
-        <input class="input mono grow" id="envMirrorRegistry" placeholder="https://registry.npmmirror.com">
-      </div></div>
-      <div class="fld full"><label>${T('自动入库', 'Auto')}</label><div class="ctrl">
-        <span class="chk"><input type="checkbox" id="envAutoSync">${T('检测到新 LTS / 新版 pnpm 自动下载入库（发布仍需人工点）', 'Auto-mirror new LTS and pnpm releases (publishing stays manual)')}</span>
-      </div></div>
+
+    <div class="form-section">
+      <h3>${T('检测源', 'Detection source')}</h3>
+      <div class="frm">
+        <div class="fld full"><label>${T('源顺序', 'Feeds')}</label><div class="ctrl">
+          <select id="envFeedOrder">
+            <option value="official,npmmirror">${T('Node：官方优先，阿里镜像兜底', 'Node: official first, npmmirror fallback')}</option>
+            <option value="npmmirror,official">${T('Node：镜像优先（国内机房推荐）', 'Node: mirror first (CN data centers)')}</option>
+            <option value="npmmirror">${T('Node：只用镜像（不回源官方）', 'Node: mirror only')}</option>
+          </select>
+        </div></div>
+        <div class="fld full"><label>${T('版本策略', 'Channel')}</label><div class="ctrl">
+          <select id="envNodeChannel"><option value="lts">${T('Node：仅 LTS（装机基线稳）', 'Node: LTS only (stable baseline)')}</option><option value="current">${T('Node：跟随 Current', 'Node: track Current')}</option></select>
+        </div></div>
+      </div>
     </div>
-    <div class="notebox">${T('校验口径：Node 对官方 SHASUMS256.txt（sha256），pnpm 对 npm 的 dist.integrity（sha512）；摘要对不上就不入库，网关不会发自己都没验过的东西。', 'Node is verified against the official SHASUMS256.txt (sha256), pnpm against npm dist.integrity (sha512). A mismatch is never stored.')}</div>
-    <div class="notebox warn">${T('为什么镜像 @pnpm/exe.*：pnpm 从 12 起主 npm 包不再自带运行时 —— 装包时 install.js 要用 optionalDependencies 里的 @pnpm/exe.<平台> 顶掉占位 bin，顶不到就在首次运行时去 get.pnpm.io / registry.npmjs.org 下载。纯内网两头都出不去，所以网关镜像官方原生包：解出来就是一个可执行文件，不依赖 Node，也不碰 npm 源。', 'Why @pnpm/exe.*: since pnpm 12 the main npm package ships no runtime — install.js swaps the placeholder bin for @pnpm/exe.<platform> from optionalDependencies, and falls back to downloading one on first run from get.pnpm.io / registry.npmjs.org. Neither works air-gapped, so the gateway mirrors the official native packages: each untars to one executable, needs no Node and never touches an npm registry.')}</div>
-    <div style="margin-top:14px"><button class="btn primary" id="envSaveBtn">${T('保存设置', 'Save settings')}</button></div>
+
+    <div class="form-section">
+      <h3>${T('保留策略', 'Retention')}</h3>
+      <div class="frm">
+        <div class="fld"><label>${T('Node 保留', 'Node keep')}</label><div class="ctrl">
+          <input class="input" id="envNodeKeep" type="number" min="1" max="6" style="width:110px"><span class="unit">${T('个', '')}</span>
+        </div></div>
+        <div class="fld"><label>${T('pnpm 保留', 'pnpm keep')}</label><div class="ctrl">
+          <input class="input" id="envPnpmKeep" type="number" min="1" max="6" style="width:110px"><span class="unit">${T('个', '')}</span>
+        </div></div>
+        <div class="fld"><label>${T('单包上限', 'Max file')}</label><div class="ctrl">
+          <input class="input" id="envMaxMb" type="number" min="8" max="4096" style="width:110px"><span class="unit">MB</span>
+        </div></div>
+        <div class="fld full"><label>${T('自动入库', 'Auto')}</label><div class="ctrl">
+          <span class="chk"><input type="checkbox" id="envAutoSync">${T('检测到新 LTS / 新版 pnpm 自动下载入库（发布仍需人工点）', 'Auto-mirror new LTS and pnpm releases (publishing stays manual)')}</span>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>${T('镜像与 npm', 'Mirror & npm')}</h3>
+      <div class="frm">
+        <div class="fld full"><label>${T('官方目录', 'Dist base')}</label><div class="ctrl">
+          <input class="input mono grow" id="envDistBase" placeholder="https://nodejs.org/dist">
+        </div></div>
+        <div class="fld full"><label>${T('镜像目录', 'Mirror base')}</label><div class="ctrl">
+          <input class="input mono grow" id="envMirrorBase" placeholder="https://npmmirror.com/mirrors/node">
+        </div></div>
+        <div class="fld full"><label>npm registry</label><div class="ctrl">
+          <input class="input mono grow" id="envRegistry" placeholder="https://registry.npmjs.org">
+        </div></div>
+        <div class="fld full"><label>${T('镜像源', 'Mirror reg')}</label><div class="ctrl">
+          <input class="input mono grow" id="envMirrorRegistry" placeholder="https://registry.npmmirror.com">
+        </div></div>
+      </div>
+      <div class="notebox">${T('校验口径：Node 对官方 SHASUMS256.txt（sha256），pnpm 对 npm 的 dist.integrity（sha512）；摘要对不上就不入库，网关不会发自己都没验过的东西。', 'Node is verified against the official SHASUMS256.txt (sha256), pnpm against npm dist.integrity (sha512). A mismatch is never stored.')}</div>
+      <div class="notebox warn">${T('为什么镜像 @pnpm/exe.*：pnpm 从 12 起主 npm 包不再自带运行时 —— 装包时 install.js 要用 optionalDependencies 里的 @pnpm/exe.<平台> 顶掉占位 bin，顶不到就在首次运行时去 get.pnpm.io / registry.npmjs.org 下载。纯内网两头都出不去，所以网关镜像官方原生包：解出来就是一个可执行文件，不依赖 Node，也不碰 npm 源。', 'Why @pnpm/exe.*: since pnpm 12 the main npm package ships no runtime — install.js swaps the placeholder bin for @pnpm/exe.<platform> from optionalDependencies, and falls back to downloading one on first run from get.pnpm.io / registry.npmjs.org. Neither works air-gapped, so the gateway mirrors the official native packages: each untars to one executable, needs no Node and never touches an npm registry.')}</div>
+    </div>
+
+    <div class="action-bar"><button class="btn primary" id="envSaveBtn">${T('保存设置', 'Save settings')}</button></div>
   </div>
 `
 
@@ -406,8 +476,8 @@ function renderReleases() {
   $('dskMac').innerHTML = show('mac')
   $('dskWin').innerHTML = show('win')
   $('dskRows').innerHTML = shown.length
-    ? shown.map(rowOf).join('') + expandRow('dsk', hidden)
-    : `<tr><td colspan="5" class="empty">${T('还没有检测到任何版本，点右上角「立即检测」', 'No versions yet — hit Check now')}</td></tr>`
+    ? shown.map((v, idx) => rowOf(v, idx)).join('') + expandRow('dsk', hidden)
+    : `<tr><td colspan="5" class="empty-state">${icon('download', { size: 32 })}<div class="es-title">${T('暂无版本', 'No versions')}</div><div class="es-desc">${T('还没有检测到任何版本，点右上角「立即检测」', 'No versions yet — hit Check now')}</div></td></tr>`
   $('dskHint').textContent = pub
     ? T('新装机器会拿到 {v}；已装机器由桌面端自己的更新机制升级。', 'New installs get {v}; existing clients upgrade on their own.', { v: pub.version })
     : T('当前没有下发版本：安装脚本会回退到公网直下（若已关闭回退则直接提示找不到包）。', 'Nothing is served: setup scripts fall back to the internet (or fail if fallback is off).')
@@ -685,6 +755,7 @@ function bindReleases() {
     }
     const b = e.target.closest('button')
     if (!b) return
+    if (b.dataset.detail) return toggleDetailDrawer(b)
     if (b.dataset.sync) syncOne(b.dataset.sync, b.dataset.plat || null, b)
     else if (b.dataset.pub) publish(b.dataset.pub)
     else if (b.dataset.del) removeVersion(b.dataset.del)
@@ -712,6 +783,7 @@ function bindEnv() {
     }
     const b = e.target.closest('button')
     if (!b) return
+    if (b.dataset.detail) return toggleDetailDrawer(b)
     const kind = b.dataset.kind || null
     if (b.dataset.sync) syncOne(b.dataset.sync, b.dataset.plat || null, b, kind)
     else if (b.dataset.pub) publish(b.dataset.pub, kind)

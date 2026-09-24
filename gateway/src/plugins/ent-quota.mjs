@@ -13,7 +13,7 @@ export const inject = ['config', 'store', 'auth', 'router']
 /** 自带页面：额度管理（按组配置日/周/月 × Token/金额额度，可叠加可单一） */
 export const admin = {
   nav: {
-    id: 'quota', title: '额度管理', titleEn: 'Quota', icon: 'receipt', order: 47,
+    id: 'quota', title: '额度管理', titleEn: 'Quota', icon: 'receipt', order: 140,
     section: { id: 'usermgmt', title: '用户管理', titleEn: 'User Management', icon: 'users', order: 40 },
   },
   entry: 'index.mjs',

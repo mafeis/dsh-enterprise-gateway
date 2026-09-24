@@ -41,7 +41,7 @@ export default {
       <button class="btn primary" id="grpOpenCreate">${T('＋ 新增分组','＋ New group')}</button>
     </h2>
     <div class="dim2" style="font-size:12px;margin:-4px 0 8px" id="grpFilterHint"></div>
-    <div id="grpList"><div class="empty">${T('加载中…','Loading…')}</div></div>
+    <div id="grpList"><div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('暂无分组', 'No groups')}</div><div class="es-desc">${T('加载中…','Loading…')}</div></div></div>
   </div>`,
   async load() { await loadAll() },
   bind() { bindGroupsPage() },
@@ -80,11 +80,11 @@ function renderGroups() {
   const shown = cachedGroups.filter(hit)
   $('grpFilterHint').textContent = q ? T('匹配 {a}/{b} 个', '{a}/{b} matched', { a: shown.length, b: cachedGroups.length }) : ''
   if (!cachedGroups.length) {
-    el.innerHTML = `<div class="empty">${T('暂无分组。未分组用户可见全部模型、不限额度。', 'No groups yet. Ungrouped users see all models with no quota.')}</div>`
+    el.innerHTML = `<div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('暂无分组', 'No groups')}</div><div class="es-desc">${T('暂无分组。未分组用户可见全部模型、不限额度。', 'No groups yet. Ungrouped users see all models with no quota.')}</div></div>`
     return
   }
   if (!shown.length) {
-    el.innerHTML = `<div class="empty">${T('没有匹配的分组','No matching groups')}</div>`
+    el.innerHTML = `<div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('无匹配分组', 'No matching groups')}</div><div class="es-desc">${T('没有匹配的分组','No matching groups')}</div></div>`
     return
   }
   el.innerHTML = shown.map((g) => {
@@ -175,7 +175,7 @@ function openMembersModal(group) {
     listBox().innerHTML = users.length ? users.map((u) => `
       <label class="chk" style="white-space:normal"><input type="checkbox" data-member="${esc(u.username)}" ${selected.has(u.username) ? 'checked' : ''}>
         <span><b>${esc(u.username)}</b> <span class="dim2">${esc(u.display_name ?? '')}</span></span>
-      </label>`).join('') : `<div class="empty">${T('没有匹配的用户','No matching users')}</div>`
+      </label>`).join('') : `<div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('无匹配用户', 'No matching users')}</div><div class="es-desc">${T('没有匹配的用户','No matching users')}</div></div>`
     updateCount()
   }
   const updateCount = () => {

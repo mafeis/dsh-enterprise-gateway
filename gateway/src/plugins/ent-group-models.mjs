@@ -13,7 +13,7 @@ export const inject = ['config', 'store', 'auth', 'router']
 /** 自带页面：模型管理（按组勾选可见模型，只列已上架模型） */
 export const admin = {
   nav: {
-    id: 'groupmodels', title: '模型管理', titleEn: 'Group Models', icon: 'box', order: 46,
+    id: 'groupmodels', title: '分组模型', titleEn: 'Group Models', icon: 'box', order: 130,
     section: { id: 'usermgmt', title: '用户管理', titleEn: 'User Management', icon: 'users', order: 40 },
   },
   entry: 'index.mjs',

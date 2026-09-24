@@ -1,21 +1,46 @@
 /**
  * 应用装配：登录/登出 + 启动（页面逻辑全部在插件 .web/ 模块里，壳零页面代码）
  */
-import { $, api, session } from './core.mjs?v=20260915180000';
+import { $, api, session, bindThemeToggle } from './core.mjs?v=20260915180000';
 import { doLogin, logout, checkHealth } from './login.mjs?v=20260915180000';
 import { navigate, initRouter } from './router.mjs?v=20260915180000';
 import { applyShellI18n, bindLangToggle } from './i18n.mjs';
 
-/* ---- 事件绑定（仅壳私有区域：登录/顶栏；页面事件由各插件模块自带） ---- */
+/* ---- 事件绑定（仅壳私有区域：登录/顶栏/抽屉；页面事件由各插件模块自带） ---- */
 function bindEvents() {
   $('loginBtn').addEventListener('click', doLogin);
   $('loginPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
   $('logoutBtn').addEventListener('click', logout);
+  bindSidebarDrawer();
+}
+
+/* ---- 移动端汉堡抽屉：<760px 显示，遮罩/导航点击关闭 ---- */
+function bindSidebarDrawer() {
+  const sidebar = document.getElementById('sidebarNav');
+  const mask = document.getElementById('sidebarMask');
+  const toggle = document.getElementById('navToggle');
+  if (!sidebar || !mask || !toggle) return;
+  const setState = (open) => {
+    sidebar.classList.toggle('open', open);
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    mask.hidden = !open;
+  };
+  toggle.addEventListener('click', () => setState(!sidebar.classList.contains('open')));
+  mask.addEventListener('click', () => setState(false));
+  document.addEventListener('click', (e) => {
+    if (!sidebar.classList.contains('open')) return;
+    if (e.target.closest('.sidebar') || e.target.closest('#navToggle')) return;
+    setState(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') setState(false);
+  });
 }
 
 /* ---- 启动 ---- */
 applyShellI18n();
 bindLangToggle();
+bindThemeToggle();
 bindEvents();
 initRouter();
 checkHealth();

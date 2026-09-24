@@ -55,6 +55,7 @@ async function deviceDetailHtml(x) {
     ${diskRows}`;
 }
 
+/** 供总览合并卡获取在线数量（失败返回 0） */
 export async function loadTerminals() {
   try {
     const t = await api('/admin/terminals');
@@ -78,13 +79,13 @@ export function renderTerminals(list) {
          <td class="mono">${esc(x.ts_local ?? '-')}</td>
          <td class="mono term-more">${T('详情 ›', 'Details ›')}</td>
        </tr>`
-    ).join('') : `<tr><td colspan="6" class="empty">${T('暂无终端心跳 · Desktop 插件接入后显示', 'No device heartbeats yet · shown once Desktop plugins connect')}</td></tr>`}</tbody></table></div>`;
+    ).join('') : `<tr><td colspan="6" class="empty-state">${icon('monitor', { size: 32 })}<div class="es-title">${T('暂无终端', 'No terminals')}</div><div class="es-desc">${T('暂无终端心跳 · Desktop 插件接入后显示', 'No device heartbeats yet · shown once Desktop plugins connect')}</div></td></tr>`}</tbody></table></div>`;
 }
 
 /** 卡片墙形态渲染（每台终端一张卡） */
 export function renderTerminalsCards(list) {
   lastList = list;
-  if (!list.length) return `<div class="empty">${T('暂无终端心跳 · Desktop 插件接入后显示', 'No device heartbeats yet · shown once Desktop plugins connect')}</div>`;
+  if (!list.length) return `<div class="empty-state">${icon('monitor', { size: 32 })}<div class="es-title">${T('暂无终端', 'No terminals')}</div><div class="es-desc">${T('暂无终端心跳 · Desktop 插件接入后显示', 'No device heartbeats yet · shown once Desktop plugins connect')}</div></div>`;
   return `<div class="grid4" style="margin-top:6px" id="termCards">${list.map((x, i) => `
     <div class="kpi stat-card term-row" data-idx="${i}" style="cursor:pointer" title="${T('点击查看完整设备信息', 'Click for full device info')}">
       <div class="lab">${icon('monitor', { size: 13 })} ${esc(x.device?.hostname || T('未知主机', 'Unknown host'))}</div>
@@ -121,7 +122,7 @@ async function openTermModal(x) {
         <h2>${T('终端设备详情', 'Device details')} · ${esc(x.account || T('未登录', 'Not signed in'))}</h2>
         <button class="dlg-x" data-dlg-close title="${T('关闭 (Esc)', 'Close (Esc)')}">${icon('x', { size: 16 })}</button>
       </div>
-      <div class="dlg-body"><div class="empty">${T('加载中…', 'Loading…')}</div></div>
+      <div class="dlg-body"><div class="empty-state">${icon('monitor', { size: 32 })}<div class="es-title">${T('暂无终端', 'No terminals')}</div><div class="es-desc">${T('加载中…', 'Loading…')}</div></div></div>
     </div>`;
   openDlg(m);
   m.querySelector('.dlg-body').innerHTML = await deviceDetailHtml(x);

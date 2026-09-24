@@ -22,7 +22,7 @@ export const inject = ['config', 'store', 'auth', 'router']
 /** 自带页面：客户端管控（一级菜单 + 4 个二级页，壳按 nav.children 渲染分组导航） */
 export const admin = {
   nav: {
-    id: 'client', title: '客户端管控', titleEn: 'Client Control', icon: 'monitor', order: 70,
+    id: 'client', title: '客户端管控', titleEn: 'Client Control', icon: 'monitor', order: 210,
     children: [
       { id: 'client-switches', title: '策略与开关', titleEn: 'Policy & Switches' },
       { id: 'client-plugins', title: '插件管控', titleEn: 'Plugin Control' },

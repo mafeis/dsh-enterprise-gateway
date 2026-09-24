@@ -129,7 +129,7 @@ export default {
     <div style="display:flex;gap:10px;margin-top:12px;align-items:center">
       <input class="input" placeholder="${T('输入框 .input', 'Input .input')}" style="width:180px">
       <select><option>${T('下拉 select', 'Select')}</option></select>
-      <span class="empty" style="padding:0">${T('空态用 .empty', 'Empty uses .empty')}</span>
+      <span style="padding:0" class="empty-state">${icon('palette', { size: 32 })}<div class="es-title">${T('空态组件', 'Empty state')}</div><div class="es-desc">${T('空态用 .empty', 'Empty uses .empty')}</div></span>
     </div>
   </div>
 

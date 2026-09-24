@@ -4,7 +4,7 @@
  * 数据源：/admin/quota（本插件：组额度 + 模型单价）
  * 语义：Token 以百万（M）输入；金额（元）直填；0 = 不限；Token 与金额可叠加，任一超限即 429。
  */
-import { api, $, toast, esc } from '/admin/static/contract.mjs'
+import { api, $, toast, esc, icon } from '/admin/static/contract.mjs'
 import { T } from '/admin/static/js/i18n.mjs';
 
 let cachedGroups = []
@@ -51,8 +51,8 @@ export default {
     <h2><span class="bar"></span>${T('按组配置','Per group')} <span class="badge dim" id="qtGroupCount"></span></h2>
     <div class="mhint">${T('左侧选组，右侧改额度；保存即时生效。', 'Pick a group, edit quota on the right; effective on save.')}</div>
     <div style="display:grid;grid-template-columns:minmax(240px,320px) 1fr;gap:16px;margin-top:12px" id="qtLayout">
-      <div id="qtGroupList"><div class="empty">${T('加载中…','Loading…')}</div></div>
-      <div id="qtEditor"><div class="empty">${T('← 选择一个分组','← Pick a group')}</div></div>
+      <div id="qtGroupList"><div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('暂无分组', 'No groups')}</div><div class="es-desc">${T('加载中…','Loading…')}</div></div></div>
+      <div id="qtEditor"><div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('请选择分组', 'Pick a group')}</div><div class="es-desc">${T('← 选择一个分组','← Pick a group')}</div></div></div>
     </div>
   </div>`,
   async load() { await loadAll() },
@@ -75,7 +75,7 @@ function renderGroupList() {
   const el = $('qtGroupList')
   $('qtGroupCount').textContent = T('{n} 个分组', '{n} groups', { n: cachedGroups.length })
   if (!cachedGroups.length) {
-    el.innerHTML = `<div class="empty">${T('暂无分组，请先在「用户分组」新建。', 'No groups yet — create one in Groups first.')}</div>`
+    el.innerHTML = `<div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('暂无分组', 'No groups')}</div><div class="es-desc">${T('暂无分组，请先在「用户分组」新建。', 'No groups yet — create one in Groups first.')}</div></div>`
     return
   }
   el.innerHTML = cachedGroups.map((g) => `
@@ -113,7 +113,7 @@ function windowRow(title, suffix, q) {
 function renderEditor() {
   const el = $('qtEditor')
   const g = cachedGroups.find((x) => x.id === currentGroupId)
-  if (!g) { el.innerHTML = `<div class="empty">${T('← 选择一个分组','← Pick a group')}</div>`; return }
+  if (!g) { el.innerHTML = `<div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('请选择分组', 'Pick a group')}</div><div class="es-desc">${T('← 选择一个分组','← Pick a group')}</div></div>`; return }
   const q = g.quota ?? {}
   const modelsOf = g.models ?? []
   const priceHint = modelsOf.length === 1 && cachedPrices[modelsOf[0]]

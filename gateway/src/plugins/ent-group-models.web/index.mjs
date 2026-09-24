@@ -4,7 +4,7 @@
  * 数据源：/admin/group-models（本插件）
  * 语义：不勾 = 全部模型；勾选保存后 /v1/models 过滤与转发准入即时生效。
  */
-import { api, $, toast, esc } from '/admin/static/contract.mjs'
+import { api, $, toast, esc, icon } from '/admin/static/contract.mjs'
 import { T } from '/admin/static/js/i18n.mjs';
 
 let cachedGroups = []
@@ -15,15 +15,15 @@ export default {
   page: 'ent-group-models',
   html: `
   <div class="headrow" data-ent-page="ent-group-models">
-    <div><h1>${T('模型管理','Group Models')}</h1></div>
+    <div><h1>${T('分组模型','Group Models')}</h1></div>
   </div>
 
   <div class="card">
     <h2><span class="bar"></span>${T('按组配置','Per group')} <span class="badge dim" id="gmGroupCount"></span></h2>
     <div class="mhint">${T('左侧选组，右侧勾选该组可见模型；只显示已上架模型。', 'Pick a group, check its visible models; listed models only.')}</div>
     <div style="display:grid;grid-template-columns:minmax(240px,320px) 1fr;gap:16px;margin-top:12px" id="gmLayout">
-      <div id="gmGroupList"><div class="empty">${T('加载中…','Loading…')}</div></div>
-      <div id="gmEditor"><div class="empty">${T('← 选择一个分组','← Pick a group')}</div></div>
+      <div id="gmGroupList"><div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('暂无分组', 'No groups')}</div><div class="es-desc">${T('加载中…','Loading…')}</div></div></div>
+      <div id="gmEditor"><div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('请选择分组', 'Pick a group')}</div><div class="es-desc">${T('← 选择一个分组','← Pick a group')}</div></div></div>
     </div>
   </div>`,
   async load() { await loadAll() },
@@ -48,7 +48,7 @@ function renderGroupList() {
   const el = $('gmGroupList')
   $('gmGroupCount').textContent = T('{n} 个分组', '{n} groups', { n: cachedGroups.length })
   if (!cachedGroups.length) {
-    el.innerHTML = `<div class="empty">${T('暂无分组，请先在「用户分组」新建。', 'No groups yet — create one in Groups first.')}</div>`
+    el.innerHTML = `<div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('暂无分组', 'No groups')}</div><div class="es-desc">${T('暂无分组，请先在「用户分组」新建。', 'No groups yet — create one in Groups first.')}</div></div>`
     return
   }
   el.innerHTML = cachedGroups.map((g) => `
@@ -64,13 +64,13 @@ function renderGroupList() {
 function renderEditor() {
   const el = $('gmEditor')
   const g = cachedGroups.find((x) => x.id === currentGroupId)
-  if (!g) { el.innerHTML = `<div class="empty">${T('← 选择一个分组','← Pick a group')}</div>`; return }
+  if (!g) { el.innerHTML = `<div class="empty-state">${icon('users', { size: 32 })}<div class="es-title">${T('请选择分组', 'Pick a group')}</div><div class="es-desc">${T('← 选择一个分组','← Pick a group')}</div></div>`; return }
   const box = cachedModels.length
     ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px 14px;max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:10px 12px" id="gmBox">` + cachedModels.map((m) => `
       <label class="chk" style="white-space:normal"><input type="checkbox" data-gmodel="${esc(m.id)}" ${g.models.includes(m.id) ? 'checked' : ''}>
         <span><b>${esc(m.id)}</b> <span class="dim2">${esc(m.displayName ?? '')}</span></span>
       </label>`).join('') + `</div>`
-    : `<div class="empty">${T('模型目录为空，请先在「供应商与模型」上架模型','Model catalog is empty — list models first')}</div>`
+    : `<div class="empty-state">${icon('database', { size: 32 })}<div class="es-title">${T('暂无模型', 'No models')}</div><div class="es-desc">${T('模型目录为空，请先在「供应商与模型」上架模型','Model catalog is empty — list models first')}</div></div>`
   el.innerHTML = `
     <div class="user-title" style="margin-bottom:12px">
       <b style="font-size:15px">${esc(g.name)}</b>

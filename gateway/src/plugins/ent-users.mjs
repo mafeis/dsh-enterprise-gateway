@@ -14,7 +14,7 @@ export const inject = ['config', 'store', 'auth', 'router']
 /** 自带页面：用户管理（账号列表 / 创建 / 改密 / 停启用 / 账号活动详情） */
 export const admin = {
   nav: {
-    id: 'users', title: '用户列表', titleEn: 'Users', icon: 'users', order: 40,
+    id: 'users', title: '用户列表', titleEn: 'Users', icon: 'users', order: 110,
     section: { id: 'usermgmt', title: '用户管理', titleEn: 'User Management', icon: 'users', order: 40 },
   },
   entry: 'index.mjs',

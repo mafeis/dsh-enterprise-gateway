@@ -17,7 +17,7 @@ export const manifest = {
 
 /** 自带页面：安全防护（DLP 数据防泄漏 / 审计留存 / 防篡改锚） */
 export const admin = {
-  nav: { id: 'security', title: '安全防护', titleEn: 'Security', icon: 'shield-check', order: 60 },
+  nav: { id: 'security', title: '安全防护', titleEn: 'Security', icon: 'shield-check', order: 420 },
   entry: 'index.mjs',
 }
 

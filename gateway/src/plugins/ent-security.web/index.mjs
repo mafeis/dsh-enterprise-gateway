@@ -2,7 +2,7 @@
  * 插件页面 · 安全防护（原壳 views/pages/security.html + policy.mjs 安全段 + anchor.mjs）
  * 数据源：/admin/policy* /admin/verify-anchor /admin/seal-anchor /admin/purge（ent-console 聚合提供）
  */
-import { api, $, toast, esc } from '/admin/static/contract.mjs'
+import { api, $, toast, esc, icon } from '/admin/static/contract.mjs'
 import { T } from '/admin/static/js/i18n.mjs';
 
 export default {
@@ -155,7 +155,7 @@ function nextDlpPreset() {
 function renderDlpRules(rules) {
   $('dlpCount').textContent = T('{n} 条', '{n} rules', { n: rules.length })
   $('dlpBody').innerHTML = rules.map((r) => ruleRow(r)).join('')
-    || `<tr><td colspan="5" class="empty">${T('暂无规则 —— 引擎开着也没有可执行的规则','No rules — the engine has nothing to run')}</td></tr>`
+    || `<tr><td colspan="5" class="empty-state">${icon('shield-check', { size: 32 })}<div class="es-title">${T('暂无规则', 'No rules')}</div><div class="es-desc">${T('暂无规则 —— 引擎开着也没有可执行的规则','No rules — the engine has nothing to run')}</div></td></tr>`
 }
 
 function ruleRow(r = {}) {
