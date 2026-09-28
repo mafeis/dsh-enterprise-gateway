@@ -111,13 +111,17 @@ export function createPluginProtocolHandler({ config, store, auth }) {
         deviceJson = latestHeartbeatDevice(dh)
       }
       insertHeartbeat({ device_hash: dh, profile: b.profile, env: b.env, policy_version: b.policyVersion, node_version: b.node, account: b.account, device_json: deviceJson })
-      // 指纹包含 id + displayName + enabled + 供应商启停 + 容灾配置：下架/上架、停用供应商、
-      // 改容灾（fallbackProviders/upstreamModelByProvider 影响 /v1/models 可见性与转发名）
-      // 都必须让客户端感知（/v1/models 按"主家启用或有启用容灾"过滤，指纹漏了容灾
-      // 则改容灾后终端模型目录永不刷新）
+      // 指纹包含模型可见性、运行元数据与供应商状态：上架/下架、停用供应商、改容灾，
+      // 以及客户端写入本地配置的上下文/输出/输入/思考配置变化，都必须触发下一次更新；
+      // 否则 /v1/models 已返回新值，终端却不会调用 repairConfigure 覆盖本地旧配置。
       const modelFp = createHash('sha256')
         .update(JSON.stringify({
-          models: cfg.models.map((m) => [m.id, m.displayName ?? m.id, m.enabled !== false, m.fallbackProviders ?? [], m.upstreamModelByProvider ?? null]),
+          models: cfg.models.map((m) => [
+            m.id, m.displayName ?? m.id, m.enabled !== false,
+            m.contextWindow, m.maxTokens, m.inputModes ?? null,
+            m.mode, m.thinking, m.defaultThinking, m.thinkingLevels ?? null,
+            m.fallbackProviders ?? [], m.upstreamModelByProvider ?? null,
+          ]),
           providers: cfg.providers.map((p) => [p.id, p.enabled !== false]),
           // 分组模型可见性：管理员改任一分组的模型清单/额度后，所有终端指纹变化 → 自动重拉
           // /v1/models（带票，按各自分组过滤），模型目录随之刷新
