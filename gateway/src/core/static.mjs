@@ -4,7 +4,8 @@
  * - /admin/static/*   → css / js 模块 / 其他白名单文件
  * 白名单扩展名 + 文件名校验防目录穿越
  */
-import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { dirname, join, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -18,20 +19,23 @@ const safeJoin = (rel) => {
   return file
 }
 
-/** 稳定版本号 = admin-web 全部文件的最新 mtime：文件一改 index 引用即换 URL；
- *  不用 Date.now()（每次请求都变），否则浏览器/CDN 边缘永远无法缓存 index 引用的资源。
+/** 稳定版本号 = admin-web 全部文件内容哈希：内容一改 index 引用即换 URL；
+ *  不能用 mtime：npm tarball 内文件 mtime 固定，升级后 URL 不变会永久命中旧资源。
+ *  也不用 Date.now()（每次请求都变），否则浏览器/CDN 边缘永远无法缓存 index 引用的资源。
  */
 function indexVer() {
-  let max = 0
-  const walk = (dir) => {
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
+  const h = createHash('sha256')
+  const walk = (dir, base = '') => {
+    const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))
+    for (const e of entries) {
       const p = join(dir, e.name)
-      if (e.isDirectory()) walk(p)
-      else { try { max = Math.max(max, statSync(p).mtimeMs) } catch {} }
+      const rel = base ? `${base}/${e.name}` : e.name
+      if (e.isDirectory()) walk(p, rel)
+      else { try { h.update(rel).update('\0').update(readFileSync(p)) } catch {} }
     }
   }
-  try { walk(ADMIN_WEB_DIR) } catch {}
-  return String(Math.floor(max || Date.now()))
+  walk(ADMIN_WEB_DIR)
+  return h.digest('hex').slice(0, 12)
 }
 
 /** 组装 index.html：递归展开 @include 注释（views/ 内可再嵌套 include） */
@@ -51,15 +55,20 @@ function composeIndex() {
   return html
 }
 
-/** mjs 模块内相对 import 统一重打 ?v=<被导入文件的 mtime>：文件一改 URL 即变，浏览器缓存必然失效。
- *  版本号必须取「被导入文件」自己的 mtime —— 若取导入方，同一模块会被不同导入方
- *  重写成不同 URL，ESM 按URL去重失效 → 模块双实例（各持一份 cachedConfig，页面状态互相看不见）。
+/** mjs 模块内相对 import 统一重打 ?v=<被导入文件内容哈希>。
+ *  不能用 mtime：npm tarball 里的文件 mtime 固定（真实事故：升级后仍是 1985 年时间戳，
+ *  旧模块被浏览器 immutable 缓存永久命中，页面报 “does not provide an export named …”）。
+ *  版本号取被导入文件自身内容，同一模块被多个导入方引用时 URL 仍一致，避免 ESM 双实例。
  */
-function versionMjs(file, raw) {
+function contentVer(text) {
+  return createHash('sha256').update(text).digest('hex').slice(0, 12)
+}
+
+export function versionMjs(file, raw) {
   const dir = dirname(file)
   const verOf = (rel) => {
-    try { return String(Math.floor(statSync(join(dir, rel)).mtimeMs)) }
-    catch { return String(Math.floor(statSync(file).mtimeMs)) }   // 目标缺失：退回导入方 mtime
+    try { return contentVer(readFileSync(join(dir, rel), 'utf8')) }
+    catch { return contentVer(raw) }   // 目标缺失：退回导入方内容
   }
   return raw
     .replace(/(from\s+')(\.[^']+?\.mjs)(\?v=[\w.-]+)?(')/g, (_, a, p, _old, z) => a + p + '?v=' + verOf(p) + z)

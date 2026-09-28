@@ -30,6 +30,9 @@ jobs:
       - name: Syntax check
         run: node scripts/check.mjs
 
+      - name: Test
+        run: npm test
+
       - name: Publish to npm (skip if version already published)
         run: |
           VERSION=$(node -p "require('./package.json').version")
