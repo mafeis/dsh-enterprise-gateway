@@ -370,16 +370,21 @@ export function createUser({ username, passwordHash, displayName, role = 'user',
 export function updateUser(id, { displayName, role, enabled, passwordHash, orgPath }) {
   const cur = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
   if (!cur) return { ok: false, reason: 'not-found' }
-  db.prepare('UPDATE users SET display_name=?, role=?, enabled=?, password_hash=?, org_path=? WHERE id=?')
+  // 改角色必须同时吊销该账号的旧票：JWT 里的 role 是签票那一刻写死的，不 bump 就等于
+  // 「被降级的管理员仍带着管理员票继续逛管理台」直到票自然过期（30 天）。停用有 DB 实时校验兜底，角色没有。
+  const roleChanged = role !== undefined && role !== cur.role
+  db.prepare(`UPDATE users SET display_name=?, role=?, enabled=?, password_hash=?, org_path=?,
+                token_version = token_version + ? WHERE id=?`)
     .run(
       displayName ?? cur.display_name,
       role ?? cur.role,
       enabled !== undefined ? (enabled ? 1 : 0) : cur.enabled,
       passwordHash ?? cur.password_hash,
       orgPath ?? cur.org_path,
+      roleChanged ? 1 : 0,
       id,
     )
-  return { ok: true }
+  return { ok: true, roleChanged }
 }
 
 export function deleteUser(id) {

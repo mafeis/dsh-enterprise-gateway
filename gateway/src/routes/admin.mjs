@@ -7,18 +7,9 @@
 import { json } from '../core/http.mjs'
 
 export function createAdminHandler({ config, store, auth }) {
-  const { authenticate } = auth
+  // 判定统一在 ent-auth.requireAdmin（/admin 闸门之外的第二道，ent-console 被禁用时闸门不在）
+  const { requireAdmin } = auth
   const { statsToday, statsByUser, recentHeartbeats, pluginInstallOverview, pluginViolationHistory } = store
-
-  async function requireAdmin(req, res) {
-    const authResult = await authenticate(req)
-    if (!authResult.ok) { json(res, authResult.status, { error: authResult.error }); return null }
-    if (authResult.user.role !== 'admin') {
-      json(res, 403, { error: { message: '需要管理员角色', type: 'forbidden' } })
-      return null
-    }
-    return authResult
-  }
 
   return async function handleAdmin(req, res, path, url) {
     const authResult = await requireAdmin(req, res)

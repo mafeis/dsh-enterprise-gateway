@@ -12,7 +12,7 @@ src/
 ├── core/         # http 工具 + 路由表(router) + 静态资源服务
 ├── plugins/      # 业务插件（契约：name / inject / apply / provides，与 DSH 插件同形）
 │   ├── ent-store.mjs    provides store    — SQLite 留痕(只追加)+Merkle 锚+心跳/回执+引导管理员+封存定时器(effect 管理)
-│   ├── ent-auth.mjs     provides auth     — JWT 签发/校验+scrypt+请求鉴权中间件+/auth/* 路由
+│   ├── ent-auth.mjs     provides auth     — JWT 签发/校验+scrypt+请求鉴权中间件+/auth/* 路由+/admin 准入闸门
 │   ├── ent-dlp.mjs      provides dlp      — block/mask 规则引擎+审计级别+全量上下文扫描
 │   ├── ent-upstream.mjs provides upstream — 多渠道容灾转发+SSE 透传+POST /v1/chat/completions
 │   ├── ent-probe.mjs    provides probe    — 供应商连通测试+思考档位探针（只读配置）
@@ -73,11 +73,23 @@ $env:UPSTREAM_API_KEY = "<key>"; node gateway.mjs
 
 首次启动自动创建 `admin` 引导账号（密码仅打印一次）。
 
+## 管理台准入（`/admin` 只允许管理员）
+
+管理台是网关的权力面（改策略、开关插件、看留痕、看账单），因此整个 `/admin` 前缀要求
+**已登录 + `role=admin`**，闸门挂在 `ent-auth`（`router.guard`，与插件装载顺序无关，
+新插件往 `/admin` 挂路由即使忘记鉴权也不会漏）。匿名只保留登录页自身：`GET /admin`、
+`GET /admin/static/*`（含登录表单的壳与 css/js，零业务数据）——否则登录页自己都打不开。
+
+- 普通员工账号照常登 DSH 客户端、照常 `GET /usage/me`，只是进不了管理台；
+  在管理台登录页输错账号会得到明确提示「该账号不是管理员」，而不是一个每个区块都 403 的空壳。
+- 改角色即吊销该账号旧票（角色写在 JWT 里，不吊销 = 被降级后仍带着管理员票直到 30 天票过期）。
+- 回归测试：`node --test test/admin-access.test.mjs`。
+
 ## 端点
 
 | 方法 | 路径 | 说明 | 鉴权 |
 | --- | --- | --- | --- |
-| POST | `/auth/login` | 登录换 JWT | 公开 |
+| POST | `/auth/login` | 登录换 JWT（管理台登录页另带 `scope:"console"`，非管理员直接 403） | 公开 |
 | POST | `/v1/chat/completions` | OpenAI 兼容（流式/非流式） | JWT |
 | GET | `/v1/models` | 企业模型目录 | 公开 |
 | GET | `/policy/current` | 策略快照 | 公开 |

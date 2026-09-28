@@ -16,6 +16,11 @@ export const session = {
   // localStorage：跨标签页共享、关浏览器不丢；仅在登出或令牌过期(7天)时需重新登录
   get jwt() { return localStorage.getItem('ent_jwt') || ''; },
   set jwt(v) { v ? localStorage.setItem('ent_jwt', v) : localStorage.removeItem('ent_jwt'); },
+  /** 登录时网关下发的角色。仅用于界面提示与提前退场，权限判定一律以网关为准 */
+  get role() { return localStorage.getItem('ent_role') || ''; },
+  set role(v) { v ? localStorage.setItem('ent_role', v) : localStorage.removeItem('ent_role'); },
+  /** 清空本地会话（登出、或发现当前凭证不是管理员时退回登录页） */
+  clear() { this.jwt = ''; this.role = ''; localStorage.removeItem('ent_user'); },
 };
 
 const THEME_KEY = 'ent_admin_theme';

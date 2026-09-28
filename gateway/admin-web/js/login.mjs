@@ -19,10 +19,21 @@ export async function logout() {
   try {
     await fetch(GW + '/auth/logout', { method: 'POST', headers: { authorization: 'Bearer ' + session.jwt }, signal: AbortSignal.timeout(4000) });
   } catch { /* 网关不可达时仍本地登出 */ }
-  session.jwt = '';
-  localStorage.removeItem('ent_user');
+  session.clear();
   showLogin();
   toast(T('已退出登录', 'Signed out'));
+}
+
+/**
+ * 把非管理员挡在管理台外：清掉本地凭证、退回登录页并说明原因。
+ * 网关侧 /admin 闸门才是边界（不带管理员角色拿不到任何数据），这里只负责让用户看懂「为什么进不去」，
+ * 而不是留一个「能打开但每个区块都 403」的半空管理台。
+ */
+export function rejectNonAdmin() {
+  session.clear();
+  showLogin();
+  const el = $('loginErr');
+  if (el) el.textContent = T('该账号不是管理员，无法进入管理台（普通用户请在 DSH 客户端登录）', 'This account is not an administrator, so the console is unavailable (sign in from the DSH client instead).');
 }
 
 export async function doLogin() {
@@ -32,14 +43,18 @@ export async function doLogin() {
   try {
     const res = await fetch(GW + '/auth/login', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: u, password: p }),
+      // scope=console 声明「这次登录是进管理台」：网关据此对非管理员直接给出可读拒绝
+      body: JSON.stringify({ username: u, password: p, scope: 'console' }),
     });
     const body = await res.json();
     if (!res.ok || !body.token) {
       $('loginErr').textContent = body?.error?.message ?? T('登录失败（HTTP {s}）', 'Sign-in failed (HTTP {s})', { s: res.status });
       return;
     }
+    // 兜底：连到旧版网关（不认 scope）时也不能让普通用户走进外壳
+    if (body.user && body.user.role !== 'admin') return rejectNonAdmin();
     session.jwt = body.token;
+    session.role = body.user?.role ?? '';
     localStorage.setItem('ent_user', body.user?.username ?? 'admin');
     $('loginMask').classList.add('hidden');
     $('mainWrap').style.display = '';

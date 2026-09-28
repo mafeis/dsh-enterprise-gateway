@@ -3,6 +3,7 @@
  * 插件注册表：loaded/disabled/failed 三态 + locked 保护 + 管理面查询/开关落盘。
  * 注册表数据由宿主装载循环填充（core/plugin-registry.mjs 单例，引用共享）。
  * 管理 API（GET/PATCH /admin/plugins）也由此插件挂载——「管理别人」的权力同样是插件，不是内核特权。
+ * 两路由都要求管理员：清单泄露 + 插件开关落在匿名手里，等于任何人都能摘掉网关的安全插件。
  */
 import { json, readJson } from '../core/http.mjs'
 import { pluginRegistry, pluginStatusSnapshot } from '../core/plugin-registry.mjs'
@@ -80,10 +81,26 @@ export function apply(ctx) {
   const router = ctx.get('router')
   const config = ctx.get('config')
   const { getConfig, setPluginEnabled } = config
+
+  /** 管理台准入：插件开关 = 能关掉 DLP/留痕的权力，只有管理员能有。
+   *  auth 由 ent-auth 提供，而 ent-auth 装载顺序在本插件之后，写进 inject 会被宿主的依赖
+   *  预校验判成「缺少服务」，故请求进来时再取；取不到就 503 关闭（绝不因认证服务不在而
+   *  退回匿名放行）。ent-auth 的 /admin 闸门是第一道边界，这里是第二道。 */
+  async function requireAdmin(req, res) {
+    const auth = ctx.get('auth')
+    if (!auth) {
+      json(res, 503, { error: { message: '认证服务未装载（ent-auth 已禁用），管理台不可用', type: 'auth_unavailable' } })
+      return null
+    }
+    return auth.requireAdmin(req, res)
+  }
+
   ctx.effect(() => router.exact('GET', '/admin/plugins', async (req, res) => {
+    if (!(await requireAdmin(req, res))) return true
     json(res, 200, registry.status(getConfig))
   }), 'ent-registry: route GET /admin/plugins')
   ctx.effect(() => router.prefix('/admin/plugins/', async (req, res, path) => {
+    if (!(await requireAdmin(req, res))) return true
     const name = decodeURIComponent(path.split('/')[3])
     if (req.method !== 'PATCH' || !name) return false
     const b = await readJson(req)

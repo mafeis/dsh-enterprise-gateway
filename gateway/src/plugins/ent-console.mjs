@@ -1,6 +1,8 @@
 /**
  * 插件 ent-console · 管理台
  * 路由：/admin/*（管理台 SPA 静态资源 + 管理 API：统计/留痕/终端/防篡改/策略/用户/计费/供应商/模型）
+ * 准入策略：整个 /admin 前缀「已登录 + role=admin」才放行，闸门在 ent-auth（不依赖本插件是否启用）；
+ *   仅登录页自身匿名可达：GET /admin、GET /admin/static/*（含登录表单的壳与 css/js，零业务数据）。
  * 插件管理 API 在 ent-registry（谁提供服务谁挂路由）
  * 实现模块：src/routes/admin.mjs + src/core/static.mjs
  */
@@ -72,19 +74,15 @@ export function apply(ctx) {
     const arr = (v) => Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x).slice(0, 64) : []
     return { order: [...new Set(arr(n.order))], hidden: [...new Set(arr(n.hidden))] }
   }
-  /** 管理台全局设置 = 管理员角色 */
-  async function requireAdmin(req, res) {
-    const a = await ctx.get('auth').authenticate(req)
-    if (!a.ok) { json(res, a.status, { error: a.error }); return null }
-    if (a.user.role !== 'admin') { json(res, 403, { error: { message: '需要管理员角色', type: 'forbidden' } }); return null }
-    return a
-  }
+  /** 管理台全局设置 = 管理员角色（判定统一在 ent-auth.requireAdmin） */
+  const requireAdmin = (req, res) => ctx.get('auth').requireAdmin(req, res)
 
   ctx.effect(() => router.prefix('/admin', async (req, res, path, url) => {
     // 总览展示设置（本插件设置面：GET 读 / PATCH 校验+落盘，即时生效）
     if (path === '/admin/console-config') {
-      const a = await ctx.get('auth').authenticate(req)
-      if (!a.ok) return json(res, a.status, { error: a.error })
+      // 读写都属管理台设置面：闸门已收口，这里保留一份显式判定（ent-console 被禁用时闸门随之消失）
+      const a = await ctx.get('auth').requireAdmin(req, res)
+      if (!a) return true
       if (req.method === 'GET') {
         // 管理台界面语言由前端 localStorage 决定，服务端不感知——两组标签都下发，前端按语言取
         return json(res, 200, {
@@ -151,13 +149,10 @@ export function apply(ctx) {
       return false
     }
     // 插件自有页面资源（/admin/plug/<插件名>/…）——页面是插件自己的事。
-    // 但必须过管理台鉴权（HttpOnly cookie 随动态 import 自动携带，见 auth-routes cookieOf）
+    // 但必须过管理台准入（HttpOnly cookie 随动态 import 自动携带，见 auth-routes cookieOf）；
+    // 页面模块即管理台界面本身，普通用户账号同样不该拿到，故与数据面同级要求 admin
     if (path.startsWith('/admin/plug/')) {
-      const a = await ctx.get('auth').authenticate(req)
-      if (!a.ok) {
-        json(res, a.status, { error: a.error })
-        return true
-      }
+      if (!(await ctx.get('auth').requireAdmin(req, res))) return true
       if (servePluginWeb(res, path, url)) return true
       json(res, 404, { error: 'not found' })
       return true

@@ -86,8 +86,8 @@ export function apply(ctx) {
       if (b.password) patch.passwordHash = hashPassword(b.password)
       const r = updateUser(id, patch)
       if (!r.ok) return json(res, 404, { error: { message: r.reason, type: 'not_found' } })
-      console.log(`[${ts()}] ⚙ 更新用户#${id} by ${user.username}: ${Object.keys(patch).join(',')}`)
-      return json(res, 200, { ok: true })
+      console.log(`[${ts()}] ⚙ 更新用户#${id} by ${user.username}: ${Object.keys(patch).join(',')}${r.roleChanged ? '（角色变更，该账号旧登录态已失效）' : ''}`)
+      return json(res, 200, { ok: true, relogin: r.roleChanged === true })
     }
     if (mId && req.method === 'DELETE') {
       const id = Number(mId[1])

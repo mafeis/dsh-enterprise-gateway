@@ -2,7 +2,7 @@
  * 应用装配：登录/登出 + 启动（页面逻辑全部在插件 .web/ 模块里，壳零页面代码）
  */
 import { $, api, session, bindThemeToggle } from './core.mjs?v=20260915180000';
-import { doLogin, logout, checkHealth } from './login.mjs?v=20260915180000';
+import { doLogin, logout, checkHealth, rejectNonAdmin } from './login.mjs?v=20260915180000';
 import { navigate, initRouter } from './router.mjs?v=20260915180000';
 import { applyShellI18n, bindLangToggle } from './i18n.mjs';
 
@@ -46,9 +46,13 @@ initRouter();
 checkHealth();
 if (session.jwt) {
   (async () => {
+    // 先确认这张票仍属管理员：角色被降级、或 localStorage 里躺着的是 DSH 客户端的普通用户票时，
+    // 网关会回 403 —— 此时清掉凭证退回登录页，而不是渲染一个每个区块都 403 的空壳
+    let probe = null;
     try {
-      await api('/admin/stats');
-    } catch { return; }
+      probe = await api('/admin/stats');
+    } catch { return; }   // 401 已由 api() 退回登录页；网关不可达时同样停在登录页
+    if (probe?.error) return rejectNonAdmin();
     // 老会话补发会话 cookie（必须先于 navigate）：动态 import 的插件页面模块只带 cookie
     // 不带 Bearer，登录早于 cookie 机制的会话（JWT 在 localStorage 里仍有效）不补则插件页面 401
     await api('/auth/refresh', { method: 'POST' }).catch(() => {});

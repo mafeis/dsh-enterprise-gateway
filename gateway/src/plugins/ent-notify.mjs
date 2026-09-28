@@ -14,7 +14,7 @@ import { json } from '../core/http.mjs'
 
 export const name = 'ent-notify'
 export const provides = []
-export const inject = ['registry', 'router']
+export const inject = ['registry', 'router', 'auth']
 
 export const manifest = {
   capabilities: ['notify.webhook'],
@@ -71,9 +71,11 @@ export function apply(ctx) {
   })
   ctx.effect(() => () => { off1(); off2(); off3() }, 'ent-notify: event subscriptions')
 
-  // 观测端点：最近事件（演示用；生产可挪进管理台卡片）
+  // 观测端点：最近事件（演示用；生产可挪进管理台卡片）——事件里带用户名与拦截明细，要求管理员
   const router = ctx.get('router')
+  const auth = ctx.get('auth')
   ctx.effect(() => router.exact('GET', '/admin/notify/recent', async (req, res) => {
+    if (!(await auth.requireAdmin(req, res))) return true
     json(res, 200, { recent, webhookConfigured: !!webhook, minLevel })
   }), 'ent-notify: route GET /admin/notify/recent')
 }

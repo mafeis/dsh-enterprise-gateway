@@ -27,7 +27,7 @@ export function createAuthRoutes({ config, store, auth }) {
     const cfg = getConfig()
 
     if (req.method === 'POST' && path === '/auth/login') {
-      const { username, password } = (await readJson(req)) ?? {}
+      const { username, password, scope } = (await readJson(req)) ?? {}
       const ip = req.socket?.remoteAddress ?? null
       const ua = req.headers?.['user-agent'] ?? null
       // 登录保护：窗口内失败次数达阈值且最近一次失败在锁定时长内 → 临时锁定（不记录本次，避免"重试续锁"）
@@ -47,6 +47,15 @@ export function createAuthRoutes({ config, store, auth }) {
         insertAuthLog(username ?? '(未知)', false, ip, ua)
         console.log(`[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] ✗ 登录失败: ${username}`)
         return json(res, 401, { error: { message: '用户名或密码错误', type: 'auth_failed' } })
+      }
+      // 管理台入口（管理台登录页会带 scope=console；DSH 客户端登录不带）：非管理员直接拒之门外，
+      // 免得普通员工登录后看到一个「能打开但全是 403」的半空管理台。
+      // 注意这层只是把拒绝说清楚，不是边界——不带 scope 的调用同样拿不到管理台任何数据
+      // （/admin 闸门要求 admin 角色，见 ent-auth）。密码校验通过后才判角色：不向猜密码的人泄露「这账号是不是管理员」。
+      if (scope === 'console' && u.role !== 'admin') {
+        insertAuthLog(u.username, false, ip, ua)
+        console.log(`[${new Date().toLocaleTimeString('zh-CN', { hour12: false })}] ⛔ 拒绝进入管理台: ${u.username} (${u.role})`)
+        return json(res, 403, { error: { message: '该账号不是管理员，无法进入管理台（普通用户请在 DSH 客户端登录）', type: 'admin_only' } })
       }
       insertAuthLog(u.username, true, ip, ua)
       // JWT 带令牌版本（登出/改密 bump 后旧票失效）；TTL 30 天，配合 /auth/refresh 滑动续期

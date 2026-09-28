@@ -13,7 +13,7 @@ import { pluginRegistry } from '../core/plugin-registry.mjs'
 
 export const name = 'ent-inspector'
 export const provides = ['inspector']
-export const inject = ['registry', 'router']
+export const inject = ['registry', 'router', 'auth']
 
 export const manifest = {
   capabilities: ['inspector.scan', 'inspector.query'],
@@ -59,9 +59,12 @@ export function apply(ctx) {
 
   ctx.provide('inspector', { scan, query })
 
-  // 协作视图路由（管理台「插件协作」数据源）
+  // 协作视图路由（管理台「插件协作」数据源）——显式要求管理员：
+  // 它今天恰好被 /admin 闸门挡住只是因为注册顺序在管理台之后，不该把安全性押在顺序上。
   const router = ctx.get('router')
+  const auth = ctx.get('auth')
   ctx.effect(() => router.exact('GET', '/admin/inspector', async (req, res) => {
+    if (!(await auth.requireAdmin(req, res))) return true
     json(res, 200, {
       plugins: scan(),
       snapshots: pluginRegistry.loaded
