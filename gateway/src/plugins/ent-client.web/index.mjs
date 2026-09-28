@@ -258,6 +258,38 @@ const pluginsHtml = `
     </div>
   </div>
 
+  <!-- 版本检查弹窗：npm 全量版本 → 勾选下载入库（上传入库的插件没有 npm 来源记录，
+       「检查更新」会跳过它们，这里可在源输入框临时指定源把版本拉齐） -->
+  <div class="dlg-mask" id="repoNpmVerDlg" hidden>
+    <div class="dlg md">
+      <div class="dlg-head">
+        <h2><span class="bar"></span>${T('版本检查', 'Check versions')} · <span class="mono" id="rnvName">—</span></h2>
+        <button class="dlg-x" data-dlg-close title="${T('关闭', 'Close')}">✕</button>
+      </div>
+      <div class="dlg-body">
+        <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:10px">
+          <label style="font-size:12.5px;color:var(--txt);flex:1;min-width:0">${T('npm 源（留空＝仓库记录的源 / 官方源）', 'npm registry (blank = recorded registry / official)')}
+            <input id="rnvRegistry" class="input" placeholder="https://registry.npmjs.org" style="width:100%;margin-top:4px">
+          </label>
+          <button class="btn" id="rnvReload">${T('重新检查', 'Re-check')}</button>
+        </div>
+        <div class="notebox" id="rnvSummary" style="margin-bottom:10px"></div>
+        <div class="tablewrap" style="max-height:380px;overflow:auto">
+          <table>
+            <thead><tr><th style="width:36px"></th><th>${T('版本', 'Version')}</th><th>${T('发布时间', 'Published')}</th><th>${T('大小', 'Size')}</th><th>${T('状态', 'Status')}</th></tr></thead>
+            <tbody id="rnvBody"></tbody>
+          </table>
+        </div>
+        <div style="font-size:11.5px;color:var(--dim);margin-top:8px">${T('说明：入库只把包放进企业仓库；版本号高于当前默认版本时默认版本自动跟随（与行内「更新到」一致），低于默认版本的仅作为可回滚的历史版本存档。', 'Note: importing only stores the package; a version newer than the current default becomes the default (same as "Update to"), older ones are kept as rollback candidates.')}</div>
+      </div>
+      <div class="dlg-foot">
+        <span class="err" id="rnvErr"></span>
+        <button class="btn" data-dlg-close>${T('关闭', 'Close')}</button>
+        <button class="btn primary" id="rnvDl">${T('下载入库所选', 'Import selected')}</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 描述编辑弹窗 -->
   <div class="dlg-mask" id="repoDescDlg" hidden>
     <div class="dlg" style="width:520px">
@@ -719,6 +751,7 @@ function renderRepo() {
           <span class="mono repo-time">${esc(p.updatedAt ?? '')}</span>
           <div class="repo-actions">
             ${hasUpdate ? `<button class="btn sm primary" data-repo-upd="${esc(p.name)}">${T('更新到 v{v}', 'Update to v{v}', { v: esc(p.npmLatest) })}</button>` : ''}
+            <button class="btn sm" data-repo-npmver="${esc(p.name)}" title="${T('列出 npm 上的全部版本，勾选后下载入库', 'List every npm version and import the ones you pick')}">${T('版本检查', 'Check versions')}</button>
             <button class="btn sm" data-repo-ver="${esc(p.name)}">${T('版本', 'Versions')}</button>
             <button class="btn sm ${inAllow ? '' : 'primary'}" data-repo-allow="${esc(p.name)}" ${inAllow ? `disabled title="${T('已在允许清单', 'Already in allowlist')}"` : `title="${T('加入允许清单', 'Add to allowlist')}"`}>${inAllow ? T('已入清单', 'In allowlist') : T('＋清单', '＋Allow')}</button>
             <button class="btn sm" data-repo-desc="${esc(p.name)}">${T('描述', 'Description')}</button>
@@ -806,6 +839,111 @@ async function repoUpdateLatest(name, btn) {
     toast(T('已更新：{spec}', 'Updated: {spec}', { spec: `${r.name}@${r.version}` }))
     loadRepo()
   } catch (e) { if (e.message !== '401') toast(e.message, 'bad'); btn.disabled = false; btn.textContent = old }
+}
+
+/* ---- 版本检查弹窗：列出 npm 全部版本 → 勾选下载入库 ----
+   为什么单独做一条：仓库行内只有「更新到 v<latest>」，一次只能拿最新那一版；
+   而「检查更新」走 dist-tags.latest 且跳过没有 npm 来源的插件（上传入库的那批永远查不到）。
+   这里列全量版本、允许临时指定源，勾选后逐个 POST /admin/plugin-repo/npm（spec=name@ver）。 */
+let rnvCur = ''
+let rnvList = []
+let rnvBusy = false
+const rnvSel = new Set()
+
+async function openRepoNpmVer(name) {
+  rnvCur = name
+  rnvList = []
+  rnvSel.clear()
+  $('rnvName').textContent = name
+  $('rnvRegistry').value = ''
+  $('rnvErr').textContent = ''
+  $('rnvSummary').textContent = T('正在读取 npm 源…', 'Reading npm registry…')
+  $('rnvBody').innerHTML = ''
+  openDlg($('repoNpmVerDlg'))
+  await rnvLoad()
+}
+
+async function rnvLoad() {
+  if (!rnvCur) return
+  const q = new URLSearchParams({ name: rnvCur })
+  const reg = ($('rnvRegistry')?.value ?? '').trim()
+  if (reg) q.set('registry', reg)
+  $('rnvErr').textContent = ''
+  $('rnvSummary').textContent = T('正在读取 npm 源…', 'Reading npm registry…')
+  try {
+    const d = await api('/admin/plugin-repo/npm-versions?' + q.toString())
+    if (d?.error) throw new Error(d.error?.message ?? '版本检查失败')
+    rnvList = d.versions ?? []
+    // 已入库 / 已从源上消失的版本从勾选集合里剔除，避免重复下载与空跑
+    for (const v of [...rnvSel]) {
+      const hit = rnvList.find((x) => x.version === v)
+      if (!hit || hit.inRepo) rnvSel.delete(v)
+    }
+    $('rnvSummary').textContent = T(
+      'npm 最新 {l} · 仓库默认 {v} · 共 {n} 个版本{t} · 源 {r}',
+      'npm latest {l} · repo default {v} · {n} version(s){t} · registry {r}',
+      { l: d.latest || '—', v: d.defaultVersion || '—', n: d.total ?? rnvList.length, t: d.truncated ? T('（仅显示最近 80 个）', ' (latest 80 shown)') : '', r: d.registry })
+    rnvRender()
+  } catch (e) {
+    rnvList = []
+    $('rnvBody').innerHTML = ''
+    $('rnvSummary').textContent = T('检查失败', 'Check failed')
+    $('rnvErr').textContent = e.message === '401' ? '401' : String(e.message ?? e)
+  }
+}
+
+function rnvRender() {
+  const rows = rnvList.map((v) => {
+    const st = v.inRepo
+      ? (v.isDefault ? T('已在仓库 · 默认', 'In repo · default') : T('已在仓库', 'In repo'))
+      : (v.latest ? T('未入库 · npm 最新', 'Not imported · npm latest') : T('未入库', 'Not imported'))
+    return `
+    <tr${v.inRepo ? ' style="opacity:.55"' : ''}>
+      <td><input type="checkbox" data-rnv-pick="${esc(v.version)}" ${v.inRepo || rnvBusy ? 'disabled' : ''} ${rnvSel.has(v.version) ? 'checked' : ''}></td>
+      <td style="white-space:nowrap"><span class="mono" style="font-size:12px">${esc(v.version)}</span>${v.latest ? ` <span class="badge ok">${T('最新', 'Latest')}</span>` : ''}</td>
+      <td class="mono" style="font-size:12px">${esc(v.publishedAt || '—')}</td>
+      <td class="mono" style="font-size:12px">${v.size ? fmtSize(v.size) : '—'}</td>
+      <td style="font-size:12px;color:var(--dim)">${st}</td>
+    </tr>`
+  }).join('')
+  $('rnvBody').innerHTML = rows || `<tr><td colspan="5" style="padding:12px;color:var(--dim)">${T('npm 源上没有可显示的版本', 'No versions to show')}</td></tr>`
+}
+
+async function rnvDownload() {
+  const picks = [...rnvSel]
+  if (!picks.length) { $('rnvErr').textContent = T('请先勾选要入库的版本', 'Pick the versions to import first'); return }
+  const btn = $('rnvDl')
+  const label = btn.textContent
+  rnvBusy = true
+  btn.disabled = true
+  const reg = ($('rnvRegistry')?.value ?? '').trim()
+  const okList = []
+  const badList = []
+  // 从新到旧入库：addFromNpm 只在版本号高于默认版本时改默认，先下最新版可少写几次默认指针
+  for (const ver of picks.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))) {
+    btn.textContent = T('入库中 {v}…', 'Importing {v}…', { v: ver })
+    try {
+      const r = await api('/admin/plugin-repo/npm', { method: 'POST', body: JSON.stringify({ spec: `${rnvCur}@${ver}`, registry: reg, note: T('版本检查入库', 'imported via version check') }) })
+      if (r?.error) throw new Error(r.error?.message ?? '入库失败')
+      okList.push(ver)
+      rnvSel.delete(ver)
+      const row = rnvList.find((x) => x.version === ver)
+      if (row) row.inRepo = true
+    } catch (e) {
+      if (e.message === '401') { rnvBusy = false; btn.disabled = false; btn.textContent = label; return }
+      badList.push(`${ver}：${String(e.message ?? e)}`)
+    }
+  }
+  rnvBusy = false
+  btn.disabled = false
+  btn.textContent = label
+  rnvRender()
+  $('rnvErr').textContent = badList.length ? badList.join(' / ').slice(0, 240) : ''
+  if (okList.length) {
+    toast(T('已入库 {n} 个版本：{v}', 'Imported {n} version(s): {v}', { n: okList.length, v: okList.join(', ') }), badList.length ? undefined : 'ok')
+    await rnvLoad()   // 回读一次：默认版本与「已在仓库」标记以服务端为准
+    loadRepo()        // 列表页同步默认版本与可更新角标
+  }
 }
 
 /* ---- 版本管理弹窗 ---- */
@@ -1457,7 +1595,8 @@ function bindPlugins() {
     })
     $('repoBody').addEventListener('click', (e) => {
       let el
-      if ((el = e.target.closest('[data-repo-ver]'))) openRepoVer(el.dataset.repoVer)
+      if ((el = e.target.closest('[data-repo-npmver]'))) openRepoNpmVer(el.dataset.repoNpmver)
+      else if ((el = e.target.closest('[data-repo-ver]'))) openRepoVer(el.dataset.repoVer)
       else if ((el = e.target.closest('[data-repo-upd]'))) repoUpdateLatest(el.dataset.repoUpd, el)
       else if ((el = e.target.closest('[data-repo-allow]'))) allowFromRepo(el.dataset.repoAllow)
       else if ((el = e.target.closest('[data-repo-desc]'))) openRepoDesc(el.dataset.repoDesc)
@@ -1475,6 +1614,18 @@ function bindPlugins() {
       const del = e.target.closest('[data-rv-del]')
       if (del) return repoVerAction('del', del.dataset.rvDel)
     })
+    if ($('repoNpmVerDlg')) {
+      $('rnvReload').addEventListener('click', () => rnvLoad())
+      $('rnvDl').addEventListener('click', () => rnvDownload())
+      $('rnvRegistry').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); rnvLoad() } })
+      $('rnvBody').addEventListener('change', (e) => {
+        const c = e.target.closest('[data-rnv-pick]')
+        if (!c) return
+        const v = c.dataset.rnvPick
+        if (c.checked) rnvSel.add(v); else rnvSel.delete(v)
+        $('rnvErr').textContent = ''
+      })
+    }
     $('rvDescEdit').addEventListener('click', () => openRepoDesc(repoVerCur))
     $('rdOk').addEventListener('click', submitRepoDesc)
   }

@@ -148,6 +148,22 @@ export function apply(ctx) {
     return json(res, 200, { ok: true, ...r, plugins: repo.listRepo() })
   }), 'ent-client: route POST /admin/plugin-repo/check-updates')
 
+  /** 版本检查：列出该插件在 npm 源上的全部版本（带「已在仓库/默认」标记），供管理台逐个勾选下载入库。
+   *  与 POST /check-updates 的分工：那条只看 dist-tags.latest 且跳过没有 npm 来源的插件；
+   *  这条列全量版本、允许临时指定源，管理员勾选后走 POST /admin/plugin-repo/npm（spec=name@ver）落库。 */
+  ctx.effect(() => router.exact('GET', '/admin/plugin-repo/npm-versions', async (req, res) => {
+    const u = await requireAdmin(req, res)
+    if (!u) return true
+    const q = new URL(req.url, 'http://x').searchParams
+    const name = String(q.get('name') ?? '').trim()
+    if (!name) return json(res, 400, { error: { message: '需要 name（插件包名）', type: 'bad_request' } })
+    try {
+      return json(res, 200, { ok: true, ...(await repo.listNpmVersions(name, String(q.get('registry') ?? ''))) })
+    } catch (e) {
+      return json(res, 400, { error: { message: String(e.message ?? e).slice(0, 300), type: 'bad_request' } })
+    }
+  }), 'ent-client: route GET /admin/plugin-repo/npm-versions')
+
   ctx.effect(() => router.exact('POST', '/admin/plugin-repo/npm', async (req, res) => {
     const u = await requireAdmin(req, res)
     if (!u) return true

@@ -281,6 +281,53 @@ export async function checkNpmUpdates() {
   return { checkedAt: now, updates, errors }
 }
 
+/** 列出某插件在 npm 源上的全部版本（管理台「版本检查」逐版挑选入库用）。
+ *  与 checkNpmUpdates 的两点差别：① 返回全部版本而不是只取 dist-tags.latest；
+ *  ② 不按「仓库里有没有 npm 来源」跳过——上传（upload）入库的插件没有 registry 记录，
+ *  在「检查更新」里会被 if (!reg) continue 直接略过，永远查不到新版；这里允许管理员
+ *  临时指定源（留空则回退已记录来源 → 官方源），把该批插件一次拉齐。
+ *  只读：不写索引。要不要落库由管理员决定，走 addFromNpm（下载后自动设默认=更新）。 */
+export async function listNpmVersions(name, registry = '') {
+  const key = String(name ?? '').trim()
+  if (!NAME_RE.test(key)) throw new Error(`插件包名不合法：${key}`)
+  const p = loadIndex().plugins[key] ?? null
+  const base = String(registry ?? '').trim().replace(/\/+$/, '')
+    || String(p?.registry ?? '').trim().replace(/\/+$/, '')
+    || 'https://registry.npmjs.org'
+  if (!/^https?:\/\//.test(base)) throw new Error(`npm 源地址不合法：${base}`)
+  let doc
+  try {
+    const r = await fetch(`${base}/${key.replace('/', '%2F')}`, { redirect: 'follow', signal: AbortSignal.timeout(15000) })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    doc = await r.json()
+  } catch (e) {
+    throw new Error(`读不到 npm 源（${base}）：${String(e?.message ?? e).slice(0, 120)}`)
+  }
+  const times = doc?.time ?? {}
+  const latest = String(doc?.['dist-tags']?.latest ?? '')
+  const inRepo = p ? Object.keys(p.versions ?? {}) : []
+  const list = Object.entries(doc?.versions ?? {})
+    .filter(([v]) => VER_RE.test(v))
+    .map(([v, info]) => ({
+      version: v,
+      publishedAt: String(times[v] ?? '').slice(0, 10),
+      size: Number(info?.dist?.unpackedSize ?? info?.dist?.size ?? 0) || 0,
+      latest: v === latest,
+      inRepo: inRepo.includes(v),
+      isDefault: v === String(p?.defaultVersion ?? ''),
+    }))
+    .sort((a, b) => verCmp(b.version, a.version) || b.version.localeCompare(a.version))
+  return {
+    name: key,
+    registry: base,
+    latest,
+    defaultVersion: p?.defaultVersion ?? '',
+    total: list.length,
+    truncated: list.length > 80,
+    versions: list.slice(0, 80),
+  }
+}
+
 export function setMeta(name, { description, descriptionEn } = {}) {
   const idx = loadIndex()
   const p = idx.plugins[String(name)]
