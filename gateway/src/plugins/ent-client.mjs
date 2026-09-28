@@ -224,16 +224,11 @@ export function apply(ctx) {
     if (req.method !== 'GET' && req.method !== 'HEAD') return false
     const rest = urlPath.slice('/plugin-packages/'.length)
     if (!rest || rest.includes('..')) return json(res, 404, { error: { message: 'not found', type: 'not_found' } })
-    const segs = rest.split('/').filter(Boolean).map((s) => decodeURIComponent(s))
-    let name = segs[0] ?? ''
-    let ver = null
-    if (segs.length >= 2 && segs[1] === '-') {
-      // npm 风格：<file> = <name(可带 scope)-version.tgz>
-      const m = (segs[2] ?? '').match(/^(.*)-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.+-]+)?)\.tgz$/)
-      if (m) { ver = m[2]; if (m[1] !== name) name = m[1] }
-    } else if (segs.length === 2) {
-      ver = segs[1]
-    }
+    // 解析交给 repo-store.parsePackagePath：必须认得 @scope/name，否则仓库里带 scope 的
+    // 插件全部 404（旧实现按段数判 name/version，把 '@scope' 当成包名、把包名当成版本号）
+    const parsed = repo.parsePackagePath(rest)
+    if (!parsed) return json(res, 404, { error: { message: '插件包路径不合法', type: 'not_found' } })
+    const { name, version: ver } = parsed
     const hit = repo.resolveTarball(name, ver)
     if (!hit) return json(res, 404, { error: { message: `仓库中没有 ${name}${ver ? '@' + ver : ''}`, type: 'not_found' } })
     res.writeHead(200, {

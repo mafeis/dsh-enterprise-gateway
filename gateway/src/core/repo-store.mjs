@@ -328,6 +328,41 @@ export async function listNpmVersions(name, registry = '') {
   }
 }
 
+/** 解析 /plugin-packages/ 之后的下载路径 → { name, version } | null（version=null 表示默认版本）。
+ *  纯函数，单独抽出来是因为这里踩过坑：路径按 '/' 切段后，旧实现把「两段」一律当成
+ *  name/version，于是 @scope/name 被解析成 name='@scope'、version='name' → 仓库里
+ *  6 个带 scope 的插件（@lemoncat7/dsh-knowledge 等）默认版本与指定版本全部 404，
+ *  客户端从企业源装/更新这类插件根本不可能成功。
+ *  支持：<name> · <name>/<ver> · <name>/-/<file>.tgz · 以上三种的 @scope/<name> 形式 */
+export function parsePackagePath(rest) {
+  const raw = String(rest ?? '').split('?')[0]
+  if (!raw || raw.includes('..')) return null
+  const segs = raw.split('/').filter(Boolean).map((s) => { try { return decodeURIComponent(s) } catch { return s } })
+  if (!segs.length) return null
+  let name
+  let tail
+  if (segs[0].startsWith('@')) {
+    if (segs.length < 2 || !NAME_RE.test(`${segs[0]}/${segs[1]}`)) return null
+    name = `${segs[0]}/${segs[1]}`
+    tail = segs.slice(2)
+  } else {
+    if (!NAME_RE.test(segs[0])) return null
+    name = segs[0]
+    tail = segs.slice(1)
+  }
+  if (!tail.length) return { name, version: null }
+  if (tail[0] === '-') {
+    // npm tarball 风格 <name>-<version>.tgz：包名以路径段为准（npm 对 @scope/name 用的文件名
+    // 是**去掉 scope** 的裸名，如 @lemoncat7/dsh-knowledge → dsh-knowledge-2.10.1.tgz，
+    // 拿它回头比对包名会把 scope 形式全部判死），这里只从文件名尾部取版本号。
+    const m = String(tail[1] ?? '').match(/-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.+-]+)?)\.tgz$/)
+    if (!m) return null
+    return { name, version: m[1] }
+  }
+  if (!VER_RE.test(tail[0])) return null
+  return { name, version: tail[0] }
+}
+
 export function setMeta(name, { description, descriptionEn } = {}) {
   const idx = loadIndex()
   const p = idx.plugins[String(name)]
