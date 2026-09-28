@@ -839,7 +839,7 @@ function renderDetail(cell, r, noteHtml = '') {
   cell.dataset.probe = JSON.stringify({ available: r.available, supportedThinking: r.supportedThinking, recommendation: r.recommendation, inputModes: probeInputModes(r.modalities) });
 }
 
-/** 多模态实测徽章：图片/视频各一枚，结论用文字而非仅色块 */
+/** 多模态实测徽章：图片/视频各一枚；图片另配一枚「文字」徽章（探针字符读出=图片真进了模型） */
 function modalBadges(modalities) {
   if (!modalities) return '';
   const one = (name, x) => {
@@ -852,9 +852,17 @@ function modalBadges(modalities) {
       error: ['warn', T('{m} 测试失败', '{m} probe failed', { m: name })],
     };
     const [cls, label] = map[x.status] ?? ['dim', `${name} ${esc(x.status)}`];
-    return `<span class="badge ${cls}" title="${esc(x.verdict ?? '')}${x.ms != null ? ' · ' + x.ms + 'ms' : ''}">${label}</span>`;
+    const tries = x.attempts > 1 ? ` · ${x.attempts} 次实测` : '';
+    return `<span class="badge ${cls}" title="${esc(x.verdict ?? '')}${tries}${x.ms != null ? ' · ' + x.ms + 'ms' : ''}">${label}</span>`;
   };
-  return one(T('图片', 'Image'), modalities.image) + ' ' + one(T('视频', 'Video'), modalities.video);
+  // 探针把 K7XQ 之类的字符画在图上、但不写进提示词：读出=图真进了模型，读不出=能力存疑（附每轮原文）
+  const ocr = modalities.image?.ocr;
+  const ocrBadge = ocr
+    ? (ocr.hit
+      ? `<span class="badge ok" title="${T('探针字符 {t} 已读出：图不是摆设（字符未出现在提示词中，猜不中）', 'Probe text {t} read back: the image really reached the model', { t: esc(ocr.expected ?? '') })}${ocr.attempts > 1 ? ' · ' + ocr.attempts + T('次读出', ' attempts') : ''}">${T('文字 ✓ {t}', 'Text ✓ {t}', { t: esc(ocr.expected ?? '') })}</span>`
+      : `<span class="badge warn" title="${T('探针字符 {t} 未读出 · 实测：{a}', 'Probe text {t} unread · got: {a}', { t: esc(ocr.expected ?? ''), a: esc((ocr.tries ?? []).join('、')) })}">${T('文字 △未读出', 'Text unread')}</span>`)
+    : '';
+  return one(T('图片', 'Image'), modalities.image) + ' ' + ocrBadge + ' ' + one(T('视频', 'Video'), modalities.video);
 }
 
 /** 由多模态实测结果推导 inputModes（image/video 任一通过即写入；没测过返回 null=不覆盖） */

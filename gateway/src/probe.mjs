@@ -6,8 +6,24 @@
 import { getConfig, resolveProviderApiKey } from './config.mjs'
 import { buildUpstreamRequest, geminiToOpenAIResponse, anthropicToOpenAIResponse } from './upstream.mjs'
 
-/* 探针素材：16×16 纯红 PNG（识图判定：问颜色看答案）+ 0.4s 纯红 MP4（视频判定：同样问颜色） */
-const TINY_PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGN4YaVFEmIY1TCqYfhqAAA+40wQZGzHhQAAAABJRU5ErkJggg=='
+/* 探针素材：
+ *  - 图片：336×168 纯红底 + 黑色粗体 K7XQ（1.2KB 调色板 PNG，上游计入 72 image token）。
+ *    一图两用——背景色判「上游接不接受图片输入」，字符判「图真进模型没有」：
+ *    探针字符串不出现在提示词里，答对就不可能是猜的，也是"素材被静默剥离"最硬的排除证据。
+ *    （旧的 16×16 纯色小图只问颜色：真机实测 GLM-5.3-Flash 22 次答错 7 次，蓝色/橙色都答得出来，
+ *      判据太脆；同一素材换问字符后实测 8/8 全对，故以读字为主判据、颜色为旁证）
+ *    重生成素材（改字号/尺寸/字符后用，记得同步 PROBE_TEXT）：
+ *      PIL: L 模式 336×168 底 0、Arial Bold 96 画 "K7XQ" 居中字 255 → 量化 4 级 →
+ *      调色板映射 i/(levels-1) 由 (255,0,0) 到 (0,0,0) → save(optimize=True) ≈ 1.2KB
+ *  - 视频：0.4s 纯红 MP4（同样问颜色）
+ */
+const PROBE_PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAVAAAACoAgMAAADLMF6KAAAADFBMVEX/AACqAABVAAAAAAAuOdfFAAAEg0lEQVR42u1ZzY2jMBQGLG0OaEUBc6AESnC0FWwnWwJTwnQEJYy0DaSEHDhEIxLvYPv9GbBJpL35O4zI2Hyx3/d+/JyiyMjIyMjIyMjIyMjIyMjIWOHHYL5+xyZoY2b3dDLf+BSDy79u7rGjwXqZaN4PkbbL1LMyhGL5cHej/ffjaJ8qN/g4RNpbBkFauL8L6Knzo5cjpMvEKSAdYJ8VrrmC0ccBUuVMKkk1WHKx7kxWMmv7b5I21qQB6fLPK4zaB7t4h1uaVLsNStIa3u3AiHI8RepMGryE8qP4DRsfU6TepAFpCQvChWk2fk2R1s6k4fa8/BWqzYbBbfZJO7/RgNTLj+JXnPSRIh28JEq+07pdNs7gPpbNR/Fm/M5ipBXECCO9FSg/it/AvC6mlCc9QY5QUgcvvwYGDbuuYpHqSdvQRL1jKSkHnMG1pkI+7ZL2YYSAC1n5pfgjRuAcJS3DzSjIH1Z+BQQlBRJLizukKky7NSzcyo/iK7a8iE850iac0UK8WPlF5E9kdRMl1aFJNZjO7hLFr1lw6v2a4khX/jHACyU42BnUGWkze45qSVcmLWlrIiQ5aZMgrcPsqEhZzZNHy2LztJ/8LWkX+lxNJvblY8Kix754L6Qs6RAmx4Y+Nzx3auYk1X5GXUirVXLQtDPFs7xmDl/GSU+rgtPTl1RMfFbQnYQR0naVG/lnXuT6gHTaJ+3D7Zd85ZpVjuOk91UVUzxXdCT+ouiNk952SbnPoAvO3BPwKwXpkCadpUdN4jwJxnmW9LGVo1D+940dHyDl8msegAHp9BTpuOmm3vvHbdI5RXrZdlMh1NPbn9ZVjzLK9ALpXyF/JWTjzv+U+r+E/EoYi4fpM6T3QqSUmpOW3DeGIExjpBPraJw0Nyk+DB6P/cUpNa8NwvdFkn6G9AxHRkwhVyk+O0DNx5L0kpFqbiARUKLw8cwfLyfQP9w3A0qkBl6jVJz00wc485UxEN/LD9X0Z7Ka2vn8OMFPFnYL6BtQ97uLs9h+3X/AcetzI/QX8W+an84Xdv1In1D8iq+kgBCfjpKN/+rh+zu6NGlD8isestbmtWHd1tXu5ZE+9bnp942yZ4/nCuT359NlL6NJnU99NGJREscQ1kgo6oq/DpCWJD/PJ55lMKJZqb2b3Y900dh3zCxhwUn7QrPKRHOKpD3Kz5OUzwktyO+7p7f1WWGTtMNJvOr7gEP5oeOL382I6455lfm8MVF+6E1bc6A3dYt5hJkPmrES5Icu+s+RLtr71DkgxRWC/M/1+24x0ClfpPiB/IdvJlgvxUixIKD8/A7llibV7L1PJv5FLJnf9qRtSn1PT6RgykJE/9ZJaYcUm14ipU4c5Wc3aKkuGg+3Z1GiFL1oePJPLZVI8chIJao2wuKX1SXSjlWJFG8niLSl+KaDQWeSN3Os3YJmkkg17ZCiGG562/1LZEaq/XsD7xs2zOuy6YeKXky+ens+xC+mX0MTCdSXUcUue1+G3r9BfR2n2LX8y+jH//Ejynv+ISkjIyMjIyMjIyMjIyMj43n8A217BX7pp1JzAAAAAElFTkSuQmCC'
+const PROBE_TEXT = 'K7XQ'          // 与 PROBE_PNG_B64 上的字符一致（改素材必须同步改这里）
+const PROBE_IMG_QUESTION = '这张图的背景是什么颜色？图上写了哪几个字符？只回答：颜色 字符'
+const PROBE_VIDEO_QUESTION = '这段视频是什么颜色？只回答颜色词。'
+const COLOR_RE = /红|red/i
+/** 归一化模型回答再比对探针字符：容忍加空格、引号、复述整句 */
+const normProbe = (x) => String(x ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '')
 const TINY_MP4_B64 = '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'
 
 /** 供应商连通测试：打上游 /models（anthropic /v1/models · gemini /v1beta/models），带模型元数据 */
@@ -250,13 +266,17 @@ export async function probeProviderModelLevels(id, upstreamModel, levels = ['off
 
 /**
  * 单模型多模态探针：与思考档位探测并列的「图片/视频支持」实测
- *  - 图片：发一条带 16×16 纯红 PNG 的最小多模态请求，问"图里是什么颜色"
+ *  - 图片（红底 + 字符 K7XQ）：一条请求同时问「背景色 + 图上字符」
  *      · 400/422 且报文提到 image/vision/multimodal/content → 上游拒绝图片输入（不支持）
- *      · 200 且回答命中"红/red" → 真识图（图片输入真实生效）
- *      · 200 但答非所问 → 接受图片但无法确认识别（可能被静默剥离，建议会话里再验证）
- *  - 视频：发一条 video_url（data:video/mp4 单帧纯红小视频）问颜色，判「格式接不接受 + 能否识别」
+ *      · 读出字符 → 判 real（最强证据：字符不在提示词里，猜不中，也不可能"剥离后答对"）
+ *      · 只答对背景色 → 也判 real，但标注「OCR 未读出」，识图可用、文字识别不稳
+ *      · 两项都没过 → accepted「接受未确认」，把每轮原文透出到 tooltip 供人工复核
+ *      · 判据允许重测（同一素材最多 3 发）：单次答歪是模型抖动，不是能力结论
+ *      · usage.prompt_tokens_details.multimodal_tokens 计入图 token（如 {image:72}）
+ *        作为客观旁证一并写进结论，区分"没看见"与"看见了但答歪"
+ *  - 视频（纯红 MP4）：发 video_url 问颜色
  *      · 400/422 提到 video/image/content → 不支持视频输入
- *      · 200 且回答命中红色 → 真视频理解；200 未命中 → 接受格式但识别未确认
+ *      · 200 且答对红色 → 真视频理解；三次未命中 → 接受格式但识别未确认
  */
 export async function probeProviderModelModal(id, upstreamModel) {
   const prov = getConfig().providers.find((x) => x.id === id)
@@ -264,8 +284,9 @@ export async function probeProviderModelModal(id, upstreamModel) {
   const key = resolveProviderApiKey(prov)
   if (!key) return { ok: false, error: '未配置密钥' }
 
-  /** 发一条 content-parts 请求，返回统一分类结果 */
-  const sendParts = async (part, question) => {
+  /** 单发一条 content-parts 请求：只做传输层分类（模型不存在/拒绝输入/报错/正常返回），
+   *  答案对不对、要不要重测都交给 judgeAsk */
+  const sendOnce = async (part, question) => {
     const started = Date.now()
     try {
       const ac = new AbortController()
@@ -276,7 +297,7 @@ export async function probeProviderModelModal(id, upstreamModel) {
         body: JSON.stringify({
           model: upstreamModel,
           messages: [{ role: 'user', content: [{ type: 'text', text: question }, part] }],
-          max_tokens: 256,   // 思考型模型可能先烧一段思考再答颜色词，给足余量
+          max_tokens: 256,   // 思考型模型可能先烧一段思考再答，给足余量
         }),
         signal: ac.signal,
       })
@@ -296,27 +317,84 @@ export async function probeProviderModelModal(id, upstreamModel) {
       }
       const body = await r.json().catch(() => ({}))
       const answer = String(body.choices?.[0]?.message?.content ?? '').slice(0, 120)
-      const hit = /红|red/i.test(answer)
-      return hit
-        ? { status: 'real', supported: true, verdict: '✓ 正确答出纯红素材 → 真实支持', ms, answer }
-        : { status: 'accepted', supported: true, verdict: '△ 接受该输入但未答对颜色（可能被静默剥离），会话里再验证', ms, answer }
+      const finish = String(body.choices?.[0]?.finish_reason ?? '')
+      // 素材是否真被解析：上游计入多模态 token（{"image":72}）即可排除"请求里的图被剥掉"
+      const mm = body.usage?.prompt_tokens_details?.multimodal_tokens
+      const mmText = mm && Object.values(mm).some((v) => Number(v) > 0)
+        ? ` · 上游已计入素材 token ${JSON.stringify(mm)}`
+        : ' · 未见素材 token'
+      return { status: 'ok', ms, answer, finish, mmText }
     } catch (e) {
       return { status: 'error', supported: false, verdict: e.name === 'AbortError' ? '探针超时（30s）' : String(e).slice(0, 100), ms: Date.now() - started }
     }
   }
 
+  /** 同一素材反复问（最多 MAX_TRIES 发），check 返回 done=true 即收工。
+   *  途中出现报错/拒绝输入立刻透出真实状态；输出被思考占满（finish=length）不再重测 */
+  const MAX_TRIES = 3
+  const judgeAsk = async (part, question, check, maxTries = MAX_TRIES) => {
+    const out = { tries: [], ms: 0, flags: {}, best: null, transport: null }
+    for (let i = 0; i < maxTries; i++) {
+      const x = await sendOnce(part, question)
+      out.ms += x.ms ?? 0
+      if (x.status !== 'ok') { out.transport = x; return out }
+      out.best = x
+      out.tries.push(x.answer || '（空）')
+      const f = check(x.answer)
+      out.flags = { color: out.flags.color || f.color, text: out.flags.text || f.text }
+      if (f.done) return out
+      if (x.finish === 'length') break
+    }
+    return out
+  }
+
   const started = Date.now()
-  // 两条独立请求串行（同模型并发易触发上游限流），各自 30s 上限
-  const image = await sendParts(
-    { type: 'image_url', image_url: { url: 'data:image/png;base64,' + TINY_PNG_B64 } },
-    '这张图里是什么颜色？只回答颜色词。',
+  // 图片与视频两条独立请求串行（同模型并发易触发上游限流），各自 30s 上限
+  const jImg = await judgeAsk(
+    { type: 'image_url', image_url: { url: 'data:image/png;base64,' + PROBE_PNG_B64 } },
+    PROBE_IMG_QUESTION,
+    (a) => {
+      const color = COLOR_RE.test(a)
+      const text = normProbe(a).includes(PROBE_TEXT)
+      return { color, text, done: text }   // 读出字符即为决定性结论，不必再问
+    },
   )
+  const image = (() => {
+    if (jImg.transport) return jImg.transport
+    const x = jImg.best
+    const { color, text } = jImg.flags
+    const ocr = { expected: PROBE_TEXT, hit: text, tries: jImg.tries, attempts: jImg.tries.length }
+    const tail = (text ? '' : `（${jImg.tries.length} 次答：${jImg.tries.join('、')}）`) + (x.mmText ?? '')
+    const base = { supported: true, ms: jImg.ms, answer: x.answer, finish: x.finish, ocr, attempts: jImg.tries.length }
+    if (text) {
+      return { ...base, status: 'real',
+        verdict: `✓ 读出图中字符 ${PROBE_TEXT}${color ? ' + 背景色答对' : '（背景色未答对）'} → 图片真实进了模型` + tail }
+    }
+    if (color) {
+      return { ...base, status: 'real',
+        verdict: `△ 背景色答对但字符没读出${tail} → 识图可用，文字识别不稳，会话里再验` }
+    }
+    return { ...base, status: 'accepted',
+      verdict: `△ 接受该输入但字符与颜色都没答对${tail}，可能被静默剥离，会话里再验证` }
+  })()
   const video = image.modelMissing
     ? { status: 'unavailable', supported: false, verdict: '模型不存在（跳过）', ms: 0 }
-    : await sendParts(
-        { type: 'video_url', video_url: { url: 'data:video/mp4;base64,' + TINY_MP4_B64 } },
-        '这段视频是什么颜色？只回答颜色词。',
-      )
+    : await (async () => {
+        const jVid = await judgeAsk(
+          { type: 'video_url', video_url: { url: 'data:video/mp4;base64,' + TINY_MP4_B64 } },
+          PROBE_VIDEO_QUESTION,
+          (a) => { const color = COLOR_RE.test(a); return { color, text: false, done: color } },
+        )
+        if (jVid.transport) return jVid.transport
+        const x = jVid.best
+        return jVid.flags.color
+          ? { status: 'real', supported: true, ms: jVid.ms, answer: x.answer, finish: x.finish, attempts: jVid.tries.length,
+              verdict: '✓ 正确答出纯红素材 → 真实支持' + (x.mmText ?? '') +
+                (jVid.tries.length > 1 ? `（第 ${jVid.tries.length} 次答对；前几次答：${jVid.tries.slice(0, -1).join('、')}）` : '') }
+          : { status: 'accepted', supported: true, ms: jVid.ms, answer: x.answer, finish: x.finish, attempts: jVid.tries.length,
+              verdict: `△ 接受该输入但 ${jVid.tries.length} 次均未答对颜色（答：${jVid.tries.join('、')}）` +
+                (x.mmText ?? '') + '，可能被静默剥离，会话里再验证' }
+      })()
   return {
     ok: true,
     model: upstreamModel,
